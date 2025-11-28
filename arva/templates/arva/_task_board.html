@@ -1,0 +1,20 @@
+<div id="task-board" data-project-id="{{ project.id }}">
+  <div id="board-lists" class="d-flex flex-row flex-nowrap board-wrapper">
+    {% for task_list in task_lists %}
+      {% include "arva/_task_list.html" with task_list=task_list project=project user_role=user_role %}
+    {% endfor %}
+
+    {% if user_role == 'admin' %}
+      <div class="add-list-column">
+        <form id="add-list-form" data-project-id="{{ project.id }}">
+          {% csrf_token %}
+          <input type="text" name="name" class="form-control form-control-sm mb-2" placeholder="➕ Add another list">
+          <button class="btn btn-sm btn-outline-primary w-100" type="submit">
+            <i class="bi bi-plus-lg me-1"></i>Create List
+          </button>
+        </form>
+      </div>
+    {% endif %}
+
+  </div>
+</div>

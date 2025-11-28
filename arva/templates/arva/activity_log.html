@@ -1,0 +1,61 @@
+{% extends "arva/base.html" %}
+{% block title %}Activity – {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="fw-semibold mb-2">
+      <i class="bi bi-activity me-2 text-primary"></i> Activity Log - {{ project.name }}
+    </h3>
+    <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-secondary back-btn" title="Back">
+      <i class="bi bi-arrow-left"></i> Back to Board
+    </a>
+  </div>
+
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="card-body p-0">
+
+      <ul class="list-group list-group-flush">
+
+        {% for act in activities %}
+          <li class="list-group-item py-3">
+
+            <div class="d-flex justify-content-between">
+              <div>
+                <div class="fw-semibold">
+                  {{ act.get_action_display }}
+                  {% if act.task %}
+                    <span class="text-muted">on</span>
+                    <em>{{ act.task.title }}</em>
+                  {% endif %}
+                </div>
+
+                {% if act.description %}
+                  <small class="text-muted d-block mt-1">
+                    {{ act.description }}
+                  </small>
+                {% endif %}
+              </div>
+
+              <div class="text-end">
+                <small class="text-muted">
+                  {{ act.created_at|date:"Y-m-d H:i" }} <br>
+                  by {{ act.user|default:"system" }}
+                </small>
+              </div>
+
+            </div>
+
+          </li>
+        {% empty %}
+          <li class="list-group-item py-4 text-center text-muted">
+            No activity has been recorded yet.
+          </li>
+        {% endfor %}
+
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

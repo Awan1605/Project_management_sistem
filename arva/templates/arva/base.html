@@ -1,0 +1,160 @@
+{% load static %}
+{% load arva_tags %}
+{% get_settings as settings %}
+{% effective_theme request.user settings as effective_theme %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ settings.site_name }} - {% block title %}{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="{{ settings.favicon_url }}" type="image/png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="{% static 'arva/css/arva.css' %}">
+  <style>
+    :root {
+      --primary-color: {{ settings.primary_color|default:'#09affe' }};
+      --navbar-bg: {{ settings.navbar_bg|default:'rgba(255,255,255,0.8)' }};
+      --body-bg: {{ settings.body_bg|default:'#f3f4f6' }};
+      --text-color: {{ settings.text_color|default:'#111827' }};
+      --radius: 12px;
+      --shadow: 0 4px 14px rgba(0,0,0,0.08);
+      --blur: 10px;
+    }
+    body {
+      background: var(--body-bg);
+      color: var(--text-color);
+      font-family: 'Inter', sans-serif;
+    }
+    .navbar-modern {
+      backdrop-filter: blur(var(--blur));
+      background-color: rgba(255, 255, 255, 0.7) !important;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      box-shadow: var(--shadow);
+    }
+    .navbar-modern .nav-link {
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      transition: 0.2s ease-in-out;
+    }
+    .navbar-modern .nav-link:hover {
+      background-color: rgba(0,0,0,0.06);
+    }
+    .navbar-modern .nav-link.active {
+      background-color: var(--primary-color);
+      color: white !important;
+    }
+    .dropdown-item.active {
+      background-color: var(--primary-color) !important;
+      color: white !important;
+    }
+    .avatar-sm {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid white;
+    }
+
+    {% if effective_theme == 'dark' %}
+      body {
+        background-color: #0f172a;
+        color: #e2e8f0;
+      }
+      .navbar-modern {
+        background-color: rgba(17, 24, 39, 0.7) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+      }
+      .navbar-modern .nav-link:hover {
+        background-color: rgba(255,255,255,0.08);
+      }
+      .card, .modal-content {
+        background-color: #1e293b !important;
+        color: #e2e8f0;
+        border: none;
+        border-radius: var(--radius);
+      }
+    {% elif effective_theme == 'auto' %}
+      @media(prefers-color-scheme: dark){
+        body {
+          background-color: #0f172a;
+          color: #e2e8f0;
+        }
+        .navbar-modern {
+          background-color: rgba(17, 24, 39, 0.7) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .card, .modal-content {
+          background-color: #1e293b !important;
+        }
+      }
+    {% endif %}
+    {{ settings.custom_css|safe }}
+  </style>
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+
+<body class="arva-body">
+<nav class="navbar navbar-expand-lg navbar-modern mb-3">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="{% url 'project_list' %}">
+      {% if settings.logo %}
+        <img src="{{ settings.logo_url }}" height="32" style="border-radius: var(--radius);">
+      {% else %}
+        {{ settings.site_name }}
+      {% endif %}
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarMain">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        {% if user.is_authenticated %}
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'project_list' %}"><i class="bi bi-kanban"></i> Boards</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'my_cards' %}"><i class="bi bi-card-checklist"></i> My Cards</a>
+          </li>
+          {% if user.is_superuser %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'user_list' %}"><i class="bi bi-people"></i> Users</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'website_settings' %}"><i class="bi bi-gear"></i> Settings</a>
+            </li>
+          {% endif %}
+        {% endif %}
+      </ul>
+
+      <div class="d-flex align-items-center">
+        {% if user.is_authenticated %}
+          <div class="me-3 d-flex align-items-center">
+            <img src="{{ request.user.userprofile.avatar_url }}" class="avatar-sm me-2">
+            <span class="fw-semibold">{{ user.username }}</span>
+          </div>
+          <a href="{% url 'logout' %}" class="btn btn-danger btn-sm px-3">Logout</a>
+        {% else %}
+          <a href="{% url 'login' %}" class="btn btn-primary btn-sm">Login</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid mb-5">
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'arva/js/arva.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

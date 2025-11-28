@@ -1,0 +1,87 @@
+{% extends "arva/base.html" %}
+{% block title %}Projects{% endblock %}
+{% block content %}
+
+<div class="container my-4">
+  <div class="card p-4 shadow-sm border-0 mb-3" style="border-radius: 14px;">
+    <h6 class="fw-bold mb-3 d-flex align-items-center">
+      <i class="bi bi-people-fill me-2 text-primary"></i>
+      Users Online
+    </h6>
+
+    {% if online_users %}
+    <div class="d-flex flex-wrap gap-3">
+      {% for u in online_users %}
+      <div class="d-flex align-items-center bg-light px-3 py-2 rounded-3 shadow-sm" style="border-radius: 12px;">
+        <div class="position-relative me-2">
+          <img src="{{ u.userprofile.avatar_url }}" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+          <span class="position-absolute bottom-0 end-0 translate-middle p-1 bg-success border border-white rounded-circle" style="width:10px; height:10px;"></span>
+        </div>
+        <span class="fw-semibold">{{ u.username }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted fst-italic">
+      There are no users online.
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="fw-semibold m-0">
+      <i class="bi bi-kanban me-2 text-primary"></i> Boards / Projects
+    </h3>
+
+    <button class="btn btn-primary shadow-sm px-3 py-2" style="border-radius: 12px; font-weight: 500;" data-bs-toggle="modal" data-bs-target="#projectModal">
+      <i class="bi bi-plus-circle me-1"></i> New Project
+    </button>
+  </div>
+
+  <div id="project-list" class="row g-4">
+    {% for project in projects %}
+    {% include "arva/_project_item.html" with project=project %}
+    {% empty %}
+    <div class="col-12">
+      <div class="p-5 text-center text-muted" style="border: 2px dashed #cbd5e1; border-radius: 14px;">
+        <i class="bi bi-folder-x fs-1 d-block mb-3"></i>
+        <h5 class="fw-semibold">There are no projects yet</h5>
+        <p class="mb-3">Create a new project to start task management.</p>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
+          <i class="bi bi-plus-circle me-1"></i> Create Project
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="modal fade" id="projectModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="project-create-form" class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-semibold">
+          <i class="bi bi-folder-plus me-2 text-primary"></i> New Project
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        {% csrf_token %}
+        <div class="p-2">
+          {{ project_form.as_p }}
+        </div>
+      </div>
+
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-secondary px-3" style="border-radius: 10px;" data-bs-dismiss="modal">Close</button>
+
+        <button type="submit" class="btn btn-primary px-3" style="border-radius: 10px;">
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

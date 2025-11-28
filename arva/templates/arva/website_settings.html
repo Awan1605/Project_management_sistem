@@ -1,0 +1,139 @@
+{% extends "arva/base.html" %}
+{% block title %}Website Settings{% endblock %}
+{% block extra_css %}
+{% endblock extra_css %}
+
+{% block content %}
+<div class="container my-4">
+
+  <div class="d-block mb-3">
+    <h3 class="fw-semibold mb-2">
+      <i class="bi bi-gear me-2 text-primary"></i> Website Settings
+    </h3>
+  </div>
+
+  <form method="POST" enctype="multipart/form-data" class="">
+    {% csrf_token %}
+
+    <div class="card shadow-sm border-0 h-100 mb-3">
+      <div class="card-body">
+        <div class="section-title">General</div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Site Name</label>
+            {{ form.site_name }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Support Email</label>
+            {{ form.support_email }}
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label">Footer Text</label>
+            {{ form.footer_text }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm border-0 h-100 mb-3">
+      <div class="card-body">
+        <div class="section-title">Branding</div>
+
+        <div class="row g-4">
+
+          <div class="col-md-6">
+            <label class="form-label">Logo</label><br>
+
+            {% if settings.logo %}
+            <div class="preview-box mb-2 text-center">
+              <img src="{{ settings.logo_url }}" height="60">
+            </div>
+            {% endif %}
+
+            {{ form.logo }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Favicon</label><br>
+
+            {% if settings.favicon %}
+            <div class="preview-box mb-2 text-center">
+              <img src="{{ settings.favicon_url }}" width="40">
+            </div>
+            {% endif %}
+
+            {{ form.favicon }}
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm border-0 h-100 mb-3">
+      <div class="card-body">
+        <div class="section-title">Theme</div>
+
+        <div class="row g-3">
+
+          <div class="col-md-6">
+            <label class="form-label">Theme Mode</label>
+            {{ form.theme_mode }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Primary Color</label>
+            {{ form.primary_color }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Text Color</label>
+            {{ form.text_color }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Navbar Background</label>
+            {{ form.navbar_bg }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Body Background</label>
+            {{ form.body_bg }}
+          </div>
+
+          <div class="col-md-12 mt-2">
+            <div class="form-check">
+              {{ form.maintenance_mode }}
+              <label class="form-check-label">Enable Maintenance Mode</label>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+
+    <div class="card shadow-sm border-0 h-100 mb-3">
+      <div class="card-body">
+        <div class="section-title">Custom CSS</div>
+
+        <small class="text-muted d-block mb-2">
+          Add custom CSS without modifying static files. Example: <code>.btn { border-radius: 50px; }</code>
+        </small>
+
+        {{ form.custom_css }}
+      </div>
+    </div>
+
+    <div class="col-12 text-end">
+      <button class="btn btn-primary btn-save">
+        <i class="bi bi-save"></i>
+        Save Settings
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

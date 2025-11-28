@@ -1,0 +1,8 @@
+<div class="form-check checklist-item mb-1" data-item-id="{{ item.id }}">
+  <input class="form-check-input checklist-toggle" type="checkbox"
+    {% if item.is_done %}checked{% endif %}
+    {% if user_role != 'admin' and user not in item.task.assignees.all %}disabled{% endif %}>
+  <label class="form-check-label small">
+    {{ item.content }}
+  </label>
+</div>

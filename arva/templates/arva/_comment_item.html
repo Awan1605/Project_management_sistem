@@ -1,0 +1,8 @@
+<div class="mb-1" id="comment-{{ comment.id }}">
+  <strong>
+    <img src="{{ comment.user.userprofile.avatar_url }}" class="rounded-circle me-2" width="24" height="24">
+    {{ comment.user.username }}
+  </strong>
+  <small class="text-muted">{{ comment.created_at|date:"Y-m-d H:i" }}</small>
+  <div>{{ comment.content|linebreaks }}</div>
+</div>

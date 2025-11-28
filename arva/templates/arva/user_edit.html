@@ -1,0 +1,142 @@
+{% extends "arva/base.html" %}
+{% block title %}Edit User: {{ user_obj.username }}{% endblock %}
+{% load static %}
+
+{% block extra_css %}
+{% endblock extra_css %}
+
+{% block content %}
+<div class="container my-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="fw-semibold mb-2">
+      <i class="bi bi-person-circle me-2 text-primary"></i> Edit User: {{ user_obj.username }}
+    </h3>
+    <a href="{% url 'user_list' %}" class="btn btn-outline-secondary back-btn" title="Back">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card shadow-sm border-0 h-100 mb-3">
+        <div class="card-body">
+
+          <h5 class="mb-3">User Info</h5>
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label">Username</label>
+              {{ user_form.username }}
+              {{ user_form.username.errors }}
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              {{ user_form.email }}
+              {{ user_form.email.errors }}
+            </div>
+            <div class="form-check mb-2">
+              {{ user_form.is_active }}
+              <label class="form-check-label">Active</label>
+            </div>
+            <div class="form-check mb-2">
+              {{ user_form.is_staff }}
+              <label class="form-check-label">Staff</label>
+            </div>
+            <hr class="my-4">
+            <h5 class="mb-2">Avatar</h5>
+            <label class="form-label">Upload Avatar</label>
+            {{ avatar_form.avatar }}
+
+            <div class="mt-3">
+              <label class="form-label">Pilih Icon</label>
+              <div class="icon-grid">
+                {% for value, label in avatar_form.avatar_icon.field.choices %}
+                {% if value %}
+                <label style="cursor:pointer">
+                  <input type="radio" class="icon-radio" name="avatar_icon" value="{{ value }}" style="display:none">
+                  <img src="{% static 'arva/img/profile/' %}{{ value }}" class="icon-image">
+                </label>
+                {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+
+            <button class="btn btn-primary mt-4 w-100" style="border-radius: 10px;">
+              <i class="bi bi-save me-1"></i> Save All
+            </button>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
+          <h5 class="mb-3">User Project Membership</h5>
+          <table class="table table-sm table-membership">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Role</th>
+                <th class="text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pm in memberships %}
+              <tr data-pm-id="{{ pm.id }}">
+                <td>{{ pm.project.name }}</td>
+                <td>
+                  <select class="form-select form-select-sm member-role-select" style="border-radius: 8px;">
+                    <option value="admin" {% if pm.role == 'admin' %}selected{% endif %}>Admin</option>
+                    <option value="member" {% if pm.role == 'member' %}selected{% endif %}>Member</option>
+                    <option value="viewer" {% if pm.role == 'viewer' %}selected{% endif %}>Viewer</option>
+                  </select>
+                </td>
+                <td class="text-end">
+                  <button class="btn btn-outline-danger btn-sm icon-btn btn-remove-membership" title="Remove Membership">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="3"><em>The user is not a member of any project.</em></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <p class="text-muted small">
+           User roles can also be set from the Project page → Team & Roles.
+          </p>
+        </div>
+      </div>
+
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
+          <h5 class="mb-3">User Activity</h5>
+          <p>
+            <strong>Last Active:</strong><br>
+            {% if last_seen %}
+            {{ last_seen|date:"Y-m-d H:i" }}
+            {% else %}
+            <em>No activity recorded.</em>
+            {% endif %}
+          </p>
+          <h6>Projects Joined</h6>
+          <ul>
+            {% for pm in memberships %}
+            <li>{{ pm.project.name }} ({{ pm.get_role_display }})</li>
+            {% empty %}
+            <li><em>User is not registered on any project.</em></li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

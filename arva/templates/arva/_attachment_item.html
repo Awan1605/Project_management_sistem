@@ -1,0 +1,6 @@
+<div class="mb-1" id="attachment-{{ attachment.id }}">
+  <a href="{{ attachment.file.url }}" target="_blank">
+    {{ attachment.file.name|slice:"20" }}
+  </a>
+  <small class="text-muted">({{ attachment.uploaded_at|date:"Y-m-d H:i" }})</small>
+</div>

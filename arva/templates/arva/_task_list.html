@@ -1,0 +1,106 @@
+<style>
+  /* ================= LIST HEADER MODERN ================= */
+  .list-header {
+    padding-bottom: 4px;
+  }
+
+  .list-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-color);
+  }
+
+  .list-action-btn {
+    border: none !important;
+    background: transparent !important;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    color: #6b7280;
+    transition: 0.15s;
+  }
+
+  .list-action-btn:hover {
+    background: rgba(0,0,0,0.08);
+    color: #111827;
+  }
+
+  /* ================= CARD CONTAINER ================= */
+  .task-column {
+    background: var(--list-bg, #f3f4f6);
+    border-radius: 12px;
+    min-height: 60px;
+    max-height: 63vh;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .task-column::-webkit-scrollbar {
+    width: 6px;
+  }
+  .task-column::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 10px;
+  }
+
+  /* ================= Add Card ================ */
+  .add-card-form textarea {
+    border-radius: 10px;
+    resize: none;
+  }
+
+  .add-card-form button {
+    border-radius: 10px;
+    font-weight: 500;
+  }
+
+  .empty-card-state {
+    color: #9ca3af;
+    font-size: 0.85rem;
+    padding: 6px 0;
+  }
+</style>
+
+<div class="board-list" data-list-id="{{ task_list.id }}">
+
+  <!-- LIST HEADER -->
+  <div class="list-header d-flex justify-content-between align-items-center">
+
+    <span class="list-title">{{ task_list.name }}</span>
+    {% if user_role == 'admin' %}
+      <div class="d-flex">
+        <button class="list-action-btn btn-list-archive" title="Archive list">
+          <i class="bi bi-archive"></i>
+        </button>
+
+        <button class="list-action-btn btn-list-delete" title="Delete list">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- TASK CARDS -->
+  <div class="task-column" data-list-id="{{ task_list.id }}">
+    {% for task in task_list.filtered_tasks %}
+      {% include "arva/_task_card.html" with task=task project=project user_role=user_role %}
+    {% empty %}
+      <div class="empty-card-state text-center">
+        <i class="bi bi-inboxes me-1"></i> No card yet.
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- ADD NEW CARD -->
+  {% if user_role == 'admin' or user_role == 'member' %}
+  <form class="add-card-form mt-2" data-list-id="{{ task_list.id }}" data-project-id="{{ task_list.project.id }}">
+    {% csrf_token %}
+    <textarea name="title" class="form-control form-control-sm mb-2" rows="2" placeholder="➕ Add a card..."></textarea>
+    <button class="btn btn-sm btn-primary w-100" type="submit">
+      Add Card
+    </button>
+  </form>
+  {% endif %}
+
+</div>

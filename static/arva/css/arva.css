@@ -1,0 +1,257 @@
+
+.board-wrapper {
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+.board-list {
+  background-color: #e3e3e3;
+  border-radius: 8px;
+  padding: 8px;
+  width: 272px;
+  flex: 0 0 auto;
+}
+
+.board-list.add-list-column {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.task-column {
+  min-height: 40px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background-color: #f4f5f7;
+}
+
+.task-card {
+  cursor: grab;
+}
+
+.task-card:hover {
+  box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,.15);
+}
+
+.task-placeholder {
+  border: 2px dashed #ccc;
+  height: 60px;
+  margin-bottom: 5px;
+}
+
+#board-lists {
+  min-height: 60vh;
+}
+
+.card-cover {
+  height: 32px;
+  border-radius: 8px 8px 0 0;
+}
+
+.due-badge {
+  font-size: 0.75rem;
+}
+
+.due-overdue {
+  background-color: #eb5a46 !important;
+  color: #fff !important;
+}
+
+.due-today {
+  background-color: #f2d600 !important;
+  color: #000 !important;
+}
+
+.due-soon {
+  background-color: #61bd4f !important;
+  color: #000 !important;
+}
+
+.project-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  }
+  .mycards-card {
+    border-radius: 14px;
+    box-shadow: var(--shadow, 0 4px 14px rgba(0,0,0,0.08));
+    border: 0;
+  }
+
+  .priority-badge {
+    font-size: .75rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+
+  .priority-low {
+    background-color: #dcfce7;
+    color: #166534;
+  }
+  .priority-medium {
+    background-color: #fef9c3;
+    color: #854d0e;
+  }
+  .priority-high {
+    background-color: #fee2e2;
+    color: #b91c1c;
+  }
+  .priority-critical {
+    background-color: #fee2e2;
+    color: #000000;
+  }
+
+  .due-overdue {
+    background-color: #dc2626 !important;
+    color: #fff !important;
+  }
+  .due-today {
+    background-color: #f97316 !important;
+    color: #111827 !important;
+  }
+  .due-soon {
+    background-color: #facc15 !important;
+    color: #111827 !important;
+  }
+
+  .project-name {
+    font-weight: 600;
+  }
+  .project-list-name {
+    font-size: .8rem;
+  }
+  .icon-btn {
+        border-radius: 8px !important;
+        padding: 4px 8px !important;
+        font-size: .85rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+    }
+    .icon-btn i {
+        font-size: 1rem;
+    }
+    .user-action-group {
+        display: flex;
+        gap: .35rem;
+        justify-content: flex-end;
+    }
+    .preview-box {
+    border: 1px solid #e5e7eb;
+    padding: 6px;
+    border-radius: 12px;
+    background: #f9fafb;
+  }
+  .icon-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+      gap: 16px;
+  }
+  .icon-image {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: 3px solid transparent;
+      transition: .25s;
+      object-fit: cover;
+  }
+  .icon-radio:checked + .icon-image {
+      border-color: var(--primary-color);
+      transform: scale(1.08);
+      box-shadow: 0 0 12px rgba(13,110,253,0.5);
+  }
+  .icon-image:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 8px rgba(0,0,0,0.15);
+  }
+  .project-description {
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 0.95rem;
+  }
+
+  .role-badge {
+    background: #e5e7eb;
+    padding: 6px 10px;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 0.85rem;
+  }
+
+  .progress {
+    height: 12px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    border-radius: 10px;
+  }
+
+  #task-board {
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+
+  .board-wrapper {
+    gap: 20px;
+    padding-bottom: 12px;
+  }
+
+  .board-list {
+    background: var(--card-bg, #ffffff);
+    width: 290px;
+    flex: 0 0 290px;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: var(--shadow, 0 4px 14px rgba(0,0,0,0.07));
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 260px);
+  }
+
+  .board-list::-webkit-scrollbar {
+    width: 6px;
+  }
+  .board-list::-webkit-scrollbar-thumb {
+    background: #c5c5c5;
+    border-radius: 10px;
+  }
+
+  .add-list-column {
+    width: 260px !important;
+    flex: 0 0 260px !important;
+    background: rgba(255,255,255,0.5);
+    border: 2px dashed #d1d5db;
+    border-radius: 14px;
+    padding: 18px;
+    text-align: center;
+    color: #6b7280;
+    transition: 0.2s;
+  }
+
+  .add-list-column:hover {
+    border-color: var(--primary-color);
+    background: rgba(255,255,255,0.8);
+  }
+
+  .add-list-column input {
+    border-radius: 10px;
+  }
+
+  .add-list-column button {
+    border-radius: 10px;
+  }
+
+  .list-title {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 12px;
+  }
+
+  .task-sortable-container {
+    min-height: 40px;
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+  }

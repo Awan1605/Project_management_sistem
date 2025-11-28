@@ -1,0 +1,100 @@
+{% extends "arva/base.html" %}
+{% block title %}My Cards{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+
+  <div class="d-block mb-3">
+    <h3 class="fw-semibold mb-2">
+      <i class="bi bi-card-checklist me-2 text-primary"></i> My Cards
+    </h3>
+    <p class="mb-0">
+      List all cards assigned to you across projects.
+    </p>
+  </div>
+
+  <div class="card shadow-sm border-0 h-100">
+    <div class="card-body p-3 p-md-4">
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Project / List</th>
+              <th>Title</th>
+              <th>Due</th>
+              <th>Priority</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in tasks %}
+              <tr>
+                <td>
+                  <div class="project-name">
+                    {{ task.project.name }}
+                  </div>
+                  <div class="project-list-name text-muted">
+                    <i class="bi bi-kanban me-1"></i>{{ task.task_list.name }}
+                  </div>
+                </td>
+                <td>
+                  {{ task.title }}
+                </td>
+                <td>
+                  {% if task.due_date %}
+                    <span class="badge
+                      {% if task.is_overdue %} due-overdue
+                      {% elif task.is_due_today %} due-today
+                      {% elif task.is_due_soon %} due-soon
+                      {% else %} bg-secondary
+                      {% endif %}
+                    ">
+                      <i class="bi bi-calendar-event me-1"></i>
+                      {{ task.due_date }}
+                    </span>
+                  {% else %}
+                    <span class="text-muted">No due date</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if task.priority == "low" %}
+                    <span class="priority-badge priority-low">Low</span>
+                  {% elif task.priority == "medium" %}
+                    <span class="priority-badge priority-medium">Medium</span>
+                  {% elif task.priority == "high" %}
+                    <span class="priority-badge priority-high">High</span>
+                  {% elif task.priority == "critical" %}
+                    <span class="priority-badge priority-critical">Critical</span>
+                  {% else %}
+                    <span class="text-muted">{{ task.get_priority_display }}</span>
+                  {% endif %}
+                </td>
+
+                <td class="text-end">
+                  <a href="{% url 'project_detail' task.project.id %}" class="btn btn-outline-primary btn-sm" style="border-radius: 10px; padding: 6px 10px;">
+                    <i class="bi bi-box-arrow-in-right"></i> Go to Board
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="text-center py-4">
+                  <div class="text-muted mb-2">
+                    <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                    No card is assigned to you.
+                  </div>
+                  <a href="{% url 'project_list' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-kanban me-1"></i> View Boards
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
