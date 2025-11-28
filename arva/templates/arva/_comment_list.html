@@ -11,13 +11,13 @@
 
         <div class="mt-1">
             {% if user_role == 'admin' or user == c.user %}
-                <button class="btn btn-link p-0 small text-danger btn-delete-comment" data-id="{{ c.id }}">
+                <button class="btn btn-link p-0 small text-danger btn-delete-comment" data-id="{{ c.id }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
                     Delete
                 </button>
             {% endif %}
 
             {% if user_role == 'admin' or user in c.task.assignees.all %}
-                <button class="btn btn-link p-0 small text-primary btn-reply-comment" data-id="{{ c.id }}">
+                <button class="btn btn-link p-0 small text-primary btn-reply-comment" data-id="{{ c.id }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
                     Reply
                 </button>
             {% endif %}

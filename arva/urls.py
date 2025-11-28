@@ -8,11 +8,9 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     # path('register/', views.register, name='register'),
 
-    # Main
+    # Projects & board
     path('', views.project_list, name='project_list'),
     path('my/cards/', views.my_cards, name='my_cards'),
-
-    # Projects & board
     path('project/create/', views.project_create, name='project_create'),
     path('project/<int:pk>/', views.project_detail, name='project_detail'),
     path('project/<int:pk>/update/', views.project_update, name='project_update'),
@@ -34,7 +32,6 @@ urlpatterns = [
     path('list/<int:list_id>/unarchive/', views.tasklist_unarchive, name='tasklist_unarchive'),
 
     # Tasks
-    # path('task/<int:task_id>/detail/', views.task_detail, name='task_detail'),
     path('project/<int:pk>/task/create/', views.task_create, name='task_create'),
     path('task/<int:task_id>/view/', views.task_view, name='task_view'),
     path('task/<int:task_id>/update/', views.task_update, name='task_update'),

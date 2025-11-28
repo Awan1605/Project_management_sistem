@@ -19,7 +19,7 @@
             border: 1px solid #e5e5e5;
         }
         .header {
-            background: #09affe;
+            background: ##09affe;
             color: white;
             padding: 25px;
             text-align: center;
@@ -59,27 +59,34 @@
 
 <div class="email-container">
     <div class="header">
-        <h1>Welcome to Arva!</h1>
+        <h1>New Task Assigned to You!</h1>
     </div>
 
     <div class="content">
-        <p>Hi <strong>{{ username }}</strong>,</p>
-        <p>Your account has been successfully created using your Google account.</p>
+        <p>Hi <strong>{{ assignee.username }}</strong>,</p>
+        <p>You have been assigned to a task:</p>
         <p>
-            You can now start managing your projects, collaborating with your team,
-            and tracking your tasks more efficiently using <strong>Arviga Project Management</strong>.
+            <strong>Project:</strong> {{ project.name }} <br>
+            <strong>Task:</strong> {{ task.title }} <br>
+            <strong>Assigned by:</strong> {{ assigned_by.username }}
         </p>
+        {% if task.description %}
+        <p><strong>Description:</strong><br>
+        {{ task.description }}</p>
+        {% endif %}
         <p>
-            Click the button below to explore your dashboard:
+            <a href="{{ board_url }}" style="background:#09affe;color:white;padding:10px 16px;text-decoration:none;border-radius:6px;">
+                View Project Board
+            </a>
         </p>
-        <p>
-            <a href="{{ dashboard_url }}" class="btn">Go to Dashboard</a>
+        <p style="margin-top: 30px;">
+            Regards,<br>
+            <strong>Arviga Team</strong>
         </p>
-        <p>If you did not create this account, please ignore this message.</p>
-        <p>Regards,<br><strong>Arviga Team</strong></p>
     </div>
+
     <div class="footer">
-        © {{ year }} Arviga Project Management<br>
+        © 2025 Arviga Project Management<br>
         <a href="https://arviga.co.id">Visit Website</a>
     </div>
 </div>

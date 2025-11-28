@@ -213,54 +213,6 @@ $(function() {
     });
   });
 
-  $('#task-form').on('submit', function(e) {
-    e.preventDefault();
-    const $form = $(this);
-    const projectId = $('#task-board').data('project-id');
-    const taskId = $('#task-id-input').val();
-    const listId = $('#task-list-id-input').val() || '';
-
-    let url;
-    if (taskId) {
-      url = `/task/${taskId}/update/`;
-    } else {
-      url = `/project/${projectId}/task/create/`;
-    }
-
-    let data = $form.serialize();
-    if (!taskId) {
-      data += `&task_list_id=${listId}`;
-    }
-
-    $.post({
-      url: url,
-      data: data,
-      success: function(resp) {
-        if (resp.success) {
-          if (taskId) {
-            const card = $(`.task-card[data-task-id='${taskId}']`);
-            card.replaceWith(resp.html);
-          } else {
-            const column = $(`.task-column[data-list-id='${listId}']`);
-            column.append(resp.html);
-          }
-          $('#taskModal').modal('hide');
-          $form[0].reset();
-          $('#task-id-input').val('');
-          $('#task-list-id-input').val('');
-          initSortable();
-        }
-      },
-      error: function(xhr) {
-        if (xhr.status === 403) {
-          alert('Anda tidak punya akses mengubah task ini.');
-        } else {
-          alert('Gagal menyimpan task');
-        }
-      }
-    });
-  });
-
   function inlineUpdate(taskId, field, value, onSuccess) {
     $.post({
       url: `/task/${taskId}/inline-update/`,

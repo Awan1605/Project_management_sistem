@@ -9,7 +9,9 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q, Max
 from django.contrib.auth.hashers import make_password
 from django.contrib import messages
-from .utils import is_user_online
+from django.utils.html import strip_tags
+from datetime import datetime
+from .utils import is_user_online, EmailThread
 
 from .models import (
     Project, ProjectMember, Task, Comment, Attachment,
@@ -664,6 +666,7 @@ def task_view(request, task_id):
     done = task.checklist_done
     percent = int((done / total) * 100) if total > 0 else 0
 
+    view_only = not (role == "admin" or request.user in task.assignees.all())
     html = render_to_string('arva/_task_view.html', {
         'task': task,
         'project': project,
@@ -675,6 +678,7 @@ def task_view(request, task_id):
         'checklist_done': done,
         'checklist_percent': percent,
         'root_comments': comments,
+        "view_only": view_only,
     }, request=request)
 
     return JsonResponse({'success': True, 'html': html})
@@ -704,7 +708,7 @@ def task_inline_update(request, task_id):
         changed = True
         desc = "Description updated"
     elif field == 'due_date':
-        task.due_date = value or None
+        task.due_date = datetime.strptime(value, "%Y-%m-%d").date() or None
         changed = True
         desc = "Due date updated"
     elif field == 'priority':
@@ -712,10 +716,57 @@ def task_inline_update(request, task_id):
         changed = True
         desc = "Priority updated"
     elif field == 'assignees':
+        old_ids = set(task.assignees.values_list('id', flat=True))
+
         ids = [i for i in value.split(',') if i]
+        new_ids = set(ids)
         task.assignees.set(ids)
         changed = True
         desc = "Assignees updated"
+        
+        project = task.project
+        added_ids = new_ids - old_ids
+        for uid in ids:
+            user_obj = User.objects.filter(id=uid).first()
+            if not user_obj:
+                continue
+
+            if user_obj == project.owner:
+                continue
+
+            ProjectMember.objects.get_or_create(
+                project=project,
+                user=user_obj,
+                defaults={'role': ProjectMember.ROLE_MEMBER}
+            )
+
+            print("Start Send Email")
+            if uid in added_ids and user_obj != request.user:
+                try:
+                    print("Sending Email")
+                    board_url = f"https://{request.get_host()}/project/{task.project.id}"
+                    context = {
+                        "task": task,
+                        "project": task.project,
+                        "assignee": user_obj,
+                        "assigned_by": request.user,
+                        "board_url": board_url,
+                    }
+
+                    html_message = render_to_string("email/assign_task.html", context)
+                    plain_message = strip_tags(html_message)
+
+                    EmailThread(
+                        subject=f"[Arva] You have been assigned to: {task.title}",
+                        message=plain_message,
+                        html_message=html_message,
+                        from_email=None,
+                        recipient_list=[user_obj.email],
+                    ).start()
+                    print("Already Sending Email")
+                except Exception as e:
+                    print("Email sending error:", e)
+
     elif field == 'labels':
         ids = [i for i in value.split(',') if i]
         task.labels.set(ids)
