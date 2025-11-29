@@ -102,6 +102,16 @@ class Project(models.Model):
             return ProjectMember.ROLE_ADMIN
         membership = self.memberships.filter(user=user).first()
         return membership.role if membership else None
+    
+    @property
+    def progress(self):
+        total = self.tasks.filter(is_archived=False).count()
+        done = self.tasks.filter(is_archived=False, task_list__name__iexact="Done").count()
+        if total == 0:
+            percent = 0
+        else:
+            percent = int((done / total) * 100)
+        return {"total": total, "done": done, "percent": percent}
 
 class ProjectMember(models.Model):
     ROLE_ADMIN = 'admin'

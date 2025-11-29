@@ -370,12 +370,6 @@ def project_detail(request, pk):
     attachment_form = AttachmentForm()
     checklist_form = ChecklistItemForm()
 
-    total_tasks = project.tasks.filter(is_archived=False).count()
-    done_tasks = project.tasks.filter(is_archived=False, task_list__name='Done').count()
-    progress = 0
-    if total_tasks > 0:
-        progress = int((done_tasks / total_tasks) * 100)
-
     context = {
         'project': project,
         'task_lists': task_lists,
@@ -385,9 +379,6 @@ def project_detail(request, pk):
         'checklist_form': checklist_form,
         'users': User.objects.all(),
         'user_role': role,
-        'progress': progress,
-        'total_tasks': total_tasks,
-        'done_tasks': done_tasks,
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -450,6 +441,13 @@ def project_delete(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    
+    if project.tasks.exists():
+        return JsonResponse({
+            "success": False,
+            "error": "Project cannot be deleted because it still has tasks."
+        }, status=400)
+    
     name = project.name
     project.delete()
     ActivityLog.objects.create(

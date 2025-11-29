@@ -88,6 +88,35 @@ $(function() {
     });
   });
 
+  $(document).on('click', '.btn-delete-project', function () {
+      const btn = $(this);
+      const projectId = btn.data('id');
+
+      if (!confirm("Are you sure you want to delete this project?")) {
+          return;
+      }
+
+      $.post({
+          url: `/project/${projectId}/delete/`,
+          success: function (resp) {
+              if (resp.success) {
+                  $(`#project-${projectId}`).fadeOut(200, function () {
+                      $(this).remove();
+                  });
+              } else {
+                  alert(resp.error || "Failed to delete project.");
+              }
+          },
+          error: function (xhr) {
+              if (xhr.responseJSON && xhr.responseJSON.error) {
+                  alert(xhr.responseJSON.error);
+              } else {
+                  alert("Failed to delete project.");
+              }
+          }
+      });
+  });
+
   $(document).on('submit', '#add-list-form', function(e) {
     e.preventDefault();
     const $form = $(this);

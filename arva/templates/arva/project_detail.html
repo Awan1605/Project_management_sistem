@@ -26,11 +26,11 @@
 
         <div class="mt-3">
           <div class="progress">
-            <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress }}%;">
+            <div class="progress-bar bg-success" role="progressbar" style="width: {{ project.progress.percent }}%;">
             </div>
           </div>
           <small class="text-muted">
-            {{ done_tasks }} / {{ total_tasks }} task ({{ progress }}%)
+            {{ project.progress.done }} / {{ project.progress.total }} task ({{ project.progress.percent }}%)
           </small>
         </div>
 
