@@ -28,7 +28,7 @@
   {% if user_role == 'admin' or user_role == 'member' %}
   <form class="add-card-form mt-2" data-list-id="{{ task_list.id }}" data-project-id="{{ task_list.project.id }}">
     {% csrf_token %}
-    <textarea name="title" class="form-control form-control-sm mb-2" rows="2" placeholder="➕ Add a card..."></textarea>
+    <textarea name="title" class="form-control form-control-sm mb-2" rows="2" placeholder="➕ Add a card..." required></textarea>
     <button class="btn btn-sm btn-primary w-100" type="submit">
       Add Card
     </button>

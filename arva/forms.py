@@ -136,6 +136,10 @@ class ProjectForm(forms.ModelForm):
     class Meta:
         model = Project
         fields = ['name', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control'}),
+        }
 
 class TaskForm(forms.ModelForm):
     assignees = forms.ModelMultipleChoiceField(
