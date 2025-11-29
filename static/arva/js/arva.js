@@ -228,6 +228,8 @@ $(function() {
         if (resp.success) {
           const column = $form.closest('.board-list').find('.task-column');
           column.append(resp.html);
+          checkEmptyState(column);
+          checkEmptyState($(resp.target));
           $form[0].reset();
           initSortable();
         }
@@ -956,6 +958,17 @@ $(function() {
     });
   }
 
+  function checkEmptyState($column) {
+    const hasCard = $column.find('.task-card').length > 0;
+    const $empty = $column.find('.empty-card-state');
+
+    if (hasCard) {
+        $empty.hide();
+    } else {
+        $empty.show();
+    }
+  }
+
   function initSortable() {
     $('#board-lists').sortable({
       items: '> .board-list:not(.add-list-column)',
@@ -969,7 +982,11 @@ $(function() {
       connectWith: '.task-column',
       placeholder: 'task-placeholder',
       handle: '.card-body',
+      start: function (event, ui) {
+        ui.item.addClass('dragging');
+      },
       stop: function(event, ui) {
+        ui.item.removeClass('dragging');
         const $item = $(ui.item);
         const taskId = $item.data('task-id');
         const $column = $item.closest('.task-column');
@@ -978,6 +995,9 @@ $(function() {
         $column.find('.task-card').each(function() {
           orderedIds.push($(this).data('task-id'));
         });
+
+        checkEmptyState($column);
+        checkEmptyState($(event.target));
 
         $.post({
           url: `/task/${taskId}/move/`,

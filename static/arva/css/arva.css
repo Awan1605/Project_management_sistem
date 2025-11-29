@@ -42,13 +42,23 @@
   border-radius: 14px !important;
   background: var(--card-bg, #ffffff);
   border: none;
-  transition: 0.15s ease-in-out;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   cursor: grab;
 }
 
-.task-card:hover {
+.task-card:active {
+  cursor: grabbing;
+}
+
+.task-card:not(.dragging):hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.task-card.dragging {
+  opacity: 0.85;
+  transform: scale(1.02);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
 }
 
 .task-placeholder {
@@ -253,7 +263,7 @@
   box-shadow: var(--shadow, 0 4px 14px rgba(0, 0, 0, 0.07));
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 260px);
+  max-height: calc(100vh - 100px);
 }
 
 .board-list::-webkit-scrollbar {

@@ -421,7 +421,10 @@ def project_activity(request, pk):
 def project_update(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return JsonResponse({
+            "success": False,
+            "error": "The project cannot be updated because you are not the owner of this project."
+        }, status=400)
     form = ProjectForm(request.POST, instance=project)
     if form.is_valid():
         form.save()
@@ -440,7 +443,10 @@ def project_update(request, pk):
 def project_delete(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return JsonResponse({
+            "success": False,
+            "error": "The project cannot be deleted because you are not the owner of this project."
+        }, status=400)
     
     if project.tasks.exists():
         return JsonResponse({
