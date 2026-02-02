@@ -3,23 +3,112 @@
 {% load static %}
 
 {% block extra_css %}
+  <style>
+    .page-hero {
+      border-radius: 18px;
+      padding: 1.5rem 1.75rem;
+      background:
+        radial-gradient(600px 240px at 0% 0%, rgba(9, 175, 255, 0.18), transparent 65%),
+        radial-gradient(520px 220px at 90% 20%, rgba(16, 185, 129, 0.18), transparent 60%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.06);
+      font-size: 0.85rem;
+      color: #334155;
+    }
+
+    .hero-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+    }
+
+    .hero-subtitle {
+      margin: 0;
+      color: #64748b;
+    }
+
+    .cards-shell {
+      border-radius: 18px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: #fff;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .section-card {
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    .form-label {
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .cta-btn {
+      border-radius: 12px;
+      padding: 0.55rem 0.9rem;
+      font-weight: 600;
+    }
+
+    .table-membership thead th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      background: rgba(15, 23, 42, 0.05);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
+    }
+
+    .table-membership tbody td {
+      padding-top: 0.85rem;
+      padding-bottom: 0.85rem;
+      border-color: rgba(15, 23, 42, 0.06);
+    }
+  </style>
 {% endblock extra_css %}
 
 {% block content %}
 <div class="container my-4">
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="fw-semibold mb-2">
-      <i class="bi bi-person-circle me-2 text-primary"></i> Edit User: {{ user_obj.username }}
-    </h3>
-    <a href="{% url 'user_list' %}" class="btn btn-outline-secondary back-btn" title="Back">
-      <i class="bi bi-arrow-left"></i>
-    </a>
+  <div class="page-hero mb-4">
+    <div>
+      <div class="hero-badge mb-2">
+        <i class="bi bi-person-circle"></i>
+        User Profile
+      </div>
+      <h3 class="hero-title">
+        <i class="bi bi-person-circle me-2 text-primary"></i> Edit {{ user_obj.username }}
+      </h3>
+      <p class="hero-subtitle">Update account info, access, and membership details.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'user_list' %}" class="btn btn-outline-secondary btn-sm cta-btn" title="Back">
+        <i class="bi bi-arrow-left"></i> Back
+      </a>
+    </div>
   </div>
 
   <div class="row">
     <div class="col-md-6">
-      <div class="card shadow-sm border-0 h-100 mb-3">
+      <div class="card section-card h-100 mb-3">
         <div class="card-body">
 
           <h5 class="mb-3">User Info</h5>
@@ -62,7 +151,7 @@
               </div>
             </div>
 
-            <button class="btn btn-primary mt-4 w-100" style="border-radius: 10px;">
+            <button class="btn btn-primary mt-4 w-100 cta-btn">
               <i class="bi bi-save me-1"></i> Save All
             </button>
 
@@ -72,7 +161,7 @@
     </div>
 
     <div class="col-md-6">
-      <div class="card shadow-sm border-0 mb-3">
+      <div class="card section-card mb-3">
         <div class="card-body">
           <h5 class="mb-3">User Project Membership</h5>
           <table class="table table-sm table-membership">
@@ -114,7 +203,7 @@
         </div>
       </div>
 
-      <div class="card shadow-sm border-0 mb-3">
+      <div class="card section-card mb-3">
         <div class="card-body">
           <h5 class="mb-3">User Activity</h5>
           <p>
