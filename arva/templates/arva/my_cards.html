@@ -1,5 +1,5 @@
 {% extends "arva/base.html" %}
-{% block title %}My Cards{% endblock %}
+{% block title %}Tasks{% endblock %}
 
 {% block extra_css %}
   <style>
@@ -335,7 +335,7 @@
         Assigned to Me
       </div>
       <h3 class="hero-title">
-        <i class="bi bi-card-checklist me-2 text-primary"></i> My Cards
+        <i class="bi bi-card-checklist me-2 text-primary"></i> Tasks
       </h3>
       <p class="hero-subtitle">Track every task assigned to you across projects.</p>
     </div>
@@ -350,7 +350,7 @@
   </div>
 
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div class="text-muted">Quickly switch between a visual card view and a compact table.</div>
+    <div class="text-muted">Quickly switch between a visual Card View and a compact table.</div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
       <ul class="nav nav-pills view-toggle" id="myCardsViewTabs" role="tablist">
         <li class="nav-item" role="presentation">
@@ -481,7 +481,7 @@
             <div class="text-center empty-state">
               <div class="text-muted mb-3">
                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                No card is assigned to you.
+                No task is assigned to you.
               </div>
               <a href="{% url 'project_list' %}" class="btn btn-primary btn-sm cta-btn">
                 <i class="bi bi-kanban me-1"></i> View Boards
@@ -589,7 +589,7 @@
                     <td colspan="5" class="text-center empty-state">
                       <div class="text-muted mb-3">
                         <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                        No card is assigned to you.
+                        No task is assigned to you.
                       </div>
                       <a href="{% url 'project_list' %}" class="btn btn-primary btn-sm cta-btn">
                         <i class="bi bi-kanban me-1"></i> View Boards
