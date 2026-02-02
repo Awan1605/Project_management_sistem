@@ -359,6 +359,112 @@ $(function() {
     });
   }
 
+  function loadProjectLists(projectId, $select, selectedId) {
+    if (!projectId || !$select) return;
+    $.get(`/project/${projectId}/lists/`, function(resp) {
+      if (!resp.success) return;
+      $select.empty();
+      resp.lists.forEach((lst) => {
+        const option = $('<option>').val(lst.id).text(lst.name);
+        if (selectedId && String(lst.id) === String(selectedId)) {
+          option.attr('selected', 'selected');
+        }
+        $select.append(option);
+      });
+    });
+  }
+
+  function handleTaskMoved(taskId) {
+    const $card = $(`.task-card[data-task-id='${taskId}']`);
+    const $column = $card.closest('.task-column');
+    $card.remove();
+    if ($column.length && typeof checkEmptyState === 'function') {
+      checkEmptyState($column);
+    }
+
+    $(`#mycards-table tbody tr[data-task-id='${taskId}']`).remove();
+    if ($('#mycards-search').length) {
+      $('#mycards-search').trigger('input');
+    }
+
+    $('#taskViewModal').modal('hide');
+    $('#taskMoveModal').modal('hide');
+  }
+
+  $(document).on('change', '#task-move-project', function() {
+    const projectId = $(this).val();
+    const $listSelect = $('#task-move-list');
+    loadProjectLists(projectId, $listSelect);
+  });
+
+  $(document).on('click', '#btn-move-task', function() {
+    const taskId = $(this).data('task-id');
+    const projectId = $('#task-move-project').val();
+    const listId = $('#task-move-list').val();
+    if (!taskId || !projectId) return;
+
+    $.post({
+      url: `/task/${taskId}/transfer/`,
+      data: {
+        project_id: projectId,
+        task_list_id: listId
+      },
+      headers: { "X-CSRFToken": csrftoken },
+      success: function(resp) {
+        if (resp.success) {
+          handleTaskMoved(taskId);
+        } else {
+          alert(resp.error || 'Failed to move task.');
+        }
+      },
+      error: function() {
+        alert('Failed to move task.');
+      }
+    });
+  });
+
+  $(document).on('click', '.btn-quick-move-task', function() {
+    const taskId = $(this).data('task-id');
+    const projectId = $(this).data('project-id');
+    const $modal = $('#taskMoveModal');
+    $modal.data('task-id', taskId);
+    $('#quick-move-project').val(projectId);
+    loadProjectLists(projectId, $('#quick-move-list'));
+    $modal.modal('show');
+  });
+
+  $(document).on('change', '#quick-move-project', function() {
+    const projectId = $(this).val();
+    loadProjectLists(projectId, $('#quick-move-list'));
+  });
+
+  $(document).on('click', '#btn-quick-move-confirm', function() {
+    const $modal = $('#taskMoveModal');
+    const taskId = $modal.data('task-id');
+    const projectId = $('#quick-move-project').val();
+    const listId = $('#quick-move-list').val();
+    if (!taskId || !projectId) return;
+
+    $.post({
+      url: `/task/${taskId}/transfer/`,
+      data: {
+        project_id: projectId,
+        task_list_id: listId
+      },
+      headers: { "X-CSRFToken": csrftoken },
+      success: function(resp) {
+        if (resp.success) {
+          handleTaskMoved(taskId);
+        } else {
+          alert(resp.error || 'Failed to move task.');
+        }
+      },
+      error: function() {
+        alert('Failed to move task.');
+      }
+    });
+  });
+
   $(document).on('click', '#btn-add-comment', function() {
     const taskId = $('#taskViewModal').data('task-id');
     if (!taskId) return;

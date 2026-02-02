@@ -429,7 +429,13 @@
                   </div>
                   <p class="mycard-title">{{ task.title }}</p>
                   <div class="d-flex flex-wrap gap-2 align-items-center">
-                    {% if task.due_date %}
+                    {% if task.task_list.name|lower == 'done' %}
+                      <span class="badge bg-success">
+                        <i class="bi bi-check2-circle me-1"></i>
+                        Completed {{ task.updated_at|date:"d M Y" }}
+                      </span>
+                      <span class="status-pill status-none">Done</span>
+                    {% elif task.due_date %}
                       <span class="badge
                         {% if task.is_overdue %} due-overdue
                         {% elif task.is_due_today %} due-today
@@ -515,7 +521,7 @@
               </thead>
               <tbody>
                 {% for task in tasks %}
-                  <tr
+                  <tr data-task-id="{{ task.id }}"
                     data-title="{{ task.title|lower }}"
                     data-project="{{ task.project.name|lower }}"
                     data-list="{{ task.task_list.name|lower }}"
@@ -535,11 +541,17 @@
                       </div>
                     </td>
                     <td>
-                      {% if task.due_date %}
-                        <span class="badge
-                          {% if task.is_overdue %} due-overdue
-                          {% elif task.is_due_today %} due-today
-                          {% elif task.is_due_soon %} due-soon
+                    {% if task.task_list.name|lower == 'done' %}
+                      <span class="badge bg-success">
+                        <i class="bi bi-check2-circle me-1"></i>
+                        Completed {{ task.updated_at|date:"d M Y" }}
+                      </span>
+                      <span class="status-pill status-none">Done</span>
+                    {% elif task.due_date %}
+                      <span class="badge
+                        {% if task.is_overdue %} due-overdue
+                        {% elif task.is_due_today %} due-today
+                        {% elif task.is_due_soon %} due-soon
                           {% else %} bg-secondary
                           {% endif %}
                         ">
@@ -579,7 +591,7 @@
                     </td>
 
                     <td class="text-end">
-                      <a href="{% url 'project_detail' task.project.id %}" class="btn btn-outline-primary btn-sm table-action">
+                      <a href="{% url 'project_detail' task.project.id %}" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-box-arrow-in-right"></i> Go to Board
                       </a>
                     </td>

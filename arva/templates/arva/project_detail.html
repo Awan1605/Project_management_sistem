@@ -116,6 +116,37 @@
   </div>
 </div>
 
+<div class="modal fade" id="taskMoveModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Move Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label">Project</label>
+          <select id="quick-move-project" class="form-select">
+            {% for p in projects %}
+              <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">List</label>
+          <select id="quick-move-list" class="form-select"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary px-3" id="btn-quick-move-confirm">
+          Move Task
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="projectEditModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <form id="project-edit-form" class="modal-content">

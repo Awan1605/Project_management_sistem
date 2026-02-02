@@ -17,6 +17,7 @@ urlpatterns = [
     path('project/<int:pk>/delete/', views.project_delete, name='project_delete'),
     path('project/<int:pk>/activity/', views.project_activity, name='project_activity'),
     path('project/<int:pk>/archive/', views.project_archive, name='project_archive'),
+    path('project/<int:pk>/lists/', views.project_lists, name='project_lists'),
 
     # Project members
     path('project/<int:pk>/members/', views.project_members, name='project_members'),
@@ -38,6 +39,7 @@ urlpatterns = [
     path('task/<int:task_id>/update/', views.task_update, name='task_update'),
     path('task/<int:task_id>/delete/', views.task_delete, name='task_delete'),
     path('task/<int:task_id>/move/', views.task_move, name='task_move'),
+    path('task/<int:task_id>/transfer/', views.task_transfer, name='task_transfer'),
     path('task/<int:task_id>/archive/', views.task_archive, name='task_archive'),
     path('task/<int:task_id>/unarchive/', views.task_unarchive, name='task_unarchive'),
     path('task/<int:task_id>/inline-update/', views.task_inline_update, name='task_inline_update'),

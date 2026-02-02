@@ -378,6 +378,9 @@ def project_detail(request, pk):
         'attachment_form': attachment_form,
         'checklist_form': checklist_form,
         'users': User.objects.all(),
+        'projects': Project.objects.filter(
+            Q(owner=request.user) | Q(memberships__user=request.user)
+        ).distinct().order_by('name'),
         'user_role': role,
     }
 
@@ -640,6 +643,10 @@ def task_view(request, task_id):
     role = get_role(request.user, project)
     users = User.objects.all()
     labels = Label.objects.all()
+    projects = Project.objects.filter(
+        Q(owner=request.user) | Q(memberships__user=request.user)
+    ).distinct().order_by('name')
+    project_lists = TaskList.objects.filter(project=project, is_archived=False).order_by('position')
     colors = ["primary", "success", "danger", "warning", "info", "dark", ""]
     comments = task.comments.filter(parent__isnull=True)
 
@@ -657,6 +664,8 @@ def task_view(request, task_id):
         'user_role': role,
         'users': users,
         'labels': labels,
+        'projects': projects,
+        'project_lists': project_lists,
         'colors': colors,
         'checklist_total': total,
         'checklist_done': done,
@@ -666,6 +675,12 @@ def task_view(request, task_id):
     }, request=request)
 
     return JsonResponse({'success': True, 'html': html})
+
+@login_required
+def project_lists(request, pk):
+    project = get_user_project_or_404(request.user, pk)
+    lists = project.lists.filter(is_archived=False).order_by('position').values('id', 'name')
+    return JsonResponse({'success': True, 'lists': list(lists)})
 
 @login_required
 @require_POST
@@ -870,6 +885,52 @@ def task_move(request, task_id):
         user=request.user, project=task.project, task=task,
         action='task_moved', description=f"Task '{task.title}' moved to list '{new_list.name}'"
     )
+    return JsonResponse({'success': True})
+
+@login_required
+@require_POST
+@transaction.atomic
+def task_transfer(request, task_id):
+    task = get_object_or_404(Task, id=task_id)
+    source_project = get_user_project_or_404(request.user, task.project.id)
+    source_role = get_role(request.user, source_project)
+    if source_role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER] or (
+        source_role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all()
+    ):
+        return HttpResponseForbidden("Forbidden")
+
+    target_project_id = request.POST.get('project_id')
+    target_list_id = request.POST.get('task_list_id')
+    if not target_project_id:
+        return JsonResponse({'success': False, 'error': 'Missing project'}, status=400)
+
+    target_project = get_user_project_or_404(request.user, target_project_id)
+    target_role = get_role(request.user, target_project)
+    if target_role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]:
+        return HttpResponseForbidden("Forbidden")
+
+    if target_list_id:
+        target_list = get_object_or_404(TaskList, id=target_list_id, project=target_project)
+    else:
+        target_list = target_project.lists.filter(is_archived=False).order_by('position').first()
+        if not target_list:
+            return JsonResponse({'success': False, 'error': 'No list available in target project'}, status=400)
+
+    max_order = Task.objects.filter(task_list=target_list).aggregate(Max('order'))['order__max'] or 0
+    task.project = target_project
+    task.task_list = target_list
+    task.order = max_order + 1
+    task.save()
+
+    ActivityLog.objects.create(
+        user=request.user, project=source_project, task=task,
+        action='task_moved', description=f"Task '{task.title}' moved to project '{target_project.name}'"
+    )
+    ActivityLog.objects.create(
+        user=request.user, project=target_project, task=task,
+        action='task_moved', description=f"Task '{task.title}' moved into project '{target_project.name}'"
+    )
+
     return JsonResponse({'success': True})
 
 @login_required

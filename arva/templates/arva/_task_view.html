@@ -111,6 +111,31 @@
       </select>
     </div>
 
+    {% if user_role == 'admin' or user_role == 'member' %}
+    <div class="sidebar-box">
+      <h6 class="fw-semibold">Move Task</h6>
+      <div class="mb-2">
+        <label class="form-label small text-muted">Project</label>
+        <select id="task-move-project" class="form-select">
+          {% for p in projects %}
+            <option value="{{ p.id }}" {% if p.id == project.id %}selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small text-muted">List</label>
+        <select id="task-move-list" class="form-select">
+          {% for lst in project_lists %}
+            <option value="{{ lst.id }}" {% if lst.id == task.task_list.id %}selected{% endif %}>{{ lst.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-outline-primary btn-sm w-100" id="btn-move-task" data-task-id="{{ task.id }}">
+        <i class="bi bi-arrow-left-right me-1"></i> Move Task
+      </button>
+    </div>
+    {% endif %}
+
     <div class="sidebar-box">
       <h6 class="fw-semibold">Labels</h6>
       <select id="task-view-labels" class="form-select" multiple
