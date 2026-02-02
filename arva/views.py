@@ -268,7 +268,7 @@ def project_member_remove(request, pm_id):
 def project_list(request):
     projects = Project.objects.filter(
         Q(owner=request.user) | Q(memberships__user=request.user)
-    ).distinct().order_by('-created_at')
+    ).annotate(last_task_activity=Max('tasks__updated_at')).distinct().order_by('-created_at')
     activities = UserActivity.objects.select_related('user')
     online_users = [a.user for a in activities if is_user_online(a.last_activity)]
 
