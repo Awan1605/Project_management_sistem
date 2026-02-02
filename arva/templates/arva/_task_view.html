@@ -45,6 +45,9 @@
       <div class="progress my-2" style="height: 8px;">
         <div class="progress-bar bg-success" style="width: {{ checklist_percent }}%;"></div>
       </div>
+      <small class="text-muted d-block mb-2">
+        {{ checklist_done }} / {{ checklist_total }} completed ({{ checklist_percent }}%)
+      </small>
 
       <ul id="task-view-checklist" class="list-unstyled">
         {% for item in task.checklist_items.all %}

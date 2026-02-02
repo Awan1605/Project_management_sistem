@@ -188,10 +188,18 @@ class Task(models.Model):
 
     @property
     def checklist_total(self):
+        cache = getattr(self, "_prefetched_objects_cache", {})
+        items = cache.get("checklist_items")
+        if items is not None:
+            return len(items)
         return self.checklist_items.count()
 
     @property
     def checklist_done(self):
+        cache = getattr(self, "_prefetched_objects_cache", {})
+        items = cache.get("checklist_items")
+        if items is not None:
+            return sum(1 for item in items if item.is_done)
         return self.checklist_items.filter(is_done=True).count()
 
     @property
@@ -207,6 +215,13 @@ class Task(models.Model):
         if not self.due_date:
             return False
         return 0 <= (self.due_date - timezone.localdate()).days <= 2
+
+    @property
+    def checklist_percent(self):
+        total = self.checklist_total
+        if total == 0:
+            return 0
+        return int((self.checklist_done / total) * 100)
 
 class Comment(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comments')

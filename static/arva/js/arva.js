@@ -310,6 +310,18 @@ $(function() {
     });
   }
 
+  function renderTaskSkeleton() {
+    return `
+      <div class="task-skeleton">
+        <div class="skel-line skel-title"></div>
+        <div class="skel-line"></div>
+        <div class="skel-line" style="width: 85%;"></div>
+        <div class="skel-line skel-block"></div>
+        <div class="skel-line" style="width: 40%;"></div>
+      </div>
+    `;
+  }
+
   $(document).on('change', '#task-view-title', function() {
     const taskId = $('#taskViewModal').data('task-id');
     inlineUpdate(taskId, 'title', $(this).val(), function() {
@@ -368,7 +380,7 @@ $(function() {
 
     $('#taskViewModal').data('task-id', taskId);
 
-    $('#task-view-body').html('<div class="text-center text-muted">Loading...</div>');
+    $('#task-view-body').html(renderTaskSkeleton());
     $('#taskViewModal').modal('show');
 
     loadTaskView(taskId);

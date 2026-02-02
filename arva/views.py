@@ -5,14 +5,15 @@ from django.contrib.auth import login
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
 from django.db import transaction, models as dj_models
+from django.db.models import Case, IntegerField, Prefetch, Q, Max, When
 from django.contrib.auth import get_user_model
-from django.db.models import Q, Max
+from datetime import datetime, timedelta
 from django.core.paginator import Paginator
 from django.contrib.auth.hashers import make_password
 from django.contrib import messages
 from django.utils.html import strip_tags
-from datetime import datetime
-from .utils import is_user_online, EmailThread
+from django.utils.timezone import now
+from .utils import EmailThread
 
 from .models import (
     Project, ProjectMember, Task, Comment, Attachment,
@@ -270,8 +271,8 @@ def project_list(request):
     projects = Project.objects.filter(
         Q(owner=request.user) | Q(memberships__user=request.user)
     ).annotate(last_task_activity=Max('tasks__updated_at')).distinct().order_by('-created_at')
-    activities = UserActivity.objects.select_related('user')
-    online_users = [a.user for a in activities if is_user_online(a.last_activity)]
+    online_cutoff = now() - timedelta(minutes=1)
+    online_users = User.objects.filter(useractivity__last_activity__gte=online_cutoff).order_by('username')
 
     form = ProjectForm()
     return render(request, 'arva/project_list.html', {
@@ -346,8 +347,12 @@ def project_detail(request, pk):
     label_id = request.GET.get('label', '')
     due = request.GET.get('due', '')
 
-    base_tasks = Task.objects.filter(project=project, is_archived=False).prefetch_related(
-        'labels', 'assignees', 'comments__user', 'attachments', 'checklist_items'
+    base_tasks = Task.objects.filter(project=project, is_archived=False).select_related(
+        'task_list', 'project'
+    ).prefetch_related(
+        'labels',
+        Prefetch('assignees', queryset=User.objects.select_related('userprofile')),
+        'checklist_items',
     )
 
     if role != ProjectMember.ROLE_ADMIN:
@@ -361,10 +366,11 @@ def project_detail(request, pk):
         base_tasks = base_tasks.filter(labels__id=label_id)
     if due:
         base_tasks = base_tasks.filter(due_date__lte=due)
+    base_tasks = base_tasks.distinct()
 
-    task_lists = list(project.lists.filter(is_archived=False).order_by('position'))
-    for tl in task_lists:
-        tl.filtered_tasks = base_tasks.filter(task_list=tl).order_by('order')
+    task_lists = list(project.lists.filter(is_archived=False).order_by('position').prefetch_related(
+        Prefetch('tasks', queryset=base_tasks.order_by('order'), to_attr='filtered_tasks')
+    ))
 
     task_form = TaskForm()
     comment_form = CommentForm()
@@ -378,7 +384,9 @@ def project_detail(request, pk):
         'comment_form': comment_form,
         'attachment_form': attachment_form,
         'checklist_form': checklist_form,
-        'users': User.objects.all(),
+        'users': User.objects.filter(
+            Q(owned_projects=project) | Q(project_memberships__project=project)
+        ).select_related('userprofile').distinct().order_by('username'),
         'projects': Project.objects.filter(
             Q(owner=request.user) | Q(memberships__user=request.user)
         ).distinct().order_by('name'),
@@ -785,8 +793,9 @@ def task_inline_update(request, task_id):
         
         project = task.project
         added_ids = new_ids - old_ids
+        users_by_id = User.objects.filter(id__in=ids).in_bulk()
         for uid in ids:
-            user_obj = User.objects.filter(id=uid).first()
+            user_obj = users_by_id.get(int(uid))
             if not user_obj:
                 continue
 
@@ -938,8 +947,13 @@ def task_move(request, task_id):
     task.task_list = new_list
     task.save()
 
-    for index, tid in enumerate(ordered_ids):
-        Task.objects.filter(id=tid, project=task.project).update(order=index)
+    if ordered_ids:
+        order_cases = [
+            When(id=int(tid), then=pos) for pos, tid in enumerate(ordered_ids)
+        ]
+        Task.objects.filter(id__in=ordered_ids, project=task.project).update(
+            order=Case(*order_cases, output_field=IntegerField())
+        )
 
     ActivityLog.objects.create(
         user=request.user, project=task.project, task=task,
