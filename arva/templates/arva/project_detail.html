@@ -129,15 +129,23 @@
   {% include "arva/_task_board.html" with project=project task_lists=task_lists task_form=task_form user_role=user_role %}
 </div>
 
-<div class="modal fade" id="taskViewModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+<div class="modal fade task-view-modal" id="taskViewModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Detail Task</h5>
+      <div class="modal-header task-view-header">
+        <div class="d-flex align-items-center gap-2">
+          <span class="task-view-icon">
+            <i class="bi bi-kanban"></i>
+          </span>
+          <div>
+            <h5 class="modal-title mb-0">Task Detail</h5>
+            <small class="text-muted">View and update task information</small>
+          </div>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <div class="modal-body" id="task-view-body">
+      <div class="modal-body task-view-body" id="task-view-body">
         <div class="task-skeleton">
           <div class="skel-line skel-title"></div>
           <div class="skel-line"></div>

@@ -27,9 +27,7 @@
   <div class="col-md-8">
     <div class="section-box">
       <h6 class="fw-semibold mb-2">Description</h6>
-      <textarea id="task-view-desc" class="form-control" rows="4" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
-      {{ task.description }}
-      </textarea>
+      <textarea id="task-view-desc" class="form-control task-desc-input" rows="2" data-autoresize="true" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>{{ task.description }}</textarea>
     </div>
 
     <div class="section-box">

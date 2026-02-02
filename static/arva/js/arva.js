@@ -390,6 +390,7 @@ $(function() {
     $.get(`/task/${taskId}/view/`, function(resp) {
       if (resp.success) {
         $('#task-view-body').html(resp.html);
+        autoResizeTextareas($('#taskViewModal'));
       } else {
         $('#task-view-body').html('<div class="text-danger">You are not allowed to view this task.</div>');
       }
@@ -401,6 +402,19 @@ $(function() {
       }
     });
   }
+
+  function autoResizeTextareas($scope) {
+    $scope.find('textarea[data-autoresize="true"]').each(function() {
+      const el = this;
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    });
+  }
+
+  $(document).on('input', 'textarea[data-autoresize="true"]', function() {
+    this.style.height = 'auto';
+    this.style.height = `${this.scrollHeight}px`;
+  });
 
   function loadProjectLists(projectId, $select, selectedId) {
     if (!projectId || !$select) return;
