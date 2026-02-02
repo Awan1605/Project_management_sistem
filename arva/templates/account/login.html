@@ -2,11 +2,10 @@
 {% load socialaccount %}
 
 {% block content %}
-<div class="container mt-5">
-
+<div class="container mt-5" style="max-width: 420px;">
   <h3 class="text-center mb-3">Login</h3>
 
-  <a href="{% provider_login_url 'google' %}" class="btn btn-danger w-100 mb-3">
+  <a href="{% provider_login_url 'google' process='login' next=redirect_field_value %}" class="btn btn-outline-dark w-100 mb-3 d-flex align-items-center justify-content-center gap-2">
     <i class="bi bi-google"></i> Continue with Google
   </a>
 
@@ -14,9 +13,11 @@
 
   <form method="post">
     {% csrf_token %}
+    {% if redirect_field_value %}
+      <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+    {% endif %}
     {{ form.as_p }}
     <button class="btn btn-primary mt-3 w-100">Login</button>
   </form>
-
 </div>
 {% endblock %}

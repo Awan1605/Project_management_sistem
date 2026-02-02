@@ -387,7 +387,6 @@ def project_detail(request, pk):
 
     return render(request, 'arva/project_detail.html', context)
 
-
 @login_required
 def project_archive(request, pk):
     project = get_user_project_or_404(request.user, pk)
@@ -404,7 +403,6 @@ def project_archive(request, pk):
         'user_role': role,
     })
 
-
 @login_required
 def project_activity(request, pk):
     project = get_user_project_or_404(request.user, pk)
@@ -414,7 +412,6 @@ def project_activity(request, pk):
 
     activities = project.activities.select_related('user', 'task')[:100]
     return render(request, 'arva/activity_log.html', {'project': project, 'activities': activities, 'user_role': role})
-
 
 @login_required
 @require_POST
@@ -436,7 +433,6 @@ def project_update(request, pk):
         )
         return JsonResponse({'success': True})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
-
 
 @login_required
 @require_POST
@@ -464,9 +460,6 @@ def project_delete(request, pk):
     )
     return JsonResponse({'success': True})
 
-
-# ========== PROJECT MEMBERS ==========
-
 @login_required
 def project_members(request, pk):
     project = get_user_project_or_404(request.user, pk)
@@ -476,7 +469,6 @@ def project_members(request, pk):
 
     members = project.memberships.select_related('user')
     form = ProjectMemberForm()
-    # jangan tampilkan diri sendiri di dropdown
     form.fields['user'].queryset = User.objects.exclude(id=request.user.id)
     return render(request, 'arva/project_members.html', {
         'project': project,
@@ -484,7 +476,6 @@ def project_members(request, pk):
         'form': form,
         'user_role': role,
     })
-
 
 @login_required
 @require_POST
@@ -494,18 +485,15 @@ def project_member_add(request, pk):
         return HttpResponseForbidden("Forbidden")
 
     form = ProjectMemberForm(request.POST)
-    # pastikan queryset sama (exclude diri sendiri)
     form.fields['user'].queryset = User.objects.exclude(id=request.user.id)
 
     if form.is_valid():
         member = form.save(commit=False)
         member.project = project
 
-        # cegah tambah diri sendiri
         if member.user == request.user:
             return HttpResponseForbidden("Tidak boleh menambahkan diri sendiri sebagai member.")
 
-        # cegah duplikat
         if ProjectMember.objects.filter(project=project, user=member.user).exists():
             return HttpResponseForbidden("User ini sudah menjadi member project.")
 
@@ -520,6 +508,32 @@ def project_member_add(request, pk):
         'user_role': ProjectMember.ROLE_ADMIN,
     })
 
+@login_required
+@require_POST
+def project_member_update(request, member_id):
+    member = get_object_or_404(ProjectMember, id=member_id)
+    project = member.project
+
+    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
+        return JsonResponse({"success": False, "error": "Forbidden"}, status=403)
+
+    new_role = request.POST.get("role")
+
+    if new_role not in ["admin", "member", "viewer"]:
+        return JsonResponse({"success": False, "error": "Invalid role"}, status=400)
+
+    if member.user == project.owner:
+        return JsonResponse({"success": False, "error": "Owner role cannot be changed."}, status=400)
+
+    # if member.role == "admin" and new_role != "admin":
+    #     remaining_admin = project.memberships.filter(role="admin").exclude(id=member.id).count()
+    #     if remaining_admin == 0:
+    #         return JsonResponse({"success": False, "error": "Project must have at least 1 admin."}, status=400)
+
+    member.role = new_role
+    member.save()
+
+    return JsonResponse({"success": True, "role": new_role})
 
 @login_required
 @require_POST
@@ -530,9 +544,6 @@ def project_member_delete(request, member_id):
         return HttpResponseForbidden("Forbidden")
     member.delete()
     return redirect('project_members', pk=project.pk)
-
-
-# ========== LISTS ==========
 
 @login_required
 @require_POST
@@ -561,7 +572,6 @@ def tasklist_create(request, pk):
         return JsonResponse({'success': True, 'html': html})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
-
 @login_required
 @require_POST
 def tasklist_reorder(request, pk):
@@ -577,7 +587,6 @@ def tasklist_reorder(request, pk):
     )
     return JsonResponse({'success': True})
 
-
 @login_required
 @require_POST
 def tasklist_delete(request, list_id):
@@ -592,7 +601,6 @@ def tasklist_delete(request, list_id):
         description=f"List '{name}' deleted"
     )
     return JsonResponse({'success': True})
-
 
 @login_required
 @require_POST
@@ -610,7 +618,6 @@ def tasklist_archive(request, list_id):
     )
     return JsonResponse({'success': True})
 
-
 @login_required
 @require_POST
 def tasklist_unarchive(request, list_id):
@@ -625,33 +632,6 @@ def tasklist_unarchive(request, list_id):
         description=f"List '{tl.name}' unarchived"
     )
     return JsonResponse({'success': True})
-
-
-# ========== TASKS ==========
-
-# @login_required
-# def task_detail(request, task_id):
-#     task = get_object_or_404(Task, id=task_id)
-#     project = get_user_project_or_404(request.user, task.project.id)
-#     role = get_role(request.user, project)
-
-#     # hanya admin atau assignee yang boleh lihat detail
-#     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
-#         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
-
-#     data = {
-#         'id': task.id,
-#         'title': task.title,
-#         'description': task.description,
-#         'priority': task.priority,
-#         'due_date': task.due_date.strftime('%Y-%m-%d') if task.due_date else '',
-#         'assignees': list(task.assignees.values_list('id', flat=True)),
-#         'labels': list(task.labels.values_list('id', flat=True)),
-#         'task_list_id': task.task_list.id,
-#         'cover_color': task.cover_color,
-#         'user_role': role,
-#     }
-#     return JsonResponse({'success': True, 'task': data})
 
 @login_required
 def task_view(request, task_id):
@@ -825,7 +805,6 @@ def task_create(request, pk):
         return JsonResponse({'success': True, 'html': html})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
-
 @login_required
 @require_POST
 def task_update(request, task_id):
@@ -852,7 +831,6 @@ def task_update(request, task_id):
         return JsonResponse({'success': True, 'html': html})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
-
 @login_required
 @require_POST
 def task_delete(request, task_id):
@@ -867,7 +845,6 @@ def task_delete(request, task_id):
         description=f"Task '{title}' deleted"
     )
     return JsonResponse({'success': True})
-
 
 @login_required
 @require_POST
@@ -895,7 +872,6 @@ def task_move(request, task_id):
     )
     return JsonResponse({'success': True})
 
-
 @login_required
 @require_POST
 def task_archive(request, task_id):
@@ -911,7 +887,6 @@ def task_archive(request, task_id):
     )
     return JsonResponse({'success': True})
 
-
 @login_required
 @require_POST
 def task_unarchive(request, task_id):
@@ -926,9 +901,6 @@ def task_unarchive(request, task_id):
         action='task_unarchived', description=f"Task '{task.title}' unarchived"
     )
     return JsonResponse({'success': True})
-
-
-# ========== COMMENTS & ATTACHMENTS ==========
 
 @login_required
 @require_POST
@@ -1029,9 +1001,6 @@ def attachment_add(request, task_id):
         html = render_to_string('arva/_attachment_item.html', {'attachment': attachment}, request=request)
         return JsonResponse({'success': True, 'html': html})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
-
-
-# ========== CHECKLIST ==========
 
 @login_required
 @require_POST

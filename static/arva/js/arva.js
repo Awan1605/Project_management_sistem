@@ -902,6 +902,44 @@ $(function() {
     });
   });
 
+  // open modal
+$(document).on("click", ".btn-edit-member", function () {
+    const id = $(this).data("id");
+    const username = $(this).data("username");
+    const role = $(this).data("role");
+
+    $("#edit-member-id").val(id);
+    $("#edit-member-username").val(username);
+    $("#edit-member-role").val(role);
+
+    $("#editMemberModal").modal("show");
+});
+
+$(document).on("click", "#btn-save-member", function () {
+    const memberId = $("#edit-member-id").val();
+    const newRole = $("#edit-member-role").val();
+
+    $.post({
+        url: `/project/member/${memberId}/update/`,
+        data: { role: newRole },
+        headers: { "X-CSRFToken": csrftoken },
+        success: function (resp) {
+            if (resp.success) {
+                const row = $(`button[data-id="${memberId}"]`).closest("tr");
+                row.find("td:nth-child(2)").text(newRole.charAt(0).toUpperCase() + newRole.slice(1));
+
+                $("#editMemberModal").modal("hide");
+            } else {
+                alert(resp.error);
+            }
+        },
+        error: function (xhr) {
+            alert(xhr.responseJSON?.error || "Failed to update role.");
+        }
+    });
+});
+
+
   $(document).on('click', '.btn-remove-membership', function() {
     if (!confirm("Hapus user dari project ini?")) return;
 
