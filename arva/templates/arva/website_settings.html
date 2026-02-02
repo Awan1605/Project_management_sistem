@@ -1,21 +1,111 @@
 {% extends "arva/base.html" %}
 {% block title %}Website Settings{% endblock %}
 {% block extra_css %}
+  <style>
+    .page-hero {
+      border-radius: 18px;
+      padding: 1.5rem 1.75rem;
+      background:
+        radial-gradient(600px 240px at 0% 0%, rgba(9, 175, 255, 0.18), transparent 65%),
+        radial-gradient(520px 220px at 90% 20%, rgba(16, 185, 129, 0.18), transparent 60%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.06);
+      font-size: 0.85rem;
+      color: #334155;
+    }
+
+    .hero-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+    }
+
+    .hero-subtitle {
+      margin: 0;
+      color: #64748b;
+    }
+
+    .section-title {
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+
+    .form-label {
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .form-control,
+    .form-select {
+      border-radius: 12px;
+      border-color: rgba(15, 23, 42, 0.12);
+      padding: 0.55rem 0.85rem;
+      font-size: 0.95rem;
+    }
+
+    .setting-card {
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    .setting-card .card-body {
+      padding: 1.5rem;
+    }
+
+    .preview-box {
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.04);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+
+    .cta-btn {
+      border-radius: 12px;
+      padding: 0.55rem 0.95rem;
+      font-weight: 600;
+    }
+  </style>
 {% endblock extra_css %}
 
 {% block content %}
 <div class="container my-4">
 
-  <div class="d-block mb-3">
-    <h3 class="fw-semibold mb-2">
-      <i class="bi bi-gear me-2 text-primary"></i> Website Settings
-    </h3>
+  <div class="page-hero mb-4">
+    <div>
+      <div class="hero-badge mb-2">
+        <i class="bi bi-gear"></i>
+        Configuration
+      </div>
+      <h3 class="hero-title">
+        <i class="bi bi-gear me-2 text-primary"></i> Website Settings
+      </h3>
+      <p class="hero-subtitle">Manage brand, theme, and system preferences in one place.</p>
+    </div>
   </div>
 
-  <form method="POST" enctype="multipart/form-data" class="">
+  <form method="POST" enctype="multipart/form-data">
     {% csrf_token %}
 
-    <div class="card shadow-sm border-0 h-100 mb-3">
+    <div class="card setting-card mb-3">
       <div class="card-body">
         <div class="section-title">General</div>
 
@@ -38,84 +128,86 @@
       </div>
     </div>
 
-    <div class="card shadow-sm border-0 h-100 mb-3">
-      <div class="card-body">
-        <div class="section-title">Branding</div>
+    <div class="row g-3 mb-3">
+      <div class="col-lg-6">
+        <div class="card setting-card h-100">
+          <div class="card-body">
+            <div class="section-title">Branding</div>
 
-        <div class="row g-4">
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label">Logo</label>
 
-          <div class="col-md-6">
-            <label class="form-label">Logo</label><br>
+                {% if settings.logo %}
+                <div class="preview-box mb-2 text-center p-3">
+                  <img src="{{ settings.logo_url }}" height="60">
+                </div>
+                {% endif %}
 
-            {% if settings.logo %}
-            <div class="preview-box mb-2 text-center">
-              <img src="{{ settings.logo_url }}" height="60">
+                {{ form.logo }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Favicon</label>
+
+                {% if settings.favicon %}
+                <div class="preview-box mb-2 text-center p-3">
+                  <img src="{{ settings.favicon_url }}" width="40">
+                </div>
+                {% endif %}
+
+                {{ form.favicon }}
+              </div>
             </div>
-            {% endif %}
-
-            {{ form.logo }}
           </div>
+        </div>
+      </div>
 
-          <div class="col-md-6">
-            <label class="form-label">Favicon</label><br>
+      <div class="col-lg-6">
+        <div class="card setting-card h-100">
+          <div class="card-body">
+            <div class="section-title">Theme</div>
 
-            {% if settings.favicon %}
-            <div class="preview-box mb-2 text-center">
-              <img src="{{ settings.favicon_url }}" width="40">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Theme Mode</label>
+                {{ form.theme_mode }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Primary Color</label>
+                {{ form.primary_color }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Text Color</label>
+                {{ form.text_color }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Navbar Background</label>
+                {{ form.navbar_bg }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Body Background</label>
+                {{ form.body_bg }}
+              </div>
+
+              <div class="col-md-12 mt-2">
+                <div class="form-check">
+                  {{ form.maintenance_mode }}
+                  <label class="form-check-label">Enable Maintenance Mode</label>
+                </div>
+              </div>
             </div>
-            {% endif %}
-
-            {{ form.favicon }}
           </div>
-
         </div>
       </div>
     </div>
 
-    <div class="card shadow-sm border-0 h-100 mb-3">
-      <div class="card-body">
-        <div class="section-title">Theme</div>
 
-        <div class="row g-3">
-
-          <div class="col-md-6">
-            <label class="form-label">Theme Mode</label>
-            {{ form.theme_mode }}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Primary Color</label>
-            {{ form.primary_color }}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Text Color</label>
-            {{ form.text_color }}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Navbar Background</label>
-            {{ form.navbar_bg }}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Body Background</label>
-            {{ form.body_bg }}
-          </div>
-
-          <div class="col-md-12 mt-2">
-            <div class="form-check">
-              {{ form.maintenance_mode }}
-              <label class="form-check-label">Enable Maintenance Mode</label>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-
-
-    <div class="card shadow-sm border-0 h-100 mb-3">
+    <div class="card setting-card mb-3">
       <div class="card-body">
         <div class="section-title">Custom CSS</div>
 
@@ -128,7 +220,7 @@
     </div>
 
     <div class="col-12 text-end">
-      <button class="btn btn-primary btn-save">
+      <button class="btn btn-primary cta-btn">
         <i class="bi bi-save"></i>
         Save Settings
       </button>
