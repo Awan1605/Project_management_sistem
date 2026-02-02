@@ -18,7 +18,7 @@
       <option value="high" {% if task.priority == 'high' %}selected{% endif %}>High</option>
       <option value="critical" {% if task.priority == 'critical' %}selected{% endif %}>Critical</option>
     </select>
-    <input type="date" id="task-view-due" class="form-control form-control-sm due-input" value="{{ task.due_date|date:'Y-m-d' }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+    <input type="date" id="task-view-due" class="form-control form-control-sm due-input" value="{{ task.due_date|date:'d M Y' }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
   </div>
 
 </div>
@@ -75,7 +75,7 @@
             <i class="bi bi-paperclip me-1"></i>
             <a href="{{ att.file.url }}" target="_blank">{{ att.file.name|slice:"30" }}</a>
           </div>
-          <small class="text-muted ms-2">({{ att.uploaded_at|date:"Y-m-d H:i" }})</small>
+          <small class="text-muted ms-2">({{ att.uploaded_at|date:"d M Y H:i" }})</small>
           {% if user_role == 'admin' or user in task.assignees.all %}
           <button class="btn btn-sm btn-light text-danger ms-auto btn-delete-attachment">×</button>
           {% endif %}
@@ -155,7 +155,7 @@
         <div class="small mb-2">
           <strong>{{ act.user.username|default:'System' }}</strong>
           {{ act.action }}<br>
-          <small class="text-muted">{{ act.created_at|date:"Y-m-d H:i" }}</small>
+          <small class="text-muted">{{ act.created_at|date:"d M Y H:i" }}</small>
         </div>
         {% empty %}
         <small class="text-muted">There are no activity yet.</small>

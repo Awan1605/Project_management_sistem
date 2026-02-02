@@ -19,6 +19,37 @@ $.ajaxSetup({
   }
 });
 
+function showError(message, title = 'Error') {
+  Swal.fire({
+    icon: 'error',
+    title: title,
+    text: message
+  });
+}
+
+function showConfirm(message, title = 'Are you sure?') {
+  return Swal.fire({
+    icon: 'warning',
+    title: title,
+    text: message,
+    showCancelButton: true,
+    confirmButtonText: 'Yes',
+    cancelButtonText: 'Cancel'
+  }).then((result) => result.isConfirmed);
+}
+
+function showPrompt(message, title = 'Input') {
+  return Swal.fire({
+    title: title,
+    text: message,
+    input: 'text',
+    inputPlaceholder: message,
+    showCancelButton: true,
+    confirmButtonText: 'Submit',
+    cancelButtonText: 'Cancel'
+  }).then((result) => (result.isConfirmed ? result.value : null));
+}
+
 $(function() {
 
   $(document).on('click', '.theme-select', function() {
@@ -38,7 +69,7 @@ $(function() {
         }
       },
       error: function() {
-        alert("Gagal mengubah tema.");
+        showError("Failed to change theme.");
       }
     });
   });
@@ -58,7 +89,7 @@ $(function() {
         }
       },
       error: function() {
-        alert('Gagal membuat project');
+        showError('Failed to create project');
       }
     });
   });
@@ -83,16 +114,16 @@ $(function() {
         }
       },
       error: function() {
-        alert("Gagal menyimpan perubahan.");
+        showError("Failed to save changes.");
       }
     });
   });
 
-  $(document).on('click', '.btn-delete-project', function () {
+  $(document).on('click', '.btn-delete-project', async function () {
       const btn = $(this);
       const projectId = btn.data('id');
 
-      if (!confirm("Are you sure you want to delete this project?")) {
+      if (!await showConfirm("Are you sure you want to delete this project?", "Delete project")) {
           return;
       }
 
@@ -104,14 +135,14 @@ $(function() {
                       $(this).remove();
                   });
               } else {
-                  alert(resp.error || "Failed to delete project.");
+                  showError(resp.error || "Failed to delete project.");
               }
           },
           error: function (xhr) {
               if (xhr.responseJSON && xhr.responseJSON.error) {
-                  alert(xhr.responseJSON.error);
+                  showError(xhr.responseJSON.error);
               } else {
-                  alert("Failed to delete project.");
+                  showError("Failed to delete project.");
               }
           }
       });
@@ -135,13 +166,13 @@ $(function() {
         }
       },
       error: function() {
-        alert('Gagal membuat list');
+        showError('Failed to create list');
       }
     });
   });
 
-  $(document).on('click', '.btn-list-delete', function() {
-    if (!confirm('Hapus list beserta semua card di dalamnya?')) return;
+  $(document).on('click', '.btn-list-delete', async function() {
+    if (!await showConfirm('Delete this list and all tasks inside it?', 'Delete list')) return;
     const listElem = $(this).closest('.board-list');
     const listId = listElem.data('list-id');
 
@@ -154,13 +185,13 @@ $(function() {
         }
       },
       error: function() {
-        alert('Gagal menghapus list');
+        showError('Failed to delete list');
       }
     });
   });
 
-  $(document).on('click', '.btn-list-archive', function() {
-    if (!confirm('Archive list ini dan semua card di dalamnya?')) return;
+  $(document).on('click', '.btn-list-archive', async function() {
+    if (!await showConfirm('Archive this list and all tasks inside it?', 'Archive list')) return;
     const listElem = $(this).closest('.board-list');
     const listId = listElem.data('list-id');
 
@@ -173,7 +204,7 @@ $(function() {
         }
       },
       error: function() {
-        alert('Gagal archive list');
+        showError('Failed to archive list');
       }
     });
   });
@@ -189,7 +220,7 @@ $(function() {
         }
       },
       error: function() {
-        alert('Gagal unarchive list');
+        showError('Failed to unarchive list');
       }
     });
   });
@@ -205,7 +236,7 @@ $(function() {
         }
       },
       error: function() {
-        alert('Gagal unarchive task');
+        showError('Failed to unarchive task');
       }
     });
   });
@@ -236,9 +267,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses membuat card di board ini.');
+          showError('You do not have access to create tasks on this board.');
         } else {
-          alert('Gagal membuat card');
+          showError('Failed to create task');
         }
       }
     });
@@ -262,9 +293,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses melakukan perubahan ini.');
+          showError('You do not have access to make this change.');
         } else {
-          alert('Gagal menyimpan perubahan.');
+          showError('Failed to save changes.');
         }
       }
     });
@@ -348,13 +379,13 @@ $(function() {
       if (resp.success) {
         $('#task-view-body').html(resp.html);
       } else {
-        $('#task-view-body').html('<div class="text-danger">Tidak boleh melihat card ini.</div>');
+        $('#task-view-body').html('<div class="text-danger">You are not allowed to view this task.</div>');
       }
     }).fail(function(xhr) {
       if (xhr.status === 403) {
-        $('#task-view-body').html('<div class="text-danger">Tidak boleh melihat card ini.</div>');
+        $('#task-view-body').html('<div class="text-danger">You are not allowed to view this task.</div>');
       } else {
-        $('#task-view-body').html('<div class="text-danger">Gagal memuat card.</div>');
+        $('#task-view-body').html('<div class="text-danger">Failed to load task.</div>');
       }
     });
   }
@@ -414,11 +445,11 @@ $(function() {
         if (resp.success) {
           handleTaskMoved(taskId);
         } else {
-          alert(resp.error || 'Failed to move task.');
+          showError(resp.error || 'Failed to move task.');
         }
       },
       error: function() {
-        alert('Failed to move task.');
+        showError('Failed to move task.');
       }
     });
   });
@@ -456,11 +487,11 @@ $(function() {
         if (resp.success) {
           handleTaskMoved(taskId);
         } else {
-          alert(resp.error || 'Failed to move task.');
+          showError(resp.error || 'Failed to move task.');
         }
       },
       error: function() {
-        alert('Failed to move task.');
+        showError('Failed to move task.');
       }
     });
   });
@@ -484,9 +515,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses memberi komentar pada card ini.');
+          showError('You do not have access to comment on this task.');
         } else {
-          alert('Gagal mengirim komentar.');
+          showError('Failed to send comment.');
         }
       }
     });
@@ -533,13 +564,13 @@ $(function() {
         }
       },
       error: function() {
-        alert("Gagal mengirim reply.");
+        showError("Failed to send reply.");
       }
     });
   });
 
-  $(document).on('click', '.btn-delete-comment', function() {
-    if (!confirm("Delete this comment?")) return;
+  $(document).on('click', '.btn-delete-comment', async function() {
+    if (!await showConfirm("Delete this comment?", "Delete comment")) return;
 
     const commentId = $(this).data("id");
     const taskId = $('#taskViewModal').data('task-id');
@@ -553,19 +584,19 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert("Anda tidak punya akses untuk menghapus komentar ini.");
+          showError("You do not have access to delete this comment.");
         } else {
-          alert("Gagal menghapus komentar.");
+          showError("Failed to delete comment.");
         }
       }
     });
   });
 
-  $(document).on('click', '#btn-add-checkitem', function() {
+  $(document).on('click', '#btn-add-checkitem', async function() {
     const taskId = $('#taskViewModal').data('task-id');
     if (!taskId) return;
 
-    const content = prompt('Nama checklist item:');
+    const content = await showPrompt('Checklist item name:', 'Add checklist');
     if (!content || !content.trim()) return;
 
     $.post({
@@ -580,9 +611,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses mengubah checklist card ini.');
+          showError("You do not have access to change this task's checklist.");
         } else {
-          alert('Gagal menambah checklist.');
+          showError('Failed to add checklist.');
         }
       }
     });
@@ -603,9 +634,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses mengubah checklist card ini.');
+          showError("You do not have access to change this task's checklist.");
         } else {
-          alert('Gagal mengubah status checklist.');
+          showError('Failed to update checklist status.');
         }
       }
     });
@@ -635,16 +666,16 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses upload lampiran di card ini.');
+          showError('You do not have access to upload attachments on this task.');
         } else {
-          alert('Gagal upload lampiran.');
+          showError('Failed to upload attachment.');
         }
       }
     });
   });
 
-  $(document).on('click', '.btn-delete-task', function() {
-    if (!confirm('Yakin hapus card ini?')) return;
+  $(document).on('click', '.btn-delete-task', async function() {
+    if (!await showConfirm('Are you sure you want to delete this task?', 'Delete task')) return;
     const card = $(this).closest('.task-card');
     const taskId = card.data('task-id');
 
@@ -657,18 +688,18 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses menghapus card ini.');
+          showError('You do not have access to delete this task.');
         } else {
-          alert('Gagal menghapus card');
+          showError('Failed to delete task');
         }
       }
     });
   });
 
-  $(document).on('click', '.btn-archive-task', function() {
+  $(document).on('click', '.btn-archive-task', async function() {
     const card = $(this).closest('.task-card');
     const taskId = card.data('task-id');
-    if (!confirm('Archive card ini?')) return;
+    if (!await showConfirm('Archive this task?', 'Archive task')) return;
 
     $.post({
       url: `/task/${taskId}/archive/`,
@@ -679,9 +710,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses archive card ini.');
+          showError('You do not have access to archive this task.');
         } else {
-          alert('Gagal archive card');
+          showError('Failed to archive task');
         }
       }
     });
@@ -714,9 +745,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses memberi komentar.');
+          showError('You do not have access to comment.');
         } else {
-          alert('Gagal mengirim komentar');
+          showError('Failed to send comment');
         }
       }
     });
@@ -748,9 +779,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses upload lampiran.');
+          showError('You do not have access to upload attachments.');
         } else {
-          alert('Gagal upload lampiran');
+          showError('Failed to upload attachment');
         }
       }
     });
@@ -778,9 +809,9 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          alert('Anda tidak punya akses menambah checklist.');
+          showError('You do not have access to add checklist items.');
         } else {
-          alert('Gagal menambah checklist');
+          showError('Failed to add checklist');
         }
       }
     });
@@ -816,15 +847,15 @@ $(function() {
             }
           },
           error: function() {
-            alert("Gagal mengubah checklist");
+            showError("Failed to update checklist");
           }
         });
       }
     });
   });
 
-  $(document).on('click', '.btn-delete-checkitem', function() {
-    if (!confirm("Hapus checklist item ini?")) return;
+  $(document).on('click', '.btn-delete-checkitem', async function() {
+    if (!await showConfirm("Delete this checklist item?", "Delete checklist")) return;
 
     const li = $(this).closest("li");
     const itemId = li.data("id");
@@ -838,7 +869,7 @@ $(function() {
         }
       },
       error: function() {
-        alert("Gagal menghapus checklist");
+        showError("Failed to delete checklist");
       }
     });
   });
@@ -893,9 +924,9 @@ $(function() {
             form.find(`.invalid-feedback[data-field="${field}"]`).text(errors[field][0]);
           });
         } else if (xhr.status === 403) {
-          alert("Tidak punya akses.");
+          showError("No access.");
         } else {
-          alert("Gagal membuat user.");
+          showError("Failed to create user.");
         }
       }
     });
@@ -918,13 +949,13 @@ $(function() {
         }
       },
       error: function() {
-        alert('Gagal mengubah status.');
+        showError('Failed to change status.');
       }
     });
   });
 
-  $(document).on('click', '.btn-delete-user', function() {
-    if (!confirm("Yakin ingin menghapus user ini secara permanen? Ini tidak bisa dibatalkan.")) return;
+  $(document).on('click', '.btn-delete-user', async function() {
+    if (!await showConfirm("Are you sure you want to permanently delete this user? This cannot be undone.", "Delete user")) return;
 
     const tr = $(this).closest('tr');
     const userId = tr.data('user-id');
@@ -939,7 +970,7 @@ $(function() {
         }
       },
       error: function(xhr) {
-        alert(xhr.responseJSON?.error || 'Gagal menghapus user.');
+        showError(xhr.responseJSON?.error || 'Failed to delete user.');
       }
     });
   });
@@ -981,7 +1012,7 @@ $(function() {
             form.find(`.invalid-feedback[data-field="${field}"]`).text(errors[field][0]);
           });
         } else {
-          alert('Gagal reset password.');
+          showError('Failed to reset password.');
         }
       }
     });
@@ -999,11 +1030,11 @@ $(function() {
       },
       success: function(resp) {
         if (!resp.success) {
-          alert("Gagal update role.");
+          showError("Failed to update role.");
         }
       },
       error: function() {
-        alert("Gagal update role.");
+        showError("Failed to update role.");
       }
     });
   });
@@ -1036,18 +1067,18 @@ $(document).on("click", "#btn-save-member", function () {
 
                 $("#editMemberModal").modal("hide");
             } else {
-                alert(resp.error);
+                showError(resp.error);
             }
         },
         error: function (xhr) {
-            alert(xhr.responseJSON?.error || "Failed to update role.");
+            showError(xhr.responseJSON?.error || "Failed to update role.");
         }
     });
 });
 
 
-  $(document).on('click', '.btn-remove-membership', function() {
-    if (!confirm("Hapus user dari project ini?")) return;
+  $(document).on('click', '.btn-remove-membership', async function() {
+    if (!await showConfirm("Delete user dari project ini?", "Remove member")) return;
 
     const tr = $(this).closest('tr');
     const pmId = tr.data('pm-id');
@@ -1079,7 +1110,7 @@ $(document).on("click", "#btn-save-member", function () {
         initSortable();
       },
       error: function() {
-        alert('Gagal melakukan filter');
+        showError('Failed to apply filter');
       }
     });
   });
@@ -1151,9 +1182,9 @@ $(document).on("click", "#btn-save-member", function () {
           },
           error: function(xhr) {
             if (xhr.status === 403) {
-              alert('Anda tidak punya akses memindahkan card ini.');
+              showError('You do not have access to move this task.');
             } else {
-              alert('Gagal memindahkan card');
+              showError('Failed to move task');
             }
           }
         });

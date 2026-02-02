@@ -7,6 +7,7 @@ from django.template.loader import render_to_string
 from django.db import transaction, models as dj_models
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Max
+from django.core.paginator import Paginator
 from django.contrib.auth.hashers import make_password
 from django.contrib import messages
 from django.utils.html import strip_tags
@@ -413,8 +414,67 @@ def project_activity(request, pk):
     if role != ProjectMember.ROLE_ADMIN:
         return HttpResponseForbidden("Forbidden")
 
-    activities = project.activities.select_related('user', 'task')[:100]
-    return render(request, 'arva/activity_log.html', {'project': project, 'activities': activities, 'user_role': role})
+    activities = project.activities.select_related('user', 'task').order_by('-created_at')
+    q = request.GET.get('q', '').strip()
+    action = request.GET.get('action', '').strip()
+    user_id = request.GET.get('user', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to = request.GET.get('date_to', '').strip()
+
+    if q:
+        activities = activities.filter(
+            Q(description__icontains=q) |
+            Q(task__title__icontains=q) |
+            Q(action__icontains=q) |
+            Q(user__username__icontains=q)
+        )
+
+    if action:
+        activities = activities.filter(action=action)
+
+    if user_id:
+        activities = activities.filter(user_id=user_id)
+
+    if date_from:
+        try:
+            date_from_value = datetime.strptime(date_from, "%Y-%m-%d").date()
+            activities = activities.filter(created_at__date__gte=date_from_value)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            date_to_value = datetime.strptime(date_to, "%Y-%m-%d").date()
+            activities = activities.filter(created_at__date__lte=date_to_value)
+        except ValueError:
+            pass
+
+    users = User.objects.filter(
+        Q(owned_projects=project) | Q(project_memberships__project=project)
+    ).distinct().order_by('username')
+
+    paginator = Paginator(activities, 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    querystring = request.GET.copy()
+    querystring.pop('page', None)
+
+    return render(request, 'arva/activity_log.html', {
+        'project': project,
+        'activities': page_obj,
+        'user_role': role,
+        'actions': ActivityLog.ACTION_CHOICES,
+        'users': users,
+        'filters': {
+            'q': q,
+            'action': action,
+            'user': user_id,
+            'date_from': date_from,
+            'date_to': date_to,
+        },
+        'querystring': querystring.urlencode(),
+    })
 
 @login_required
 @require_POST

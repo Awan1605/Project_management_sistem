@@ -8,7 +8,7 @@
       <div class="add-list-column">
         <form id="add-list-form" data-project-id="{{ project.id }}">
           {% csrf_token %}
-          <input type="text" name="name" class="form-control form-control-sm mb-2" placeholder="➕ Add another list">
+          <input type="text" name="name" class="form-control form-control-sm mb-2" placeholder="➕ Add another list" required>
           <button class="btn btn-sm btn-outline-primary w-100" type="submit">
             <i class="bi bi-plus-lg me-1"></i>Create List
           </button>
