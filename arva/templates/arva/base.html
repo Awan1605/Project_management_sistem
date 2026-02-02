@@ -20,20 +20,73 @@
       --navbar-bg: {{ settings.navbar_bg|default:'rgba(255,255,255,0.8)' }};
       --body-bg: {{ settings.body_bg|default:'#f3f4f6' }};
       --text-color: {{ settings.text_color|default:'#111827' }};
+      --card-bg: #ffffff;
+      --sidebar-bg: #ffffff;
+      --border-color: rgba(15, 23, 42, 0.12);
+      --muted-text: #6b7280;
+      --input-bg: #ffffff;
       --radius: 12px;
       --shadow: 0 4px 14px rgba(0,0,0,0.08);
       --blur: 10px;
+    }
+    :root[data-theme='light'] {
+      --body-bg: #f3f4f6;
+      --text-color: #111827;
+      --card-bg: #ffffff;
+      --sidebar-bg: #ffffff;
+      --border-color: rgba(15, 23, 42, 0.12);
+      --muted-text: #6b7280;
+      --input-bg: #ffffff;
+      --navbar-bg: rgba(255, 255, 255, 0.7);
+    }
+    :root[data-theme='dark'] {
+      --body-bg: #0f172a;
+      --text-color: #e2e8f0;
+      --card-bg: #1e293b;
+      --sidebar-bg: #1e293b;
+      --border-color: rgba(148, 163, 184, 0.2);
+      --muted-text: #94a3b8;
+      --input-bg: #0f172a;
+      --navbar-bg: rgba(17, 24, 39, 0.7);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root[data-theme='auto'] {
+        --body-bg: #0f172a;
+        --text-color: #e2e8f0;
+        --card-bg: #1e293b;
+        --sidebar-bg: #1e293b;
+        --border-color: rgba(148, 163, 184, 0.2);
+        --muted-text: #94a3b8;
+        --input-bg: #0f172a;
+        --navbar-bg: rgba(17, 24, 39, 0.7);
+      }
     }
     body {
       background: var(--body-bg);
       color: var(--text-color);
       font-family: 'Inter', sans-serif;
     }
+    .card, .modal-content, .section-box, .sidebar-box {
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      border-color: var(--border-color);
+    }
+    .form-control, .form-select {
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      border-color: var(--border-color);
+    }
+    .text-muted {
+      color: var(--muted-text) !important;
+    }
     .navbar-modern {
       backdrop-filter: blur(var(--blur));
-      background-color: rgba(255, 255, 255, 0.7) !important;
+      background-color: var(--navbar-bg) !important;
       border-bottom: 1px solid rgba(255,255,255,0.2);
       box-shadow: var(--shadow);
+    }
+    .navbar-modern .nav-link {
+      color: var(--text-color);
     }
     .navbar-modern .nav-link {
       font-weight: 500;
@@ -61,12 +114,21 @@
     }
 
     {% if effective_theme == 'dark' %}
+      :root {
+        --body-bg: #0f172a;
+        --text-color: #e2e8f0;
+        --card-bg: #1e293b;
+        --sidebar-bg: #1e293b;
+        --border-color: rgba(148, 163, 184, 0.2);
+        --muted-text: #94a3b8;
+        --input-bg: #0f172a;
+        --navbar-bg: rgba(17, 24, 39, 0.7);
+      }
       body {
         background-color: #0f172a;
         color: #e2e8f0;
       }
       .navbar-modern {
-        background-color: rgba(17, 24, 39, 0.7) !important;
         border-bottom: 1px solid rgba(255,255,255,0.05);
       }
       .navbar-modern .nav-link:hover {
@@ -80,12 +142,21 @@
       }
     {% elif effective_theme == 'auto' %}
       @media(prefers-color-scheme: dark){
+        :root {
+          --body-bg: #0f172a;
+          --text-color: #e2e8f0;
+          --card-bg: #1e293b;
+          --sidebar-bg: #1e293b;
+          --border-color: rgba(148, 163, 184, 0.2);
+          --muted-text: #94a3b8;
+          --input-bg: #0f172a;
+          --navbar-bg: rgba(17, 24, 39, 0.7);
+        }
         body {
           background-color: #0f172a;
           color: #e2e8f0;
         }
         .navbar-modern {
-          background-color: rgba(17, 24, 39, 0.7) !important;
           border-bottom: 1px solid rgba(255,255,255,0.05);
         }
         .card, .modal-content {
@@ -93,6 +164,11 @@
         }
       }
     {% endif %}
+    .site-footer {
+      background: var(--card-bg);
+      border-top: 1px solid var(--border-color);
+      padding: 14px 0;
+    }
     {{ settings.custom_css|safe }}
   </style>
 
@@ -100,7 +176,7 @@
 </head>
 
 
-<body class="arva-body">
+<body class="arva-body d-flex flex-column min-vh-100">
 <nav class="navbar navbar-expand-lg navbar-modern mb-3">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold" href="{% url 'project_list' %}">
@@ -148,9 +224,14 @@
   </div>
 </nav>
 
-<div class="container-fluid mb-5">
+<div class="container-fluid mb-5 flex-grow-1">
   {% block content %}{% endblock %}
 </div>
+<footer class="site-footer">
+  <div class="container-fluid">
+    <small class="text-muted">{{ settings.footer_text }}</small>
+  </div>
+</footer>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>

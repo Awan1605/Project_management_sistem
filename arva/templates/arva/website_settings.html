@@ -229,3 +229,45 @@
   </form>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+  (function() {
+    const root = document.documentElement;
+    const inputs = {
+      theme: document.querySelector('[name="theme_mode"]'),
+      primary: document.querySelector('[name="primary_color"]'),
+      text: document.querySelector('[name="text_color"]'),
+      navbar: document.querySelector('[name="navbar_bg"]'),
+      body: document.querySelector('[name="body_bg"]')
+    };
+
+    function setVar(name, value) {
+      if (!value) return;
+      root.style.setProperty(name, value);
+    }
+
+    function bindLive(input, cssVar) {
+      if (!input) return;
+      const handler = () => setVar(cssVar, input.value);
+      input.addEventListener('input', handler);
+      input.addEventListener('change', handler);
+      handler();
+    }
+
+    bindLive(inputs.primary, '--primary-color');
+    bindLive(inputs.text, '--text-color');
+    bindLive(inputs.navbar, '--navbar-bg');
+    bindLive(inputs.body, '--body-bg');
+
+    if (inputs.theme) {
+      const applyTheme = () => {
+        const value = inputs.theme.value || 'light';
+        root.setAttribute('data-theme', value);
+      };
+      inputs.theme.addEventListener('change', applyTheme);
+      applyTheme();
+    }
+  })();
+</script>
+{% endblock extra_js %}
