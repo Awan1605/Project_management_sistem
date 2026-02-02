@@ -438,7 +438,7 @@
                         {% endif %}
                       ">
                         <i class="bi bi-calendar-event me-1"></i>
-                        {{ task.due_date }}
+                        {{ task.due_date|date:"d M Y" }}
                       </span>
                       <span class="status-pill
                         {% if task.is_overdue %} status-overdue
@@ -544,7 +544,7 @@
                           {% endif %}
                         ">
                           <i class="bi bi-calendar-event me-1"></i>
-                          {{ task.due_date }}
+                        {{ task.due_date|date:"d M Y" }}
                         </span>
                         <span class="status-pill
                           {% if task.is_overdue %} status-overdue

@@ -5,7 +5,7 @@
      data-description="{{ project.description|default:''|lower }}"
      data-created="{{ project.created_at|date:'Y-m-d' }}"
      data-progress="{{ project.progress.percent }}">
-  <div class="card shadow-sm border-0 h-100 project-card position-relative" style="border-radius: 16px; transition: .25s;">
+  <div class="card shadow-sm h-100 project-card position-relative" style="border-radius: 16px; transition: .25s;">
 
     {% comment %} <button type="button" class="btn btn-outline-danger btn-sm btn-delete-project position-absolute" data-id="{{ project.id }}" title="Delete Project"
             style="top: 10px; right: 10px; border-radius: 10px; padding: 4px 8px;">

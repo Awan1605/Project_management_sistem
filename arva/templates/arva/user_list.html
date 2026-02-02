@@ -395,8 +395,8 @@
                     </span>
                   </td>
 
-                  <td>{{ u.last_login|date:"Y-m-d H:i" }}</td>
-                  <td>{{ u.date_joined|date:"Y-m-d" }}</td>
+                  <td>{{ u.last_login|date:"d M Y H:i" }}</td>
+                  <td>{{ u.date_joined|date:"d M Y" }}</td>
 
                   <td>
                     {% if u.useractivity.last_activity %}
@@ -478,8 +478,8 @@
                 </div>
 
                 <div class="user-card-meta">
-                  <div><strong>Last login:</strong> {{ u.last_login|date:"Y-m-d H:i" }}</div>
-                  <div><strong>Joined:</strong> {{ u.date_joined|date:"Y-m-d" }}</div>
+                  <div><strong>Last login:</strong> {{ u.last_login|date:"d M Y H:i" }}</div>
+                  <div><strong>Joined:</strong> {{ u.date_joined|date:"d M Y" }}</div>
                 </div>
 
                 <div class="user-action-group">
