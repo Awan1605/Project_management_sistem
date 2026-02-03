@@ -416,6 +416,46 @@ def subproject_edit(request, subproject_id):
     return JsonResponse({'success': True, 'name': subproject.name, 'description': subproject.description})
 
 @login_required
+@require_POST
+def subproject_move(request, subproject_id):
+    subproject = get_object_or_404(SubProject, id=subproject_id)
+    source_project = get_user_project_or_404(request.user, subproject.project.id)
+    if not require_role(request.user, source_project, [ProjectMember.ROLE_ADMIN]):
+        return HttpResponseForbidden("Forbidden")
+
+    target_project_id = request.POST.get('project_id')
+    if not target_project_id:
+        return JsonResponse({'success': False, 'error': 'Missing target project.'}, status=400)
+
+    target_project = get_user_project_or_404(request.user, target_project_id)
+    if not require_role(request.user, target_project, [ProjectMember.ROLE_ADMIN]):
+        return HttpResponseForbidden("Forbidden")
+
+    if str(source_project.id) == str(target_project.id):
+        return JsonResponse({'success': True})
+
+    subproject.project = target_project
+    subproject.save()
+
+    TaskList.objects.filter(sub_project=subproject).update(project=target_project)
+    Task.objects.filter(sub_project=subproject).update(project=target_project)
+
+    ActivityLog.objects.create(
+        user=request.user,
+        project=source_project,
+        action='project_updated',
+        description=f"Sub-project '{subproject.name}' moved to '{target_project.name}'",
+    )
+    ActivityLog.objects.create(
+        user=request.user,
+        project=target_project,
+        action='project_updated',
+        description=f"Sub-project '{subproject.name}' moved from '{source_project.name}'",
+    )
+
+    return JsonResponse({'success': True, 'target_project_id': target_project.id})
+
+@login_required
 def project_subprojects(request, pk):
     project = get_user_project_or_404(request.user, pk)
     subprojects = list(project.subprojects.order_by('created_at').values('id', 'name'))
@@ -625,10 +665,14 @@ def subproject_list(request, pk):
         return HttpResponseForbidden("Forbidden")
 
     subprojects = project.subprojects.all().order_by('created_at')
+    admin_projects = Project.objects.filter(
+        Q(owner=request.user) | Q(memberships__user=request.user, memberships__role=ProjectMember.ROLE_ADMIN)
+    ).distinct().order_by('name')
     return render(request, 'arva/subproject_list.html', {
         'project': project,
         'subprojects': subprojects,
         'user_role': role,
+        'admin_projects': admin_projects,
     })
 
 @login_required

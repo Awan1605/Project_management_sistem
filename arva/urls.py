@@ -36,6 +36,7 @@ urlpatterns = [
     path('project/<int:pk>/subproject/create/', views.subproject_create, name='subproject_create'),
     path('subproject/<int:subproject_id>/delete/', views.subproject_delete, name='subproject_delete'),
     path('subproject/<int:subproject_id>/edit/', views.subproject_edit, name='subproject_edit'),
+    path('subproject/<int:subproject_id>/move/', views.subproject_move, name='subproject_move'),
     path('project/<int:pk>/subprojects/', views.project_subprojects, name='project_subprojects'),
 
     # Tasks

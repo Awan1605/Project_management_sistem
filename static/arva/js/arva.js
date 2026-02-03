@@ -1321,6 +1321,38 @@ $(document).on("click", "#btn-save-member", function () {
     });
   });
 
+  $(document).on('click', '.btn-move-subproject', function() {
+    const subId = $(this).data('subproject-id');
+    const name = $(this).data('subproject-name');
+    $('#subproject-move-id').val(subId);
+    $('#subprojectMoveModal .modal-title').text(`Move Sub-project: ${name}`);
+    $('#subprojectMoveModal').modal('show');
+  });
+
+  $('#subproject-move-form').on('submit', function(e) {
+    e.preventDefault();
+    const subId = $('#subproject-move-id').val();
+    const projectId = $('#subproject-move-project').val();
+    if (!subId || !projectId) return;
+
+    $.post({
+      url: `/subproject/${subId}/move/`,
+      data: { project_id: projectId },
+      headers: { "X-CSRFToken": csrftoken },
+      success: function(resp) {
+        if (resp.success) {
+          $('#subprojectMoveModal').modal('hide');
+          location.reload();
+        } else {
+          showError(resp.error || 'Failed to move sub-project.');
+        }
+      },
+      error: function(xhr) {
+        showError(xhr.responseJSON?.error || 'Failed to move sub-project.');
+      }
+    });
+  });
+
 
   function reorderListsOnServer() {
     const projectId = $('#task-board').data('project-id');
