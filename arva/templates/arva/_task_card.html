@@ -48,6 +48,18 @@
     </div>
     {% endif %}
 
+    <div class="mt-2">
+      {% if task.sub_project %}
+        <span class="badge bg-info text-dark">
+          <i class="bi bi-diagram-3 me-1"></i>{{ task.sub_project.name }}
+        </span>
+      {% else %}
+        <span class="badge bg-light text-dark border">
+          <i class="bi bi-folder me-1"></i>Project
+        </span>
+      {% endif %}
+    </div>
+
     {% if task.labels.exists %}
     <div class="mt-2">
       {% for label in task.labels.all %}

@@ -84,6 +84,7 @@
             <label class="form-label small text-muted mb-1">Sub-project</label>
             <select id="subproject-select" class="form-select form-select-sm" data-project-id="{{ project.id }}">
               {% if subprojects %}
+                <option value="all" {% if task_scope == 'all' %}selected{% endif %}>All Tasks</option>
                 {% for sp in subprojects %}
                 <option value="{{ sp.id }}" {% if selected_subproject and sp.id == selected_subproject.id %}selected{% endif %}>
                   {{ sp.name }} ({{ sp.progress.done }}/{{ sp.progress.total }}, {{ sp.progress.percent }}%)

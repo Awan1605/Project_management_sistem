@@ -428,10 +428,13 @@ def project_detail(request, pk):
 
     subprojects = project.subprojects.all().order_by('created_at')
     selected_subproject = None
+    scope = request.GET.get('scope', '')
 
     if subprojects.exists():
         sub_id = request.GET.get('sub')
-        if sub_id:
+        if sub_id == 'all':
+            selected_subproject = None
+        elif sub_id:
             selected_subproject = get_project_subproject_or_404(project, sub_id)
         else:
             selected_subproject = subprojects.first()
@@ -447,17 +450,19 @@ def project_detail(request, pk):
     due = request.GET.get('due', '')
 
     base_tasks = Task.objects.filter(project=project, is_archived=False).select_related(
-        'task_list', 'project'
+        'task_list', 'project', 'sub_project'
     ).prefetch_related(
         'labels',
         Prefetch('assignees', queryset=User.objects.select_related('userprofile')),
         'checklist_items',
     )
 
-    if selected_subproject:
-        base_tasks = base_tasks.filter(sub_project=selected_subproject)
-    else:
-        base_tasks = base_tasks.filter(sub_project__isnull=True)
+    scope_all = (scope == 'all' or request.GET.get('sub') == 'all') and subprojects.exists()
+    if not scope_all:
+        if selected_subproject:
+            base_tasks = base_tasks.filter(sub_project=selected_subproject)
+        else:
+            base_tasks = base_tasks.filter(sub_project__isnull=True)
 
     if role != ProjectMember.ROLE_ADMIN:
         base_tasks = base_tasks.filter(assignees=request.user)
@@ -472,10 +477,10 @@ def project_detail(request, pk):
         base_tasks = base_tasks.filter(due_date__lte=due)
     base_tasks = base_tasks.distinct()
 
-    task_lists = list(project.lists.filter(
-        is_archived=False,
-        sub_project=selected_subproject if selected_subproject else None
-    ).order_by('position').prefetch_related(
+    list_qs = project.lists.filter(is_archived=False)
+    if not scope_all:
+        list_qs = list_qs.filter(sub_project=selected_subproject if selected_subproject else None)
+    task_lists = list(list_qs.order_by('sub_project_id', 'position').prefetch_related(
         Prefetch('tasks', queryset=base_tasks.order_by('order'), to_attr='filtered_tasks')
     ))
 
@@ -500,6 +505,7 @@ def project_detail(request, pk):
         'user_role': role,
         'subprojects': subprojects,
         'selected_subproject': selected_subproject,
+        'task_scope': 'all' if scope_all else 'sub',
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':

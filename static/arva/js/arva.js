@@ -123,7 +123,11 @@ $(function() {
     const projectId = $(this).data('project-id');
     const subId = $(this).val();
     if (!projectId || !subId) return;
-    window.location.href = `/project/${projectId}/?sub=${subId}`;
+    if (subId === 'all') {
+      window.location.href = `/project/${projectId}/?sub=all`;
+    } else {
+      window.location.href = `/project/${projectId}/?sub=${subId}`;
+    }
   });
 
   $(document).on('click', '#btn-open-subproject-modal', function() {
@@ -1277,8 +1281,11 @@ $(document).on("click", "#btn-save-member", function () {
   $('#task-filter-form input, #task-filter-form select').on('change keyup', function() {
     const projectId = $('#task-board').data('project-id');
     const subProjectId = $('#task-board').data('subproject-id');
+    const taskScope = $('#task-board').data('task-scope');
     let query = $('#task-filter-form').serialize();
-    if (subProjectId) {
+    if (taskScope === 'all') {
+      query += `&sub=all`;
+    } else if (subProjectId) {
       query += `&sub=${subProjectId}`;
     }
 

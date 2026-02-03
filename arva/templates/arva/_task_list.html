@@ -1,7 +1,12 @@
 <div class="board-list" data-list-id="{{ task_list.id }}">
   <div class="list-header d-flex justify-content-between align-items-center">
 
-    <span class="list-title">{{ task_list.name }}</span>
+    <span class="list-title">
+      {{ task_list.name }}
+      {% if task_scope == 'all' and task_list.sub_project %}
+        <span class="badge bg-light text-dark border ms-1">{{ task_list.sub_project.name }}</span>
+      {% endif %}
+    </span>
     {% if user_role == 'admin' %}
       <div class="d-flex">
         <button class="list-action-btn btn-list-archive" title="Archive list">

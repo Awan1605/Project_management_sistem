@@ -113,6 +113,16 @@ class Project(models.Model):
             percent = int((done / total) * 100)
         return {"total": total, "done": done, "percent": percent}
 
+    @property
+    def subproject_progress(self):
+        subs = list(self.subprojects.all())
+        total = len(subs)
+        if total == 0:
+            return {"total": 0, "done": 0, "percent": 0}
+        done = sum(1 for sp in subs if sp.progress["percent"] == 100)
+        percent = int((done / total) * 100)
+        return {"total": total, "done": done, "percent": percent}
+
 class SubProject(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='subprojects')
     name = models.CharField(max_length=255)

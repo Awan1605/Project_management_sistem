@@ -1,4 +1,4 @@
-<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}">
+<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}">
   <div id="board-lists" class="d-flex flex-row flex-nowrap board-wrapper">
     {% for task_list in task_lists %}
       {% include "arva/_task_list.html" with task_list=task_list project=project user_role=user_role %}

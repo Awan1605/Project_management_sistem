@@ -372,16 +372,13 @@
                         {{ project.progress.percent }}% complete
                       </div>
                       {% with subprojects=project.subprojects.all %}
-                        {% if subprojects %}
                         <div class="small text-muted">
-                          {% for sp in subprojects|slice:":2" %}
-                            <div>{{ sp.name }} — {{ sp.progress.done }}/{{ sp.progress.total }} ({{ sp.progress.percent }}%)</div>
-                          {% endfor %}
-                          {% if subprojects|length > 2 %}
-                            <div>+{{ subprojects|length|add:"-2" }} more sub-projects</div>
+                          {% if subprojects %}
+                            {{ project.subprojects.count }} sub-projects
+                          {% else %}
+                            No sub-projects yet
                           {% endif %}
                         </div>
-                        {% endif %}
                       {% endwith %}
                     </div>
                   </td>
@@ -400,9 +397,14 @@
                     {% endif %}
                   </td>
                   <td class="text-end">
-                    <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-primary btn-sm table-action">
-                      <i class="bi bi-box-arrow-in-right"></i> Open
-                    </a>
+                    <div class="d-inline-flex gap-2">
+                      <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-primary btn-sm table-action">
+                        <i class="bi bi-box-arrow-in-right"></i> Open
+                      </a>
+                      <a href="{% url 'subproject_list' project.id %}" class="btn btn-outline-secondary btn-sm table-action" title="Sub-projects">
+                        <i class="bi bi-diagram-3"></i>
+                      </a>
+                    </div>
                   </td>
                 </tr>
                 {% empty %}
