@@ -181,6 +181,13 @@
 </div>
 
 <div id="task-board-wrapper" class="px-1">
+  {% if selected_subproject %}
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <span class="badge bg-info text-dark">
+      <i class="bi bi-diagram-3 me-1"></i>{{ selected_subproject.name }}
+    </span>
+  </div>
+  {% endif %}
   {% include "arva/_task_board.html" with project=project task_lists=task_lists task_form=task_form user_role=user_role %}
 </div>
 

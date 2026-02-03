@@ -477,12 +477,29 @@ def project_detail(request, pk):
         base_tasks = base_tasks.filter(due_date__lte=due)
     base_tasks = base_tasks.distinct()
 
-    list_qs = project.lists.filter(is_archived=False)
-    if not scope_all:
+    if scope_all:
+        grouped_task_lists = []
+        subproject_items = list(subprojects)
+        if project.lists.filter(sub_project__isnull=True, is_archived=False).exists():
+            subproject_items = [None] + subproject_items
+
+        for sp in subproject_items:
+            list_qs = project.lists.filter(is_archived=False, sub_project=sp)
+            lists = list(list_qs.order_by('position').prefetch_related(
+                Prefetch('tasks', queryset=base_tasks.order_by('order'), to_attr='filtered_tasks')
+            ))
+            grouped_task_lists.append({
+                'subproject': sp,
+                'task_lists': lists,
+            })
+        task_lists = []
+    else:
+        list_qs = project.lists.filter(is_archived=False)
         list_qs = list_qs.filter(sub_project=selected_subproject if selected_subproject else None)
-    task_lists = list(list_qs.order_by('sub_project_id', 'position').prefetch_related(
-        Prefetch('tasks', queryset=base_tasks.order_by('order'), to_attr='filtered_tasks')
-    ))
+        task_lists = list(list_qs.order_by('position').prefetch_related(
+            Prefetch('tasks', queryset=base_tasks.order_by('order'), to_attr='filtered_tasks')
+        ))
+        grouped_task_lists = []
 
     task_form = TaskForm()
     comment_form = CommentForm()
@@ -506,6 +523,7 @@ def project_detail(request, pk):
         'subprojects': subprojects,
         'selected_subproject': selected_subproject,
         'task_scope': 'all' if scope_all else 'sub',
+        'grouped_task_lists': grouped_task_lists,
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -1116,7 +1134,7 @@ def task_move(request, task_id):
 
     new_list = get_object_or_404(TaskList, id=new_list_id, project=task.project)
     if new_list.sub_project != task.sub_project:
-        return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
+        task.sub_project = new_list.sub_project
     task.task_list = new_list
     task.save()
 
