@@ -50,7 +50,23 @@ function showPrompt(message, title = 'Input') {
   }).then((result) => (result.isConfirmed ? result.value : null));
 }
 
+function stripBomText(node) {
+  if (!node) return;
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  const toClean = [];
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode;
+    if (textNode.nodeValue && textNode.nodeValue.includes('\uFEFF')) {
+      toClean.push(textNode);
+    }
+  }
+  toClean.forEach((textNode) => {
+    textNode.nodeValue = textNode.nodeValue.replace(/\uFEFF/g, '');
+  });
+}
+
 $(function() {
+  stripBomText(document.body);
 
   $(document).on('click', '.theme-select', function() {
     const theme = $(this).data('theme');
@@ -1304,6 +1320,7 @@ $(document).on("click", "#btn-save-member", function () {
       }
     });
   });
+
 
   function reorderListsOnServer() {
     const projectId = $('#task-board').data('project-id');

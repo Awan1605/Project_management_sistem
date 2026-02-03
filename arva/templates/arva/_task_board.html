@@ -1,10 +1,66 @@
 ﻿<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}">
   {% if task_scope == 'all' %}
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+      <div>
+        <div class="text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 0.12em;">
+          All Tasks
+        </div>
+        <h5 class="fw-semibold mb-1 d-flex align-items-center">
+          <i class="bi bi-collection text-primary me-2"></i>
+          {{ project.name }}
+        </h5>
+        <div class="text-muted small">
+          {{ project.subprojects.count }} sub-projects
+        </div>
+      </div>
+      <div class="text-md-end">
+        <div class="text-muted small">Progress</div>
+        <div class="fw-semibold">
+          {{ project.progress.done }} / {{ project.progress.total }} tasks ({{ project.progress.percent }}%)
+        </div>
+        <div class="progress mt-2" style="height: 6px; border-radius: 10px; min-width: 160px;">
+          <div class="progress-bar bg-success" role="progressbar" style="width: {{ project.progress.percent }}%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if selected_subproject %}
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+      <div>
+        <div class="text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 0.12em;">
+          Sub-project
+        </div>
+        <h5 class="fw-semibold mb-1 d-flex align-items-center">
+          <i class="bi bi-diagram-3 text-primary me-2"></i>
+          {{ selected_subproject.name }}
+        </h5>
+        <div class="text-muted small">
+          {{ selected_subproject.description|default:"There is no description." }}
+        </div>
+      </div>
+      <div class="text-md-end">
+        <div class="text-muted small">Progress</div>
+        <div class="fw-semibold">
+          {{ selected_subproject.progress.done }} / {{ selected_subproject.progress.total }} tasks ({{ selected_subproject.progress.percent }}%)
+        </div>
+        <div class="progress mt-2" style="height: 6px; border-radius: 10px; min-width: 160px;">
+          <div class="progress-bar bg-info" role="progressbar" style="width: {{ selected_subproject.progress.percent }}%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if task_scope == 'all' %}
     {% for group in grouped_task_lists %}
       <div class="mb-3">
         <div class="d-flex align-items-center gap-2 mb-2">
           {% if group.subproject %}
-            <span class="badge bg-info text-dark"><i class="bi bi-diagram-3 me-1"></i>{{ group.subproject.name }}</span>
+            <span class="px-2 py-1 rounded border bg-white text-primary fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.04em;">
+              <i class="bi bi-diagram-3 me-1"></i>{{ group.subproject.name }}
+            </span>
           {% else %}
             <span class="badge bg-light text-dark border"><i class="bi bi-folder me-1"></i>Project</span>
           {% endif %}
