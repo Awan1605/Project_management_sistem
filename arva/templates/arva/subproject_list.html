@@ -1,5 +1,5 @@
 {% extends "arva/base.html" %}
-{% block title %}Projects{% endblock %}
+{% block title %}Sub-projects{% endblock %}
 
 {% block extra_css %}
   <style>
@@ -178,53 +178,20 @@
       font-size: 0.72rem;
     }
 
-    .card-density-compact .project-card .card-body {
+    .card-density-compact .subproject-card .card-body {
       padding: 0.8rem !important;
     }
 
-    .project-card {
+    .subproject-card {
       border: 1px solid rgba(15, 23, 42, 0.12);
       box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       background: #fff;
     }
 
-    .project-card:hover {
+    .subproject-card:hover {
       transform: translateY(-2px);
       box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
-    }
-
-    .online-users {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .online-user {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      background: rgba(15, 23, 42, 0.04);
-      border-radius: 12px;
-      padding: 0.45rem 0.7rem;
-    }
-
-    .online-strip {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.25rem 0.6rem;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.04);
-    }
-
-    .online-avatar {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #fff;
-      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
     }
   </style>
 {% endblock %}
@@ -234,56 +201,44 @@
   <div class="page-hero mb-4">
     <div>
       <div class="hero-badge mb-2">
-        <i class="bi bi-kanban"></i>
-        Workspace Overview
+        <i class="bi bi-diagram-3"></i>
+        Project {{ project.name }}
       </div>
       <h3 class="hero-title">
-        <i class="bi bi-kanban me-2 text-primary"></i> Boards / Projects
+        <i class="bi bi-diagram-3 me-2 text-primary"></i> Sub-projects
       </h3>
-      <p class="hero-subtitle">Track active projects, progress, and team presence.</p>
+      <p class="hero-subtitle">Browse sub-project progress and activity for this project.</p>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      {% if online_users %}
-        <div class="online-strip">
-          <span class="text-muted small">Online</span>
-          <div class="d-flex align-items-center gap-1">
-            {% for u in online_users %}
-              <img src="{{ u.userprofile.avatar_url }}" class="online-avatar" title="{{ u.username }}" alt="{{ u.username }}">
-            {% endfor %}
-          </div>
-        </div>
-      {% else %}
-        <span class="text-muted small">No users online</span>
-      {% endif %}
-      <button class="btn btn-primary btn-sm cta-btn" data-bs-toggle="modal" data-bs-target="#projectModal">
-        <i class="bi bi-plus-circle me-1"></i> New Project
-      </button>
+      <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-primary btn-sm cta-btn">
+        <i class="bi bi-arrow-left me-1"></i> Back to Project
+      </a>
     </div>
   </div>
 
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div class="text-muted">Switch between task and table views.</div>
+    <div class="text-muted">Switch between card and table views.</div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <ul class="nav nav-pills view-toggle" id="projectViewTabs" role="tablist">
+      <ul class="nav nav-pills view-toggle" id="subprojectViewTabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="project-card-tab" data-bs-toggle="pill" data-bs-target="#project-card-view" type="button" role="tab" aria-controls="project-card-view" aria-selected="true">
+          <button class="nav-link active" id="subproject-card-tab" data-bs-toggle="pill" data-bs-target="#subproject-card-view" type="button" role="tab" aria-controls="subproject-card-view" aria-selected="true">
             <i class="bi bi-grid-3x3-gap me-1"></i> Card View
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="project-table-tab" data-bs-toggle="pill" data-bs-target="#project-table-view" type="button" role="tab" aria-controls="project-table-view" aria-selected="false">
+          <button class="nav-link" id="subproject-table-tab" data-bs-toggle="pill" data-bs-target="#subproject-table-view" type="button" role="tab" aria-controls="subproject-table-view" aria-selected="false">
             <i class="bi bi-table me-1"></i> Table View
           </button>
         </li>
       </ul>
-      <ul class="nav nav-pills density-toggle" id="projectDensityTabs" role="tablist">
+      <ul class="nav nav-pills density-toggle" id="subprojectDensityTabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="project-density-comfortable" type="button">
+          <button class="nav-link active" id="subproject-density-comfortable" type="button">
             <i class="bi bi-arrows-expand"></i> Comfortable
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="project-density-compact" type="button">
+          <button class="nav-link" id="subproject-density-compact" type="button">
             <i class="bi bi-arrows-collapse"></i> Compact
           </button>
         </li>
@@ -298,44 +253,95 @@
           <span class="input-group-text bg-white border-end-0">
             <i class="bi bi-search text-muted"></i>
           </span>
-          <input id="project-search" type="text" class="form-control border-start-0" placeholder="Search by project or owner">
+          <input id="subproject-search" type="text" class="form-control border-start-0" placeholder="Search sub-projects">
         </div>
-        <div class="text-muted small filter-count" id="project-count"></div>
+        <div class="text-muted small filter-count" id="subproject-count"></div>
       </div>
 
-      <div class="tab-content" id="projectViewContent">
-        <div class="tab-pane fade show active card-density-comfortable" id="project-card-view" role="tabpanel" aria-labelledby="project-card-tab" tabindex="0">
-          <div id="project-list" class="row g-4">
-            {% for project in projects %}
-            {% include "arva/_project_item.html" with project=project %}
+      <div class="tab-content" id="subprojectViewContent">
+        <div class="tab-pane fade show active card-density-comfortable" id="subproject-card-view" role="tabpanel" aria-labelledby="subproject-card-tab" tabindex="0">
+          <div id="subproject-list" class="row g-4">
+            {% for sp in subprojects %}
+            <div class="col-md-4 col-sm-6 subproject-card-item"
+                 data-name="{{ sp.name|lower }}"
+                 data-description="{{ sp.description|default:''|lower }}"
+                 data-created="{{ sp.created_at|date:'Y-m-d' }}"
+                 data-progress="{{ sp.progress.percent }}">
+              <div class="card shadow-sm h-100 subproject-card position-relative" style="border-radius: 16px; transition: .25s;">
+                <div class="card-body d-flex flex-column">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <div class="text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 0.12em;">
+                        Sub-project
+                      </div>
+                      <h5 class="card-title fw-semibold d-flex align-items-center mb-1">
+                        <i class="bi bi-diagram-3 text-primary me-2"></i>
+                        {{ sp.name }}
+                      </h5>
+                    </div>
+                    <span class="badge bg-light text-dark border">{{ sp.progress.percent }}%</span>
+                  </div>
+
+                  <p class="text-muted flex-grow-1 mb-3" style="overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: .9rem;">
+                    {{ sp.description|default:"There is no description." }}
+                  </p>
+
+                  <div class="mb-3">
+                    {% if sp.progress.total > 0 %}
+                      <div class="progress" style="height: 6px; border-radius: 10px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ sp.progress.percent }}%;"></div>
+                      </div>
+                      <small class="text-muted fw-semibold">
+                        {{ sp.progress.done }} / {{ sp.progress.total }} task ({{ sp.progress.percent }}%)
+                      </small>
+                    {% else %}
+                      <small class="text-muted">No tasks yet</small>
+                    {% endif %}
+                  </div>
+
+                  <div class="d-flex flex-wrap gap-3 text-muted" style="font-size: .85rem;">
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-calendar-event me-1"></i>
+                      {{ sp.created_at|date:"d M Y" }}
+                    </div>
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-list-task me-1"></i>
+                      {{ sp.progress.total }} tasks
+                    </div>
+                  </div>
+
+                  <div class="d-flex justify-content-between align-items-center mt-auto pt-3">
+                    <a href="{% url 'project_detail' project.id %}?sub={{ sp.id }}" class="btn btn-outline-primary btn-sm" style="border-radius: 10px; padding: 6px 12px;" title="Open Sub-project">
+                      <i class="bi bi-box-arrow-in-right"></i> Open
+                    </a>
+                    <span class="text-muted" style="font-size: 0.78rem;">Status: {{ sp.progress.percent }}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             {% empty %}
             <div class="col-12">
               <div class="p-5 text-center text-muted" style="border: 2px dashed #cbd5e1; border-radius: 14px;">
-                <i class="bi bi-folder-x fs-1 d-block mb-3"></i>
-                <h5 class="fw-semibold">There are no projects yet</h5>
-                <p class="mb-3">Create a new project to start task management.</p>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
-                  <i class="bi bi-plus-circle me-1"></i> Create Project
-                </button>
+                <i class="bi bi-diagram-3 fs-1 d-block mb-3"></i>
+                <h5 class="fw-semibold">There are no sub-projects yet</h5>
+                <p class="mb-3">Create a new sub-project to start organizing tasks.</p>
+                <a href="{% url 'project_detail' project.id %}" class="btn btn-primary">
+                  <i class="bi bi-plus-circle me-1"></i> Create Sub-project
+                </a>
               </div>
             </div>
             {% endfor %}
           </div>
         </div>
 
-        <div class="tab-pane fade table-density-comfortable" id="project-table-view" role="tabpanel" aria-labelledby="project-table-tab" tabindex="0">
+        <div class="tab-pane fade table-density-comfortable" id="subproject-table-view" role="tabpanel" aria-labelledby="subproject-table-tab" tabindex="0">
           <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0 table-modern" id="project-table">
+            <table class="table table-sm table-hover align-middle mb-0 table-modern" id="subproject-table">
               <thead>
                 <tr>
                   <th>
                     <button class="sort-btn" data-sort-key="summary" type="button">
-                      Project <i class="bi bi-arrow-down-up"></i>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="sort-btn" data-sort-key="owner" type="button">
-                      Owner <i class="bi bi-arrow-down-up"></i>
+                      Sub-project <i class="bi bi-arrow-down-up"></i>
                     </button>
                   </th>
                   <th>
@@ -352,64 +358,50 @@
                 </tr>
               </thead>
               <tbody>
-                {% for project in projects %}
+                {% for sp in subprojects %}
                 <tr
-                  data-name="{{ project.name|lower }}"
-                  data-owner="{{ project.owner.username|default:project.owner|lower }}"
-                  data-description="{{ project.description|default:''|lower }}"
-                  data-created="{{ project.created_at|date:'Y-m-d' }}"
-                  data-progress="{{ project.progress.percent }}"
+                  data-name="{{ sp.name|lower }}"
+                  data-description="{{ sp.description|default:''|lower }}"
+                  data-created="{{ sp.created_at|date:'Y-m-d' }}"
+                  data-progress="{{ sp.progress.percent }}"
                 >
                   <td>
                     <div class="summary-stack">
                       <div class="project-name">
-                        {{ project.name }}
+                        {{ sp.name }}
                       </div>
                       <div class="project-list-name">
-                        {{ project.description|default:"There is no description." }}
+                        {{ sp.description|default:"There is no description." }}
                       </div>
                       <div class="summary-title">
-                        {{ project.progress.percent }}% complete
+                        {{ sp.progress.percent }}% complete
                       </div>
-                      {% with subprojects=project.subprojects.all %}
-                        {% if subprojects %}
-                        <div class="small text-muted">
-                          {% for sp in subprojects|slice:":2" %}
-                            <div>{{ sp.name }} — {{ sp.progress.done }}/{{ sp.progress.total }} ({{ sp.progress.percent }}%)</div>
-                          {% endfor %}
-                          {% if subprojects|length > 2 %}
-                            <div>+{{ subprojects|length|add:"-2" }} more sub-projects</div>
-                          {% endif %}
-                        </div>
-                        {% endif %}
-                      {% endwith %}
                     </div>
                   </td>
-                  <td>{{ project.owner }}</td>
-                  <td>{{ project.created_at|date:"d M Y" }}</td>
+                  <td>{{ sp.created_at|date:"d M Y" }}</td>
                   <td>
-                    {% if project.progress.total > 0 %}
+                    {% if sp.progress.total > 0 %}
                       <div class="progress" style="height: 6px; border-radius: 10px;">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ project.progress.percent }}%;"></div>
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ sp.progress.percent }}%;"></div>
                       </div>
                       <small class="text-muted fw-semibold">
-                        {{ project.progress.done }} / {{ project.progress.total }} task ({{ project.progress.percent }}%)
+                        {{ sp.progress.done }} / {{ sp.progress.total }} task ({{ sp.progress.percent }}%)
                       </small>
                     {% else %}
                       <small class="text-muted">No tasks yet</small>
                     {% endif %}
                   </td>
                   <td class="text-end">
-                    <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-primary btn-sm table-action">
+                    <a href="{% url 'project_detail' project.id %}?sub={{ sp.id }}" class="btn btn-outline-primary btn-sm table-action">
                       <i class="bi bi-box-arrow-in-right"></i> Open
                     </a>
                   </td>
                 </tr>
                 {% empty %}
                 <tr>
-                  <td colspan="5" class="text-center py-4 text-muted">
-                    <i class="bi bi-folder-x fs-4 d-block mb-2"></i>
-                    There are no projects yet.
+                  <td colspan="4" class="text-center py-4 text-muted">
+                    <i class="bi bi-diagram-3 fs-4 d-block mb-2"></i>
+                    There are no sub-projects yet.
                   </td>
                 </tr>
                 {% endfor %}
@@ -421,48 +413,19 @@
     </div>
   </div>
 </div>
-
-<div class="modal fade" id="projectModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <form id="project-create-form" class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
-      <div class="modal-header border-0">
-        <h5 class="modal-title fw-semibold">
-          <i class="bi bi-folder-plus me-2 text-primary"></i> New Project
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-
-      <div class="modal-body">
-        {% csrf_token %}
-        <div class="p-2">
-          {{ project_form.as_p }}
-        </div>
-      </div>
-
-      <div class="modal-footer border-0">
-        <button type="button" class="btn btn-secondary px-3" style="border-radius: 10px;" data-bs-dismiss="modal">Close</button>
-
-        <button type="submit" class="btn btn-primary px-3" style="border-radius: 10px;">
-          Save
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
 {% endblock %}
 
 {% block extra_js %}
   <script>
     (function() {
-      const viewStorageKey = 'arva_project_view';
-      const densityStorageKey = 'arva_project_density';
+      const viewStorageKey = 'arva_subproject_view';
+      const densityStorageKey = 'arva_subproject_density';
 
-      const viewTabs = document.querySelectorAll('#projectViewTabs [data-bs-toggle="pill"]');
+      const viewTabs = document.querySelectorAll('#subprojectViewTabs [data-bs-toggle="pill"]');
       const storedView = localStorage.getItem(viewStorageKey);
 
       if (storedView) {
-        const target = document.querySelector(`#projectViewTabs [data-bs-target="${storedView}"]`);
+        const target = document.querySelector(`#subprojectViewTabs [data-bs-target="${storedView}"]`);
         if (target) {
           bootstrap.Tab.getOrCreateInstance(target).show();
         }
@@ -477,10 +440,10 @@
         });
       });
 
-      const densityComfortable = document.getElementById('project-density-comfortable');
-      const densityCompact = document.getElementById('project-density-compact');
-      const tablePane = document.getElementById('project-table-view');
-      const cardPane = document.getElementById('project-card-view');
+      const densityComfortable = document.getElementById('subproject-density-comfortable');
+      const densityCompact = document.getElementById('subproject-density-compact');
+      const tablePane = document.getElementById('subproject-table-view');
+      const cardPane = document.getElementById('subproject-card-view');
 
       function setDensity(mode) {
         if (!tablePane || !cardPane) return;
@@ -497,14 +460,14 @@
       densityComfortable?.addEventListener('click', () => setDensity('comfortable'));
       densityCompact?.addEventListener('click', () => setDensity('compact'));
 
-      const searchInput = document.getElementById('project-search');
-      const countLabel = document.getElementById('project-count');
-      const cardItems = Array.from(document.querySelectorAll('.project-card-item'));
-      const tableRows = Array.from(document.querySelectorAll('#project-table tbody tr'));
-      const tableBody = document.querySelector('#project-table tbody');
+      const searchInput = document.getElementById('subproject-search');
+      const countLabel = document.getElementById('subproject-count');
+      const cardItems = Array.from(document.querySelectorAll('.subproject-card-item'));
+      const tableRows = Array.from(document.querySelectorAll('#subproject-table tbody tr'));
+      const tableBody = document.querySelector('#subproject-table tbody');
 
       function matchesFilters(el, query) {
-        const text = `${el.dataset.name || ''} ${el.dataset.owner || ''} ${el.dataset.description || ''}`;
+        const text = `${el.dataset.name || ''} ${el.dataset.description || ''}`;
         return !query || text.includes(query);
       }
 
@@ -524,7 +487,7 @@
         });
 
         if (countLabel) {
-          countLabel.textContent = `${visibleCount} project${visibleCount === 1 ? '' : 's'} shown`;
+          countLabel.textContent = `${visibleCount} sub-project${visibleCount === 1 ? '' : 's'} shown`;
         }
       }
 
@@ -537,9 +500,6 @@
           if (key === 'summary') {
             aVal = `${a.dataset.name || ''} ${a.dataset.description || ''}`;
             bVal = `${b.dataset.name || ''} ${b.dataset.description || ''}`;
-          } else if (key === 'owner') {
-            aVal = a.dataset.owner || '';
-            bVal = b.dataset.owner || '';
           } else if (key === 'created') {
             aVal = a.dataset.created || '';
             bVal = b.dataset.created || '';

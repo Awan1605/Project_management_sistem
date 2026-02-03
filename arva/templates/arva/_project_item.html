@@ -43,6 +43,20 @@
         {% endif %}
       </div>
 
+      {% with subprojects=project.subprojects.all %}
+        {% if subprojects %}
+        <div class="mb-3">
+          <div class="text-muted small fw-semibold">Sub-projects</div>
+          {% for sp in subprojects|slice:":3" %}
+            <div class="small text-muted">{{ sp.name }} — {{ sp.progress.done }}/{{ sp.progress.total }} ({{ sp.progress.percent }}%)</div>
+          {% endfor %}
+          {% if subprojects|length > 3 %}
+            <div class="small text-muted">+{{ subprojects|length|add:"-3" }} more</div>
+          {% endif %}
+        </div>
+        {% endif %}
+      {% endwith %}
+
       <div class="d-flex flex-wrap gap-3 text-muted" style="font-size: .85rem;">
         <div class="d-flex align-items-center">
           <i class="bi bi-calendar-event me-1"></i>

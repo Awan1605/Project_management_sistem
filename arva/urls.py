@@ -17,6 +17,7 @@ urlpatterns = [
     path('project/<int:pk>/delete/', views.project_delete, name='project_delete'),
     path('project/<int:pk>/activity/', views.project_activity, name='project_activity'),
     path('project/<int:pk>/archive/', views.project_archive, name='project_archive'),
+    path('project/<int:pk>/subprojects/list/', views.subproject_list, name='subproject_list'),
     path('project/<int:pk>/lists/', views.project_lists, name='project_lists'),
 
     # Project members

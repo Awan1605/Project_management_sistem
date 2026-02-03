@@ -66,6 +66,18 @@
           </small>
         </div>
 
+        {% if selected_subproject %}
+        <div class="mt-2">
+          <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-info" role="progressbar" style="width: {{ selected_subproject.progress.percent }}%;">
+            </div>
+          </div>
+          <small class="text-muted">
+            Sub-project {{ selected_subproject.progress.done }} / {{ selected_subproject.progress.total }} task ({{ selected_subproject.progress.percent }}%)
+          </small>
+        </div>
+        {% endif %}
+
         {% if subprojects or user_role == 'admin' %}
         <div class="mt-3 d-flex flex-wrap align-items-end gap-2">
           <div class="flex-grow-1" style="min-width: 220px;">
@@ -74,7 +86,7 @@
               {% if subprojects %}
                 {% for sp in subprojects %}
                 <option value="{{ sp.id }}" {% if selected_subproject and sp.id == selected_subproject.id %}selected{% endif %}>
-                  {{ sp.name }}
+                  {{ sp.name }} ({{ sp.progress.done }}/{{ sp.progress.total }}, {{ sp.progress.percent }}%)
                 </option>
                 {% endfor %}
               {% else %}
@@ -108,6 +120,10 @@
         <div class="mt-3 small">
           <a href="{% url 'project_activity' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
             <i class="bi bi-activity me-1"></i>Activity Log
+          </a>
+
+          <a href="{% url 'subproject_list' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
+            <i class="bi bi-diagram-3 me-1"></i>Sub-projects
           </a>
 
           <a href="{% url 'project_archive' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">

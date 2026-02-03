@@ -273,7 +273,7 @@ def project_member_remove(request, pm_id):
 def project_list(request):
     projects = Project.objects.filter(
         Q(owner=request.user) | Q(memberships__user=request.user)
-    ).annotate(last_task_activity=Max('tasks__updated_at')).distinct().order_by('-created_at')
+    ).annotate(last_task_activity=Max('tasks__updated_at')).prefetch_related('subprojects').distinct().order_by('-created_at')
     online_cutoff = now() - timedelta(minutes=1)
     online_users = User.objects.filter(useractivity__last_activity__gte=online_cutoff).order_by('username')
 
@@ -591,6 +591,20 @@ def project_activity(request, pk):
             'date_to': date_to,
         },
         'querystring': querystring.urlencode(),
+    })
+
+@login_required
+def subproject_list(request, pk):
+    project = get_user_project_or_404(request.user, pk)
+    role = get_role(request.user, project)
+    if role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER, ProjectMember.ROLE_VIEWER]:
+        return HttpResponseForbidden("Forbidden")
+
+    subprojects = project.subprojects.all().order_by('created_at')
+    return render(request, 'arva/subproject_list.html', {
+        'project': project,
+        'subprojects': subprojects,
+        'user_role': role,
     })
 
 @login_required

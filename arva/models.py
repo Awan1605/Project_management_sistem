@@ -125,6 +125,16 @@ class SubProject(models.Model):
     def __str__(self):
         return f"{self.project.name} - {self.name}"
 
+    @property
+    def progress(self):
+        total = self.tasks.filter(is_archived=False).count()
+        done = self.tasks.filter(is_archived=False, task_list__name__iexact="Done").count()
+        if total == 0:
+            percent = 0
+        else:
+            percent = int((done / total) * 100)
+        return {"total": total, "done": done, "percent": percent}
+
 class ProjectMember(models.Model):
     ROLE_ADMIN = 'admin'
     ROLE_MEMBER = 'member'
