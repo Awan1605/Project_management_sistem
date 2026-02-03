@@ -1321,12 +1321,84 @@ $(document).on("click", "#btn-save-member", function () {
     });
   });
 
+  $(document).on('click', '.btn-convert-subproject', function() {
+    const projectId = $(this).data('project-id');
+    const name = $(this).data('project-name');
+    $('#project-convert-id').val(projectId);
+    $('#projectConvertModal .modal-title').text(`Convert Project: ${name}`);
+    const $select = $('#project-convert-target');
+    $select.find('option').prop('disabled', false).show();
+    $select.find(`option[value='${projectId}']`).prop('disabled', true).hide();
+    if ($select.find('option:not([disabled])').length) {
+      $select.val($select.find('option:not([disabled])').first().val());
+    }
+    $('#projectConvertModal').modal('show');
+  });
+
+  $('#project-convert-form').on('submit', function(e) {
+    e.preventDefault();
+    const projectId = $('#project-convert-id').val();
+    const targetId = $('#project-convert-target').val();
+    if (!projectId || !targetId) return;
+
+    $.post({
+      url: `/project/${projectId}/convert-subproject/`,
+      data: { target_project_id: targetId },
+      headers: { "X-CSRFToken": csrftoken },
+      success: function(resp) {
+        if (resp.success) {
+          $('#projectConvertModal').modal('hide');
+          location.reload();
+        } else {
+          showError(resp.error || 'Failed to convert project.');
+        }
+      },
+      error: function(xhr) {
+        showError(xhr.responseJSON?.error || 'Failed to convert project.');
+      }
+    });
+  });
+
   $(document).on('click', '.btn-move-subproject', function() {
     const subId = $(this).data('subproject-id');
     const name = $(this).data('subproject-name');
     $('#subproject-move-id').val(subId);
     $('#subprojectMoveModal .modal-title').text(`Move Sub-project: ${name}`);
     $('#subprojectMoveModal').modal('show');
+  });
+
+  $(document).on('click', '.btn-convert-subproject-project', function() {
+    const subId = $(this).data('subproject-id');
+    const name = $(this).data('subproject-name');
+    $('#subproject-convert-id').val(subId);
+    $('#subprojectConvertModal .modal-title').text(`Convert Sub-project: ${name}`);
+    $('#subprojectConvertModal').modal('show');
+  });
+
+  $('#subproject-convert-form').on('submit', function(e) {
+    e.preventDefault();
+    const subId = $('#subproject-convert-id').val();
+    if (!subId) return;
+
+    $.post({
+      url: `/subproject/${subId}/convert-project/`,
+      headers: { "X-CSRFToken": csrftoken },
+      success: function(resp) {
+        if (resp.success) {
+          $('#subprojectConvertModal').modal('hide');
+          if (resp.project_id) {
+            window.location.href = `/project/${resp.project_id}/`;
+          } else {
+            location.reload();
+          }
+        } else {
+          showError(resp.error || 'Failed to convert sub-project.');
+        }
+      },
+      error: function(xhr) {
+        showError(xhr.responseJSON?.error || 'Failed to convert sub-project.');
+      }
+    });
   });
 
   $('#subproject-move-form').on('submit', function(e) {

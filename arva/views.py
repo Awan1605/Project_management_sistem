@@ -274,6 +274,9 @@ def project_list(request):
     projects = Project.objects.filter(
         Q(owner=request.user) | Q(memberships__user=request.user)
     ).annotate(last_task_activity=Max('tasks__updated_at')).prefetch_related('subprojects').distinct().order_by('-created_at')
+    admin_projects = Project.objects.filter(
+        Q(owner=request.user) | Q(memberships__user=request.user, memberships__role=ProjectMember.ROLE_ADMIN)
+    ).distinct().order_by('name')
     online_cutoff = now() - timedelta(minutes=1)
     online_users = User.objects.filter(useractivity__last_activity__gte=online_cutoff).order_by('username')
 
@@ -282,6 +285,7 @@ def project_list(request):
         'projects': projects, 
         'project_form': form,
         'online_users': online_users,
+        'admin_projects': admin_projects,
     })
 
 @login_required
@@ -454,6 +458,54 @@ def subproject_move(request, subproject_id):
     )
 
     return JsonResponse({'success': True, 'target_project_id': target_project.id})
+
+@login_required
+@require_POST
+def subproject_convert_to_project(request, subproject_id):
+    subproject = get_object_or_404(SubProject, id=subproject_id)
+    source_project = get_user_project_or_404(request.user, subproject.project.id)
+    if not require_role(request.user, source_project, [ProjectMember.ROLE_ADMIN]):
+        return HttpResponseForbidden("Forbidden")
+
+    new_project = Project.objects.create(
+        owner=source_project.owner,
+        name=subproject.name,
+        description=subproject.description,
+    )
+
+    # Copy memberships from source project to the new project.
+    memberships = ProjectMember.objects.filter(project=source_project).select_related('user')
+    for membership in memberships:
+        ProjectMember.objects.get_or_create(
+            project=new_project,
+            user=membership.user,
+            defaults={'role': membership.role},
+        )
+    ProjectMember.objects.get_or_create(
+        project=new_project,
+        user=source_project.owner,
+        defaults={'role': ProjectMember.ROLE_ADMIN},
+    )
+
+    TaskList.objects.filter(sub_project=subproject).update(
+        project=new_project,
+        sub_project=None,
+    )
+    Task.objects.filter(sub_project=subproject).update(
+        project=new_project,
+        sub_project=None,
+    )
+
+    ActivityLog.objects.create(
+        user=request.user,
+        project=new_project,
+        action='project_created',
+        description=f"Project '{new_project.name}' created from sub-project",
+    )
+
+    subproject.delete()
+
+    return JsonResponse({'success': True, 'project_id': new_project.id})
 
 @login_required
 def project_subprojects(request, pk):
@@ -696,6 +748,52 @@ def project_update(request, pk):
         return JsonResponse({'success': True})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
+@login_required
+@require_POST
+def project_convert_to_subproject(request, pk):
+    project = get_user_project_or_404(request.user, pk)
+    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
+        return HttpResponseForbidden("Forbidden")
+
+    if project.subprojects.exists():
+        return JsonResponse({'success': False, 'error': 'Project has sub-projects and cannot be converted.'}, status=400)
+
+    target_project_id = request.POST.get('target_project_id')
+    if not target_project_id:
+        return JsonResponse({'success': False, 'error': 'Missing target project.'}, status=400)
+
+    target_project = get_user_project_or_404(request.user, target_project_id)
+    if not require_role(request.user, target_project, [ProjectMember.ROLE_ADMIN]):
+        return HttpResponseForbidden("Forbidden")
+
+    if str(project.id) == str(target_project.id):
+        return JsonResponse({'success': False, 'error': 'Target project must be different.'}, status=400)
+
+    subproject = SubProject.objects.create(
+        project=target_project,
+        name=project.name,
+        description=project.description,
+    )
+
+    TaskList.objects.filter(project=project).update(
+        project=target_project,
+        sub_project=subproject,
+    )
+    Task.objects.filter(project=project).update(
+        project=target_project,
+        sub_project=subproject,
+    )
+
+    ActivityLog.objects.create(
+        user=request.user,
+        project=target_project,
+        action='project_updated',
+        description=f"Project '{project.name}' converted to sub-project",
+    )
+
+    project.delete()
+
+    return JsonResponse({'success': True, 'subproject_id': subproject.id, 'target_project_id': target_project.id})
 @login_required
 @require_POST
 def project_delete(request, pk):

@@ -158,12 +158,6 @@
       border-radius: 10px;
       padding: 0.45rem 0.8rem;
       font-weight: 600;
-      border-color: rgba(15, 23, 42, 0.18);
-    }
-
-    .table-action:hover {
-      border-color: rgba(15, 23, 42, 0.3);
-      background: rgba(15, 23, 42, 0.04);
     }
 
     .table-density-compact .table-modern tbody td {
@@ -398,12 +392,18 @@
                   </td>
                   <td class="text-end">
                     <div class="d-inline-flex gap-2">
-                      <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="btn btn-outline-primary btn-sm table-action">
+                      {% comment %} <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="btn btn-outline-primary btn-sm table-action">
                         <i class="bi bi-box-arrow-in-right"></i> Open
+                      </a> {% endcomment %}
+                      <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="btn btn-outline-primary btn-sm table-action">
+                        <i class="bi bi-eye"></i>
                       </a>
                       <a href="{% url 'subproject_list' project.id %}" class="btn btn-outline-secondary btn-sm table-action" title="Sub-projects">
                         <i class="bi bi-diagram-3"></i>
                       </a>
+                      <button type="button" class="btn btn-outline-warning btn-sm table-action btn-convert-subproject" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="Convert to sub-project">
+                        <i class="bi bi-arrow-left-right"></i>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -447,6 +447,34 @@
         <button type="submit" class="btn btn-primary px-3" style="border-radius: 10px;">
           Save
         </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="projectConvertModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="project-convert-form" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-semibold"><i class="bi bi-arrow-left-right text-primary me-2"></i>Convert Project to Sub-project</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {% csrf_token %}
+        <input type="hidden" id="project-convert-id">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Target Project</label>
+          <select id="project-convert-target" class="form-select">
+            {% for p in admin_projects %}
+              <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="small text-muted">The project will become a sub-project under the selected target. Source project must have no sub-projects.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary px-3" type="submit">Convert</button>
       </div>
     </form>
   </div>

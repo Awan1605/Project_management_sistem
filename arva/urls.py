@@ -15,6 +15,7 @@ urlpatterns = [
     path('project/<int:pk>/', views.project_detail, name='project_detail'),
     path('project/<int:pk>/update/', views.project_update, name='project_update'),
     path('project/<int:pk>/delete/', views.project_delete, name='project_delete'),
+    path('project/<int:pk>/convert-subproject/', views.project_convert_to_subproject, name='project_convert_to_subproject'),
     path('project/<int:pk>/activity/', views.project_activity, name='project_activity'),
     path('project/<int:pk>/archive/', views.project_archive, name='project_archive'),
     path('project/<int:pk>/subprojects/list/', views.subproject_list, name='subproject_list'),
@@ -37,6 +38,7 @@ urlpatterns = [
     path('subproject/<int:subproject_id>/delete/', views.subproject_delete, name='subproject_delete'),
     path('subproject/<int:subproject_id>/edit/', views.subproject_edit, name='subproject_edit'),
     path('subproject/<int:subproject_id>/move/', views.subproject_move, name='subproject_move'),
+    path('subproject/<int:subproject_id>/convert-project/', views.subproject_convert_to_project, name='subproject_convert_to_project'),
     path('project/<int:pk>/subprojects/', views.project_subprojects, name='project_subprojects'),
 
     # Tasks
