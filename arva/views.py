@@ -1021,16 +1021,17 @@ def task_create(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]):
         return HttpResponseForbidden("Forbidden")
+    task_list_id = request.POST.get('task_list_id')
+    task_list = get_object_or_404(TaskList, id=task_list_id, project=project)
     subproject = None
     subproject_id = request.POST.get('sub_project_id')
     if project.subprojects.exists():
-        if not subproject_id:
-            return JsonResponse({'success': False, 'error': 'Sub-project required.'}, status=400)
-        subproject = get_project_subproject_or_404(project, subproject_id)
-    task_list_id = request.POST.get('task_list_id')
-    task_list = get_object_or_404(TaskList, id=task_list_id, project=project)
-    if task_list.sub_project != subproject:
-        return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
+        if subproject_id:
+            subproject = get_project_subproject_or_404(project, subproject_id)
+        else:
+            subproject = task_list.sub_project
+        if task_list.sub_project != subproject:
+            return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
 
     data = request.POST.copy()
     if 'priority' not in data or not data['priority']:
