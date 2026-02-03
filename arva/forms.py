@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from .models import (
-    Project, Task, Comment, Attachment,
+    Project, SubProject, Task, Comment, Attachment,
     Label, TaskList, ChecklistItem, ProjectMember,
     UserProfile, WebsiteSettings
 )
@@ -135,6 +135,15 @@ class RegisterForm(UserCreationForm):
 class ProjectForm(forms.ModelForm):
     class Meta:
         model = Project
+        fields = ['name', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control'}),
+        }
+
+class SubProjectForm(forms.ModelForm):
+    class Meta:
+        model = SubProject
         fields = ['name', 'description']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),

@@ -113,6 +113,18 @@ class Project(models.Model):
             percent = int((done / total) * 100)
         return {"total": total, "done": done, "percent": percent}
 
+class SubProject(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='subprojects')
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.project.name} - {self.name}"
+
 class ProjectMember(models.Model):
     ROLE_ADMIN = 'admin'
     ROLE_MEMBER = 'member'
@@ -142,6 +154,7 @@ class Label(models.Model):
 
 class TaskList(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='lists')
+    sub_project = models.ForeignKey(SubProject, on_delete=models.CASCADE, related_name='lists', null=True, blank=True)
     name = models.CharField(max_length=255)
     position = models.PositiveIntegerField(default=0)
     is_archived = models.BooleanField(default=False)
@@ -166,6 +179,7 @@ class Task(models.Model):
     )
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks')
+    sub_project = models.ForeignKey(SubProject, on_delete=models.CASCADE, related_name='tasks', null=True, blank=True)
     task_list = models.ForeignKey(TaskList, on_delete=models.CASCADE, related_name='tasks')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)

@@ -119,6 +119,112 @@ $(function() {
     });
   });
 
+  $(document).on('change', '#subproject-select', function() {
+    const projectId = $(this).data('project-id');
+    const subId = $(this).val();
+    if (!projectId || !subId) return;
+    window.location.href = `/project/${projectId}/?sub=${subId}`;
+  });
+
+  $(document).on('click', '#btn-open-subproject-modal', function() {
+    const form = $('#subproject-create-form');
+    form[0].reset();
+    $('#subprojectCreateModal').modal('show');
+  });
+
+  $(document).on('click', '#btn-edit-subproject', function() {
+    const id = $(this).data('subproject-id');
+    const name = $(this).data('subproject-name');
+    const description = $(this).data('subproject-description') || '';
+
+    $('#subproject-edit-id').val(id);
+    $('#subproject-edit-name').val(name);
+    $('#subproject-edit-description').val(description);
+    $('#subprojectEditModal').modal('show');
+  });
+
+  $('#subproject-create-form').on('submit', function(e) {
+    e.preventDefault();
+    const $form = $(this);
+    const projectId = $form.data('project-id');
+
+    $.post({
+      url: `/project/${projectId}/subproject/create/`,
+      data: $form.serialize(),
+      success: function(resp) {
+        if (resp.success) {
+          window.location.href = `/project/${projectId}/?sub=${resp.subproject_id}`;
+        }
+      },
+      error: function(xhr) {
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          showError(xhr.responseJSON.error);
+        } else {
+          showError('Failed to create sub-project');
+        }
+      }
+    });
+  });
+
+  $('#subproject-edit-form').on('submit', function(e) {
+    e.preventDefault();
+    const $form = $(this);
+    const subId = $('#subproject-edit-id').val();
+    const projectId = $('#task-board').data('project-id');
+
+    $.post({
+      url: `/subproject/${subId}/edit/`,
+      data: $form.serialize(),
+      success: function(resp) {
+        if (resp.success) {
+          $('#subprojectEditModal').modal('hide');
+          if (projectId && subId) {
+            window.location.href = `/project/${projectId}/?sub=${subId}`;
+          }
+        } else {
+          showError('Failed to update sub-project.');
+        }
+      },
+      error: function(xhr) {
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          showError(xhr.responseJSON.error);
+        } else {
+          showError('Failed to update sub-project.');
+        }
+      }
+    });
+  });
+
+  $(document).on('click', '#btn-delete-subproject', async function() {
+    const subId = $(this).data('subproject-id');
+    const projectId = $('#task-board').data('project-id');
+    if (!subId || !projectId) return;
+
+    if (!await showConfirm('Delete this sub-project? This will not remove tasks if any exist.', 'Delete sub-project')) return;
+
+    $.post({
+      url: `/subproject/${subId}/delete/`,
+      success: function(resp) {
+        if (resp.success) {
+          if (resp.redirect_sub) {
+            window.location.href = `/project/${projectId}/?sub=${resp.redirect_sub}`;
+          } else {
+            window.location.href = `/project/${projectId}/`;
+          }
+        } else {
+          showError(resp.error || 'Failed to delete sub-project.');
+        }
+      },
+      error: function(xhr) {
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          showError(xhr.responseJSON.error);
+        } else {
+          showError('Failed to delete sub-project.');
+        }
+      }
+    });
+  });
+
   $(document).on('click', '.btn-delete-project', async function () {
       const btn = $(this);
       const projectId = btn.data('id');
@@ -416,9 +522,29 @@ $(function() {
     this.style.height = `${this.scrollHeight}px`;
   });
 
-  function loadProjectLists(projectId, $select, selectedId) {
+  function loadProjectSubprojects(projectId, $select, selectedId, onDone) {
     if (!projectId || !$select) return;
-    $.get(`/project/${projectId}/lists/`, function(resp) {
+    $.get(`/project/${projectId}/subprojects/`, function(resp) {
+      if (!resp.success) return;
+      $select.empty();
+      if (resp.subprojects && resp.subprojects.length) {
+        resp.subprojects.forEach((sp) => {
+          const option = $('<option>').val(sp.id).text(sp.name);
+          if (selectedId && String(sp.id) === String(selectedId)) {
+            option.attr('selected', 'selected');
+          }
+          $select.append(option);
+        });
+      } else {
+        $select.append($('<option>').val('').text('No sub-projects'));
+      }
+      if (typeof onDone === 'function') onDone(resp.subprojects || []);
+    });
+  }
+
+  function loadProjectLists(projectId, $select, selectedId, subProjectId) {
+    if (!projectId || !$select) return;
+    $.get(`/project/${projectId}/lists/`, { sub_project_id: subProjectId || '' }, function(resp) {
       if (!resp.success) return;
       $select.empty();
       resp.lists.forEach((lst) => {
@@ -451,20 +577,33 @@ $(function() {
   $(document).on('change', '#task-move-project', function() {
     const projectId = $(this).val();
     const $listSelect = $('#task-move-list');
-    loadProjectLists(projectId, $listSelect);
+    const $subSelect = $('#task-move-subproject');
+    loadProjectSubprojects(projectId, $subSelect, null, function() {
+      const subId = $subSelect.val();
+      loadProjectLists(projectId, $listSelect, null, subId);
+    });
+  });
+
+  $(document).on('change', '#task-move-subproject', function() {
+    const projectId = $('#task-move-project').val();
+    const subId = $(this).val();
+    const $listSelect = $('#task-move-list');
+    loadProjectLists(projectId, $listSelect, null, subId);
   });
 
   $(document).on('click', '#btn-move-task', function() {
     const taskId = $(this).data('task-id');
     const projectId = $('#task-move-project').val();
     const listId = $('#task-move-list').val();
+    const subId = $('#task-move-subproject').val();
     if (!taskId || !projectId) return;
 
     $.post({
       url: `/task/${taskId}/transfer/`,
       data: {
         project_id: projectId,
-        task_list_id: listId
+        task_list_id: listId,
+        sub_project_id: subId
       },
       headers: { "X-CSRFToken": csrftoken },
       success: function(resp) {
@@ -486,13 +625,25 @@ $(function() {
     const $modal = $('#taskMoveModal');
     $modal.data('task-id', taskId);
     $('#quick-move-project').val(projectId);
-    loadProjectLists(projectId, $('#quick-move-list'));
+    loadProjectSubprojects(projectId, $('#quick-move-subproject'), null, function() {
+      const subId = $('#quick-move-subproject').val();
+      loadProjectLists(projectId, $('#quick-move-list'), null, subId);
+    });
     $modal.modal('show');
   });
 
   $(document).on('change', '#quick-move-project', function() {
     const projectId = $(this).val();
-    loadProjectLists(projectId, $('#quick-move-list'));
+    loadProjectSubprojects(projectId, $('#quick-move-subproject'), null, function() {
+      const subId = $('#quick-move-subproject').val();
+      loadProjectLists(projectId, $('#quick-move-list'), null, subId);
+    });
+  });
+
+  $(document).on('change', '#quick-move-subproject', function() {
+    const projectId = $('#quick-move-project').val();
+    const subId = $(this).val();
+    loadProjectLists(projectId, $('#quick-move-list'), null, subId);
   });
 
   $(document).on('click', '#btn-quick-move-confirm', function() {
@@ -500,13 +651,15 @@ $(function() {
     const taskId = $modal.data('task-id');
     const projectId = $('#quick-move-project').val();
     const listId = $('#quick-move-list').val();
+    const subId = $('#quick-move-subproject').val();
     if (!taskId || !projectId) return;
 
     $.post({
       url: `/task/${taskId}/transfer/`,
       data: {
         project_id: projectId,
-        task_list_id: listId
+        task_list_id: listId,
+        sub_project_id: subId
       },
       headers: { "X-CSRFToken": csrftoken },
       success: function(resp) {
@@ -1123,7 +1276,11 @@ $(document).on("click", "#btn-save-member", function () {
 
   $('#task-filter-form input, #task-filter-form select').on('change keyup', function() {
     const projectId = $('#task-board').data('project-id');
-    const query = $('#task-filter-form').serialize();
+    const subProjectId = $('#task-board').data('subproject-id');
+    let query = $('#task-filter-form').serialize();
+    if (subProjectId) {
+      query += `&sub=${subProjectId}`;
+    }
 
     $.get({
       url: `/project/${projectId}/`,
@@ -1143,6 +1300,7 @@ $(document).on("click", "#btn-save-member", function () {
 
   function reorderListsOnServer() {
     const projectId = $('#task-board').data('project-id');
+    const subProjectId = $('#task-board').data('subproject-id');
     const orderedIds = [];
     $('#board-lists .board-list').each(function() {
       const id = $(this).data('list-id');
@@ -1154,7 +1312,8 @@ $(document).on("click", "#btn-save-member", function () {
     $.post({
       url: `/project/${projectId}/list/reorder/`,
       data: {
-        'ordered_ids[]': orderedIds
+        'ordered_ids[]': orderedIds,
+        'sub_project_id': subProjectId || ''
       }
     });
   }

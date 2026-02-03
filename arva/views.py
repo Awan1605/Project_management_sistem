@@ -16,12 +16,12 @@ from django.utils.timezone import now
 from .utils import EmailThread
 
 from .models import (
-    Project, ProjectMember, Task, Comment, Attachment,
+    Project, ProjectMember, SubProject, Task, Comment, Attachment,
     ActivityLog, TaskList, ChecklistItem, Label,
     UserProfile, UserActivity, WebsiteSettings
 )
 from .forms import (
-    RegisterForm, ProjectForm, TaskForm,
+    RegisterForm, ProjectForm, SubProjectForm, TaskForm,
     CommentForm, AttachmentForm, TaskListForm,
     ChecklistItemForm, ProjectMemberForm, 
     CreateUserInlineForm, UserEditForm, AdminPasswordResetForm,
@@ -50,6 +50,9 @@ def get_user_project_or_404(user, pk):
         Q(tasks__assignees=user)
     ).distinct()
     return get_object_or_404(qs, pk=pk)
+
+def get_project_subproject_or_404(project, sub_id):
+    return get_object_or_404(SubProject, id=sub_id, project=project)
 
 def get_role(user, project):
     return project.get_user_role(user)
@@ -333,14 +336,110 @@ def project_edit(request, pk):
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
 @login_required
+@require_POST
+def subproject_create(request, pk):
+    project = get_user_project_or_404(request.user, pk)
+    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
+        return HttpResponseForbidden("Forbidden")
+
+    had_subprojects = project.subprojects.exists()
+    form = SubProjectForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+
+    subproject = form.save(commit=False)
+    subproject.project = project
+    subproject.save()
+
+    if not had_subprojects:
+        TaskList.objects.filter(project=project, sub_project__isnull=True).update(sub_project=subproject)
+        Task.objects.filter(project=project, sub_project__isnull=True).update(sub_project=subproject)
+
+    if not TaskList.objects.filter(project=project, sub_project=subproject).exists():
+        TaskList.objects.create(project=project, sub_project=subproject, name='To Do', position=0)
+        TaskList.objects.create(project=project, sub_project=subproject, name='In Progress', position=1)
+        TaskList.objects.create(project=project, sub_project=subproject, name='Done', position=2)
+
+    ActivityLog.objects.create(
+        user=request.user,
+        project=project,
+        action='project_updated',
+        description=f"Sub-project '{subproject.name}' created",
+    )
+
+    return JsonResponse({'success': True, 'subproject_id': subproject.id})
+
+@login_required
+@require_POST
+def subproject_delete(request, subproject_id):
+    subproject = get_object_or_404(SubProject, id=subproject_id)
+    project = get_user_project_or_404(request.user, subproject.project.id)
+    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
+        return HttpResponseForbidden("Forbidden")
+
+    if Task.objects.filter(sub_project=subproject).exists():
+        return JsonResponse({'success': False, 'error': 'Sub-project cannot be deleted because it still has tasks.'}, status=400)
+
+    name = subproject.name
+    subproject.delete()
+
+    ActivityLog.objects.create(
+        user=request.user,
+        project=project,
+        action='project_updated',
+        description=f"Sub-project '{name}' deleted",
+    )
+
+    remaining = project.subprojects.order_by('created_at').values_list('id', flat=True)
+    redirect_sub = remaining[0] if remaining else None
+    return JsonResponse({'success': True, 'redirect_sub': redirect_sub})
+
+@login_required
+@require_POST
+def subproject_edit(request, subproject_id):
+    subproject = get_object_or_404(SubProject, id=subproject_id)
+    project = get_user_project_or_404(request.user, subproject.project.id)
+    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
+        return HttpResponseForbidden("Forbidden")
+
+    form = SubProjectForm(request.POST, instance=subproject)
+    if not form.is_valid():
+        return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+
+    form.save()
+    ActivityLog.objects.create(
+        user=request.user,
+        project=project,
+        action='project_updated',
+        description=f"Sub-project '{subproject.name}' updated",
+    )
+    return JsonResponse({'success': True, 'name': subproject.name, 'description': subproject.description})
+
+@login_required
+def project_subprojects(request, pk):
+    project = get_user_project_or_404(request.user, pk)
+    subprojects = list(project.subprojects.order_by('created_at').values('id', 'name'))
+    return JsonResponse({'success': True, 'subprojects': subprojects})
+
+@login_required
 def project_detail(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
 
-    if not project.lists.exists() and project.owner == request.user:
-        TaskList.objects.create(project=project, name='To Do', position=0)
-        TaskList.objects.create(project=project, name='In Progress', position=1)
-        TaskList.objects.create(project=project, name='Done', position=2)
+    subprojects = project.subprojects.all().order_by('created_at')
+    selected_subproject = None
+
+    if subprojects.exists():
+        sub_id = request.GET.get('sub')
+        if sub_id:
+            selected_subproject = get_project_subproject_or_404(project, sub_id)
+        else:
+            selected_subproject = subprojects.first()
+    else:
+        if not project.lists.filter(sub_project__isnull=True).exists() and project.owner == request.user:
+            TaskList.objects.create(project=project, name='To Do', position=0)
+            TaskList.objects.create(project=project, name='In Progress', position=1)
+            TaskList.objects.create(project=project, name='Done', position=2)
 
     q = request.GET.get('q', '')
     assignee_id = request.GET.get('assignee', '')
@@ -355,6 +454,11 @@ def project_detail(request, pk):
         'checklist_items',
     )
 
+    if selected_subproject:
+        base_tasks = base_tasks.filter(sub_project=selected_subproject)
+    else:
+        base_tasks = base_tasks.filter(sub_project__isnull=True)
+
     if role != ProjectMember.ROLE_ADMIN:
         base_tasks = base_tasks.filter(assignees=request.user)
 
@@ -368,7 +472,10 @@ def project_detail(request, pk):
         base_tasks = base_tasks.filter(due_date__lte=due)
     base_tasks = base_tasks.distinct()
 
-    task_lists = list(project.lists.filter(is_archived=False).order_by('position').prefetch_related(
+    task_lists = list(project.lists.filter(
+        is_archived=False,
+        sub_project=selected_subproject if selected_subproject else None
+    ).order_by('position').prefetch_related(
         Prefetch('tasks', queryset=base_tasks.order_by('order'), to_attr='filtered_tasks')
     ))
 
@@ -391,6 +498,8 @@ def project_detail(request, pk):
             Q(owner=request.user) | Q(memberships__user=request.user)
         ).distinct().order_by('name'),
         'user_role': role,
+        'subprojects': subprojects,
+        'selected_subproject': selected_subproject,
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -623,11 +732,19 @@ def tasklist_create(request, pk):
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
 
+    subproject = None
+    subproject_id = request.POST.get('sub_project_id')
+    if project.subprojects.exists():
+        if not subproject_id:
+            return JsonResponse({'success': False, 'error': 'Sub-project required.'}, status=400)
+        subproject = get_project_subproject_or_404(project, subproject_id)
+
     form = TaskListForm(request.POST)
     if form.is_valid():
         tl = form.save(commit=False)
         tl.project = project
-        last_pos = project.lists.aggregate(dj_models.Max('position'))['position__max'] or 0
+        tl.sub_project = subproject
+        last_pos = project.lists.filter(sub_project=subproject).aggregate(dj_models.Max('position'))['position__max'] or 0
         tl.position = last_pos + 1
         tl.save()
         ActivityLog.objects.create(
@@ -639,6 +756,7 @@ def tasklist_create(request, pk):
             'task_list': tl,
             'project': project,
             'user_role': get_role(request.user, project),
+            'selected_subproject': subproject,
         }, request=request)
         return JsonResponse({'success': True, 'html': html})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
@@ -649,9 +767,15 @@ def tasklist_reorder(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    subproject = None
+    subproject_id = request.POST.get('sub_project_id')
+    if project.subprojects.exists():
+        if not subproject_id:
+            return JsonResponse({'success': False, 'error': 'Sub-project required.'}, status=400)
+        subproject = get_project_subproject_or_404(project, subproject_id)
     ordered_ids = request.POST.getlist('ordered_ids[]')
     for index, lid in enumerate(ordered_ids):
-        TaskList.objects.filter(id=lid, project=project).update(position=index)
+        TaskList.objects.filter(id=lid, project=project, sub_project=subproject).update(position=index)
     ActivityLog.objects.create(
         user=request.user, project=project, action='list_moved',
         description='Lists reordered'
@@ -714,7 +838,12 @@ def task_view(request, task_id):
     projects = Project.objects.filter(
         Q(owner=request.user) | Q(memberships__user=request.user)
     ).distinct().order_by('name')
-    project_lists = TaskList.objects.filter(project=project, is_archived=False).order_by('position')
+    project_lists = TaskList.objects.filter(
+        project=project,
+        sub_project=task.sub_project if task.sub_project else None,
+        is_archived=False
+    ).order_by('position')
+    subprojects = project.subprojects.order_by('created_at')
     colors = ["primary", "success", "danger", "warning", "info", "dark", ""]
     comments = task.comments.filter(parent__isnull=True)
 
@@ -734,6 +863,8 @@ def task_view(request, task_id):
         'labels': labels,
         'projects': projects,
         'project_lists': project_lists,
+        'subprojects': subprojects,
+        'selected_subproject': task.sub_project,
         'colors': colors,
         'checklist_total': total,
         'checklist_done': done,
@@ -747,7 +878,17 @@ def task_view(request, task_id):
 @login_required
 def project_lists(request, pk):
     project = get_user_project_or_404(request.user, pk)
-    lists = project.lists.filter(is_archived=False).order_by('position').values('id', 'name')
+    subproject = None
+    subproject_id = request.GET.get('sub_project_id')
+    if project.subprojects.exists():
+        if subproject_id:
+            subproject = get_project_subproject_or_404(project, subproject_id)
+        else:
+            subproject = project.subprojects.order_by('created_at').first()
+    lists = project.lists.filter(
+        is_archived=False,
+        sub_project=subproject if subproject else None
+    ).order_by('position').values('id', 'name')
     return JsonResponse({'success': True, 'lists': list(lists)})
 
 @login_required
@@ -860,8 +1001,16 @@ def task_create(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]):
         return HttpResponseForbidden("Forbidden")
+    subproject = None
+    subproject_id = request.POST.get('sub_project_id')
+    if project.subprojects.exists():
+        if not subproject_id:
+            return JsonResponse({'success': False, 'error': 'Sub-project required.'}, status=400)
+        subproject = get_project_subproject_or_404(project, subproject_id)
     task_list_id = request.POST.get('task_list_id')
     task_list = get_object_or_404(TaskList, id=task_list_id, project=project)
+    if task_list.sub_project != subproject:
+        return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
 
     data = request.POST.copy()
     if 'priority' not in data or not data['priority']:
@@ -871,6 +1020,7 @@ def task_create(request, pk):
     if form.is_valid():
         task = form.save(commit=False)
         task.project = project
+        task.sub_project = subproject
         task.task_list = task_list
         last_order = task_list.tasks.aggregate(dj_models.Max('order'))['order__max'] or 0
         task.order = last_order + 1
@@ -944,6 +1094,8 @@ def task_move(request, task_id):
     ordered_ids = request.POST.getlist('ordered_ids[]')
 
     new_list = get_object_or_404(TaskList, id=new_list_id, project=task.project)
+    if new_list.sub_project != task.sub_project:
+        return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
     task.task_list = new_list
     task.save()
 
@@ -983,15 +1135,29 @@ def task_transfer(request, task_id):
     if target_role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]:
         return HttpResponseForbidden("Forbidden")
 
+    target_subproject = None
+    target_subproject_id = request.POST.get('sub_project_id')
+    if target_project.subprojects.exists():
+        if not target_subproject_id:
+            return JsonResponse({'success': False, 'error': 'Sub-project required.'}, status=400)
+        target_subproject = get_project_subproject_or_404(target_project, target_subproject_id)
+
     if target_list_id:
         target_list = get_object_or_404(TaskList, id=target_list_id, project=target_project)
     else:
-        target_list = target_project.lists.filter(is_archived=False).order_by('position').first()
+        target_list = target_project.lists.filter(
+            is_archived=False,
+            sub_project=target_subproject if target_subproject else None
+        ).order_by('position').first()
         if not target_list:
             return JsonResponse({'success': False, 'error': 'No list available in target project'}, status=400)
 
+    if target_list.sub_project != target_subproject:
+        return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
+
     max_order = Task.objects.filter(task_list=target_list).aggregate(Max('order'))['order__max'] or 0
     task.project = target_project
+    task.sub_project = target_subproject
     task.task_list = target_list
     task.order = max_order + 1
     task.save()

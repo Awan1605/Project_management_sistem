@@ -66,6 +66,44 @@
           </small>
         </div>
 
+        {% if subprojects or user_role == 'admin' %}
+        <div class="mt-3 d-flex flex-wrap align-items-end gap-2">
+          <div class="flex-grow-1" style="min-width: 220px;">
+            <label class="form-label small text-muted mb-1">Sub-project</label>
+            <select id="subproject-select" class="form-select form-select-sm" data-project-id="{{ project.id }}">
+              {% if subprojects %}
+                {% for sp in subprojects %}
+                <option value="{{ sp.id }}" {% if selected_subproject and sp.id == selected_subproject.id %}selected{% endif %}>
+                  {{ sp.name }}
+                </option>
+                {% endfor %}
+              {% else %}
+                <option value="">No sub-projects</option>
+              {% endif %}
+            </select>
+          </div>
+
+          {% if user_role == 'admin' %}
+          <button class="btn btn-sm btn-outline-primary" id="btn-open-subproject-modal">
+            <i class="bi bi-plus-lg me-1"></i>Add Sub-project
+          </button>
+          {% if selected_subproject %}
+          <button class="btn btn-sm btn-outline-secondary" id="btn-edit-subproject"
+            data-subproject-id="{{ selected_subproject.id }}"
+            data-subproject-name="{{ selected_subproject.name }}"
+            data-subproject-description="{{ selected_subproject.description|default:''|escape }}">
+            <i class="bi bi-pencil me-1"></i>Edit
+          </button>
+          {% endif %}
+          {% if selected_subproject %}
+          <button class="btn btn-sm btn-outline-danger" id="btn-delete-subproject" data-subproject-id="{{ selected_subproject.id }}">
+            <i class="bi bi-trash me-1"></i>Delete
+          </button>
+          {% endif %}
+          {% endif %}
+        </div>
+        {% endif %}
+
         {% if user_role == 'admin' %}
         <div class="mt-3 small">
           <a href="{% url 'project_activity' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
@@ -179,6 +217,10 @@
           </select>
         </div>
         <div class="mb-2">
+          <label class="form-label">Sub-project</label>
+          <select id="quick-move-subproject" class="form-select"></select>
+        </div>
+        <div class="mb-2">
           <label class="form-label">List</label>
           <select id="quick-move-list" class="form-select"></select>
         </div>
@@ -215,6 +257,72 @@
           <textarea class="form-control" name="description" rows="3" style="border-radius: 10px;">{{ project.description }}</textarea>
         </div>
 
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary px-3" type="submit">Save Changes</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="subprojectCreateModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="subproject-create-form" class="modal-content" data-project-id="{{ project.id }}">
+
+      <div class="modal-header">
+        <h5 class="modal-title fw-semibold"><i class="bi bi-diagram-3 text-primary me-2"></i>New Sub-project</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Sub-project Name</label>
+          <input class="form-control" name="name" style="border-radius: 10px;" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Description</label>
+          <textarea class="form-control" name="description" rows="3" style="border-radius: 10px;"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary px-3" type="submit">Create</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="subprojectEditModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="subproject-edit-form" class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title fw-semibold"><i class="bi bi-pencil text-primary me-2"></i>Edit Sub-project</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        {% csrf_token %}
+
+        <input type="hidden" name="subproject_id" id="subproject-edit-id">
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Sub-project Name</label>
+          <input class="form-control" name="name" id="subproject-edit-name" style="border-radius: 10px;" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Description</label>
+          <textarea class="form-control" name="description" id="subproject-edit-description" rows="3" style="border-radius: 10px;"></textarea>
+        </div>
       </div>
 
       <div class="modal-footer">

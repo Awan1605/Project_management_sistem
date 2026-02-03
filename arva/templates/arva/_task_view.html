@@ -124,6 +124,20 @@
         </select>
       </div>
       <div class="mb-2">
+        <label class="form-label small text-muted">Sub-project</label>
+        <select id="task-move-subproject" class="form-select">
+          {% if subprojects %}
+            {% for sp in subprojects %}
+              <option value="{{ sp.id }}" {% if selected_subproject and sp.id == selected_subproject.id %}selected{% endif %}>
+                {{ sp.name }}
+              </option>
+            {% endfor %}
+          {% else %}
+            <option value="">No sub-projects</option>
+          {% endif %}
+        </select>
+      </div>
+      <div class="mb-2">
         <label class="form-label small text-muted">List</label>
         <select id="task-move-list" class="form-select">
           {% for lst in project_lists %}

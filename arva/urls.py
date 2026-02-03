@@ -32,6 +32,10 @@ urlpatterns = [
     path('list/<int:list_id>/delete/', views.tasklist_delete, name='tasklist_delete'),
     path('list/<int:list_id>/archive/', views.tasklist_archive, name='tasklist_archive'),
     path('list/<int:list_id>/unarchive/', views.tasklist_unarchive, name='tasklist_unarchive'),
+    path('project/<int:pk>/subproject/create/', views.subproject_create, name='subproject_create'),
+    path('subproject/<int:subproject_id>/delete/', views.subproject_delete, name='subproject_delete'),
+    path('subproject/<int:subproject_id>/edit/', views.subproject_edit, name='subproject_edit'),
+    path('project/<int:pk>/subprojects/', views.project_subprojects, name='project_subprojects'),
 
     # Tasks
     path('project/<int:pk>/task/create/', views.task_create, name='task_create'),
