@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load arva_tags %}
 <div class="col-md-4 col-sm-6 project-card-item" id="project-{{ project.id }}"
      data-name="{{ project.name|lower }}"
      data-owner="{{ project.owner.username|default:project.owner|lower }}"
@@ -78,9 +79,11 @@
           <a href="{% url 'subproject_list' project.id %}" class="btn btn-outline-secondary btn-sm" style="border-radius: 10px; padding: 6px 12px;" title="Sub-projects">
             <i class="bi bi-diagram-3"></i>
           </a>
+          {% if project_roles|get_item:project.id == 'admin' %}
           <button type="button" class="btn btn-outline-warning btn-sm btn-convert-subproject" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="Convert to sub-project" style="border-radius: 10px; padding: 6px 12px;">
             <i class="bi bi-arrow-left-right"></i>
           </button>
+          {% endif %}
         </div>
         {% if project.last_task_activity %}
           {% language 'en' %}

@@ -1,4 +1,5 @@
 {% extends "arva/base.html" %}
+{% load arva_tags %}
 {% block title %}Projects{% endblock %}
 
 {% block extra_css %}
@@ -401,9 +402,11 @@
                       <a href="{% url 'subproject_list' project.id %}" class="btn btn-outline-secondary btn-sm table-action" title="Sub-projects">
                         <i class="bi bi-diagram-3"></i>
                       </a>
+                      {% if project_roles|get_item:project.id == 'admin' %}
                       <button type="button" class="btn btn-outline-warning btn-sm table-action btn-convert-subproject" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="Convert to sub-project">
                         <i class="bi bi-arrow-left-right"></i>
                       </button>
+                      {% endif %}
                     </div>
                   </td>
                 </tr>

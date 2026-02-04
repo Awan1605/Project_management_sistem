@@ -102,6 +102,12 @@ $(function() {
           $('#project-list').prepend(resp.html);
           $('#projectModal').modal('hide');
           $form[0].reset();
+          const $convertSelect = $('#project-convert-target');
+          if ($convertSelect.length && resp.project_id && resp.project_name) {
+            $convertSelect.append(
+              $('<option>').val(resp.project_id).text(resp.project_name)
+            );
+          }
         }
       },
       error: function() {
@@ -173,7 +179,13 @@ $(function() {
       data: $form.serialize(),
       success: function(resp) {
         if (resp.success) {
-          window.location.href = `/project/${projectId}/?sub=${resp.subproject_id}`;
+          if ($('#subproject-list').length) {
+            $('#subprojectCreateModal').modal('hide');
+            $form[0].reset();
+            refreshSubprojectList();
+          } else {
+            window.location.href = `/project/${projectId}/?sub=${resp.subproject_id}`;
+          }
         }
       },
       error: function(xhr) {
@@ -1386,7 +1398,9 @@ $(document).on("click", "#btn-save-member", function () {
       success: function(resp) {
         if (resp.success) {
           $('#subprojectConvertModal').modal('hide');
-          if (resp.project_id) {
+          if ($('#subproject-list').length) {
+            refreshSubprojectList();
+          } else if (resp.project_id) {
             window.location.href = `/project/${resp.project_id}/`;
           } else {
             location.reload();
@@ -1414,7 +1428,11 @@ $(document).on("click", "#btn-save-member", function () {
       success: function(resp) {
         if (resp.success) {
           $('#subprojectMoveModal').modal('hide');
-          location.reload();
+          if ($('#subproject-list').length) {
+            refreshSubprojectList();
+          } else {
+            location.reload();
+          }
         } else {
           showError(resp.error || 'Failed to move sub-project.');
         }
@@ -1425,6 +1443,23 @@ $(document).on("click", "#btn-save-member", function () {
     });
   });
 
+
+  function refreshSubprojectList() {
+    const $list = $('#subproject-list');
+    const $table = $('#subproject-table tbody');
+    if (!$list.length || !$table.length) return;
+
+    $.get(window.location.href, function(html) {
+      const $html = $('<div>').append($.parseHTML(html));
+      const $newList = $html.find('#subproject-list');
+      const $newTableBody = $html.find('#subproject-table tbody');
+      const $newCount = $html.find('#subproject-count');
+
+      if ($newList.length) $list.html($newList.html());
+      if ($newTableBody.length) $table.html($newTableBody.html());
+      if ($newCount.length) $('#subproject-count').text($newCount.text());
+    });
+  }
 
   function reorderListsOnServer() {
     const projectId = $('#task-board').data('project-id');

@@ -17,3 +17,9 @@ def effective_theme(user, settings):
                 return pref
 
     return settings.theme_mode
+
+@register.filter
+def get_item(mapping, key):
+    if mapping is None:
+        return None
+    return mapping.get(key)

@@ -3,9 +3,9 @@
 
     <span class="list-title">
       {{ task_list.name }}
-      {% if task_scope == 'all' and task_list.sub_project %}
+      {% comment %} {% if task_scope == 'all' and task_list.sub_project %}
         <span class="badge bg-light text-dark border ms-1">{{ task_list.sub_project.name }}</span>
-      {% endif %}
+      {% endif %} {% endcomment %}
     </span>
     {% if user_role == 'admin' %}
       <div class="d-flex">

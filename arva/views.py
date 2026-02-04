@@ -281,11 +281,13 @@ def project_list(request):
     online_users = User.objects.filter(useractivity__last_activity__gte=online_cutoff).order_by('username')
 
     form = ProjectForm()
+    project_roles = {project.id: project.get_user_role(request.user) for project in projects}
     return render(request, 'arva/project_list.html', {
         'projects': projects, 
         'project_form': form,
         'online_users': online_users,
         'admin_projects': admin_projects,
+        'project_roles': project_roles,
     })
 
 @login_required
@@ -316,7 +318,7 @@ def project_create(request):
             description=f"Project '{project.name}' created",
         )
         html = render_to_string('arva/_project_item.html', {'project': project}, request=request)
-        return JsonResponse({'success': True, 'html': html})
+        return JsonResponse({'success': True, 'html': html, 'project_id': project.id, 'project_name': project.name})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
 @login_required
