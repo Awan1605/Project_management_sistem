@@ -3,6 +3,197 @@
 
 {% block extra_css %}
 <style>
+  .project-detail-page {
+    width: 100%;
+  }
+  .project-detail-header {
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .project-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .project-actions a {
+    margin-right: 0 !important;
+  }
+  .view-switcher {
+    background: rgba(15, 23, 42, 0.05);
+    padding: 0.2rem;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  .view-switcher .btn {
+    border: 0;
+    border-radius: 9px;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    color: #334155;
+  }
+  .view-switcher .btn.active {
+    background: #0f172a;
+    color: #fff;
+  }
+  .task-list-shell {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .task-list-head {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) 120px 110px 150px auto;
+    gap: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    background: rgba(15, 23, 42, 0.03);
+  }
+  .task-list-sort {
+    border: 0;
+    background: transparent;
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 700;
+    color: #64748b;
+    padding: 0;
+  }
+  .compact-add-btn {
+    border-radius: 9px;
+    padding: 0.32rem 0.62rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .task-list-sort.active {
+    color: #0f172a;
+  }
+  .task-list-row {
+    display: grid;
+    grid-template-columns: minmax(240px, 2fr) 130px minmax(150px, 1.2fr) 100px 170px;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .task-list-row:hover {
+    background: rgba(15, 23, 42, 0.03);
+  }
+  .task-list-row:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+  .task-row-title {
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .task-row-sub {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 0.2rem;
+    font-size: 0.82rem;
+  }
+  .task-row-meta {
+    min-width: 0;
+  }
+  .task-row-progress {
+    min-width: 84px;
+  }
+  .task-row-activity {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    justify-content: flex-end;
+  }
+  .activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #0ea5e9;
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
+  }
+  .task-list-empty {
+    background: rgba(15, 23, 42, 0.02);
+  }
+  .task-create-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+  .task-create-grid .full {
+    grid-column: 1 / -1;
+  }
+  .task-create-grid .form-label {
+    margin-bottom: 0.2rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  #task-board-wrapper {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .project-detail-page #task-board {
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 100%;
+  }
+  .project-detail-page .board-wrapper {
+    align-items: flex-start;
+  }
+  .project-detail-page .board-list {
+    scroll-margin-top: 90px;
+  }
+  .layout-sidebar .project-detail-page .board-list {
+    max-height: calc(100vh - 260px);
+  }
+  .layout-sidebar .project-detail-page .task-column {
+    max-height: calc(100vh - 360px);
+  }
+  @media (max-width: 991.98px) {
+    .task-list-head {
+      display: none;
+    }
+    .task-list-row {
+      grid-template-columns: 1fr;
+      gap: 0.45rem;
+      padding: 0.8rem;
+    }
+    .task-row-status,
+    .task-row-meta,
+    .task-row-progress,
+    .task-row-activity {
+      justify-content: flex-start;
+    }
+    .task-row-activity {
+      margin-top: 0.1rem;
+    }
+    .project-detail-page .board-list {
+      width: min(86vw, 320px);
+      flex: 0 0 min(86vw, 320px);
+      max-height: none;
+    }
+    .project-detail-page .task-column {
+      max-height: 58vh;
+    }
+  }
+  @media (max-width: 575.98px) {
+    .project-detail-page .board-list {
+      width: min(92vw, 320px);
+      flex: 0 0 min(92vw, 320px);
+    }
+    .project-detail-page .project-actions {
+      gap: 0.5rem;
+    }
+    .view-switcher .btn {
+      padding: 0.3rem 0.55rem;
+      font-size: 0.82rem;
+    }
+  }
   .task-skeleton {
     display: grid;
     gap: 10px;
@@ -29,11 +220,11 @@
 {% endblock %}
 
 {% block content %}
-
+<div class="project-detail-page">
 <div class="card shadow-sm border-0 h-100 mb-3">
   <div class="card-body">
 
-    <div class="d-flex justify-content-between align-items-start">
+    <div class="d-flex justify-content-between align-items-start project-detail-header">
 
       <div class="board-header">
         <div class="d-flex align-items-center mb-1">
@@ -65,6 +256,26 @@
             {{ project.progress.done }} / {{ project.progress.total }} task ({{ project.progress.percent }}%)
           </small>
         </div>
+
+        <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+          {% if project.is_private %}
+            <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-lock-fill me-1"></i>Private Project</span>
+            <span class="small text-muted">Owner + {{ shared_members|length }} shared user{{ shared_members|length|pluralize }}</span>
+          {% else %}
+            <span class="badge bg-info-subtle text-dark border"><i class="bi bi-globe2 me-1"></i>Shared Project</span>
+            <span class="small text-muted">Visible to all users</span>
+          {% endif %}
+        </div>
+        {% if project.is_private and shared_members %}
+          <div class="mt-2 d-flex align-items-center gap-1 flex-wrap">
+            {% for m in shared_members|slice:":8" %}
+              <span class="badge bg-light text-dark border">{{ m.user.username }} ({{ m.get_role_display }})</span>
+            {% endfor %}
+            {% if shared_members|length > 8 %}
+              <span class="small text-muted">+{{ shared_members|length|add:"-8" }} more</span>
+            {% endif %}
+          </div>
+        {% endif %}
 
         {% if subprojects or user_role == 'admin' %}
         <div class="mt-3 d-flex flex-wrap align-items-end gap-2">
@@ -106,14 +317,14 @@
         {% endif %}
 
         {% if user_role == 'admin' %}
-        <div class="mt-3 small">
+        <div class="mt-3 small project-actions">
           <a href="{% url 'project_activity' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
             <i class="bi bi-activity me-1"></i>Activity Log
           </a>
 
-          {% comment %} <a href="{% url 'subproject_list' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
+          <a href="{% url 'subproject_list' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
             <i class="bi bi-diagram-3 me-1"></i>Sub-projects
-          </a> {% endcomment %}
+          </a>
 
           <a href="{% url 'project_archive' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
             <i class="bi bi-archive me-1"></i>Archive
@@ -126,9 +337,19 @@
         {% endif %}
       </div>
 
-      <span class="role-badge shadow-sm">
-        <i class="bi bi-person-badge me-1"></i>{{ user_role|default:"viewer" }}
-      </span>
+      <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+        <div class="btn-group btn-group-sm view-switcher" role="group" aria-label="Task view mode">
+          <button type="button" class="btn active" data-view-mode="card">
+            <i class="bi bi-kanban me-1"></i>Card View
+          </button>
+          <button type="button" class="btn" data-view-mode="list">
+            <i class="bi bi-list-ul me-1"></i>List View
+          </button>
+        </div>
+        <span class="role-badge shadow-sm">
+          <i class="bi bi-person-badge me-1"></i>{{ user_role|default:"viewer" }}
+        </span>
+      </div>
 
     </div>
   </div>
@@ -138,11 +359,11 @@
   <div class="card-body">
     <form id="task-filter-form" class="row g-3">
 
-      <div class="col-md-4">
+      <div class="col-lg-3 col-md-6">
         <input type="text" name="q" class="form-control form-control-sm" placeholder="Search for task title...">
       </div>
 
-      <div class="col-md-3">
+      <div class="col-lg-2 col-md-6">
         <select name="assignee" class="form-select form-select-sm">
           <option value="">Assignee</option>
           {% for u in users %}
@@ -151,7 +372,11 @@
         </select>
       </div>
 
-      <div class="col-md-3">
+      <div class="col-lg-3 col-md-6">
+        <input type="text" name="assignee_q" class="form-control form-control-sm" placeholder="Search assignee (username/email)">
+      </div>
+
+      <div class="col-lg-2 col-md-6">
         <select name="label" class="form-select form-select-sm">
           <option value="">Label</option>
           {% for label in task_form.fields.labels.queryset %}
@@ -160,7 +385,7 @@
         </select>
       </div>
 
-      <div class="col-md-2">
+      <div class="col-lg-2 col-md-6">
         <input type="date" name="due" class="form-control form-control-sm">
       </div>
 
@@ -262,6 +487,30 @@
           <textarea class="form-control" name="description" rows="3" style="border-radius: 10px;">{{ project.description }}</textarea>
         </div>
 
+        <div class="mb-3 form-check">
+          <input class="form-check-input" type="checkbox" name="is_private" id="project-edit-private" {% if project.is_private %}checked{% endif %}>
+          <label class="form-check-label fw-semibold" for="project-edit-private">Private Project</label>
+          <div class="small text-muted">When enabled, only owner and selected users can access this project.</div>
+        </div>
+
+        <div class="mb-3 project-edit-sharing-fields">
+          <label class="form-label fw-semibold">Share with Specific Users</label>
+          <select class="form-select" name="shared_users" id="project-edit-shared-users" multiple size="6">
+            {% for u in all_users %}
+              <option value="{{ u.id }}" {% if u.id in shared_user_ids %}selected{% endif %}>{{ u.username }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-1 project-edit-sharing-fields">
+          <label class="form-label fw-semibold">Default Role for Selected Users</label>
+          <select class="form-select" name="shared_role">
+            <option value="viewer" {% if shared_role_default == 'viewer' %}selected{% endif %}>Viewer</option>
+            <option value="member" {% if shared_role_default == 'member' %}selected{% endif %}>Member</option>
+            <option value="admin" {% if shared_role_default == 'admin' %}selected{% endif %}>Admin</option>
+          </select>
+        </div>
+
       </div>
 
       <div class="modal-footer">
@@ -339,6 +588,270 @@
   </div>
 </div>
 
+<div class="modal fade" id="listTaskCreateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <form id="list-view-task-create-form" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-semibold">
+          <i class="bi bi-plus-square me-2 text-primary"></i>Add Task
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {% csrf_token %}
+        <div class="task-create-grid">
+          <div class="full">
+            <label class="form-label">Task Title</label>
+            <input type="text" name="title" class="form-control form-control-sm" required>
+          </div>
+          <div class="full">
+            <label class="form-label">Description</label>
+            <textarea name="description" rows="2" class="form-control form-control-sm"></textarea>
+          </div>
+          <div>
+            <label class="form-label">Status / Column</label>
+            <select name="task_list_id" id="list-task-status" class="form-select form-select-sm" required></select>
+          </div>
+          <div>
+            <label class="form-label">Due Date</label>
+            <input type="date" name="due_date" class="form-control form-control-sm">
+          </div>
+          <div>
+            <label class="form-label">Assigned Members</label>
+            <select name="assignees" class="form-select form-select-sm" multiple size="4">
+              {% for u in users %}
+                <option value="{{ u.id }}">{{ u.username }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Labels</label>
+            <select name="labels" class="form-select form-select-sm" multiple size="4">
+              {% for label in task_form.fields.labels.queryset %}
+                <option value="{{ label.id }}">{{ label.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Create Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+</div>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+  (function() {
+    const storageKey = 'arva_project_detail_view_mode';
+    const sortState = { key: '', dir: 'asc' };
 
+    function getBoardRoot() {
+      return document.getElementById('task-board');
+    }
+
+    function syncListEmpty() {
+      const root = getBoardRoot();
+      if (!root) return;
+      const rows = root.querySelectorAll('.task-list-row');
+      const empty = root.querySelector('.task-list-empty');
+      if (!empty) return;
+      empty.classList.toggle('d-none', rows.length > 0);
+    }
+
+    function applyMode(mode) {
+      const root = getBoardRoot();
+      const cardPanel = root?.querySelector('.board-view-card');
+      const listPanel = root?.querySelector('.board-view-list');
+      if (!cardPanel || !listPanel) return;
+
+      const isList = mode === 'list';
+      cardPanel.classList.toggle('d-none', isList);
+      listPanel.classList.toggle('d-none', !isList);
+
+      document.querySelectorAll('[data-view-mode]').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.viewMode === mode);
+      });
+      localStorage.setItem(storageKey, mode);
+      syncListEmpty();
+    }
+
+    function collectVisibleListOptions() {
+      const root = getBoardRoot();
+      if (!root) return [];
+      return Array.from(root.querySelectorAll('.board-view-card .board-list[data-list-id]')).map((el) => {
+        const listId = el.getAttribute('data-list-id');
+        const titleEl = el.querySelector('.list-title');
+        const name = (titleEl?.textContent || '').trim();
+        return { id: listId, name: name || `List ${listId}` };
+      });
+    }
+
+    function openListTaskCreateModal() {
+      const statusSelect = document.getElementById('list-task-status');
+      const form = document.getElementById('list-view-task-create-form');
+      if (!statusSelect || !form) return;
+
+      form.reset();
+      statusSelect.innerHTML = '';
+      const options = collectVisibleListOptions();
+      if (!options.length) {
+        showError('No status/column available. Create a list first.');
+        return;
+      }
+      options.forEach((opt) => {
+        const option = document.createElement('option');
+        option.value = opt.id;
+        option.textContent = opt.name;
+        statusSelect.appendChild(option);
+      });
+
+      const modalEl = document.getElementById('listTaskCreateModal');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+      }
+    }
+
+    function getSortValue(row, key) {
+      const value = row.dataset[key] || '';
+      if (key === 'due') return value || '9999-12-31';
+      return value;
+    }
+
+    function sortListRows(key) {
+      const root = getBoardRoot();
+      const body = root?.querySelector('#task-list-body');
+      if (!body) return;
+      const rows = Array.from(body.querySelectorAll('.task-list-row'));
+      if (!rows.length) return;
+
+      const nextDir = sortState.key === key && sortState.dir === 'asc' ? 'desc' : 'asc';
+      sortState.key = key;
+      sortState.dir = nextDir;
+
+      rows.sort((a, b) => {
+        const av = getSortValue(a, key);
+        const bv = getSortValue(b, key);
+        if (av < bv) return nextDir === 'asc' ? -1 : 1;
+        if (av > bv) return nextDir === 'asc' ? 1 : -1;
+        return 0;
+      }).forEach((row) => body.appendChild(row));
+
+      document.querySelectorAll('.task-list-sort').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.sortKey === key);
+      });
+    }
+
+    window.applyProjectBoardViewMode = function() {
+      const saved = localStorage.getItem(storageKey) || 'card';
+      applyMode(saved);
+    };
+
+    document.addEventListener('click', function(e) {
+      const modeBtn = e.target.closest('[data-view-mode]');
+      if (modeBtn) {
+        applyMode(modeBtn.dataset.viewMode || 'card');
+      }
+
+      const sortBtn = e.target.closest('.task-list-sort');
+      if (sortBtn) {
+        sortListRows(sortBtn.dataset.sortKey || 'title');
+      }
+
+      const addBtn = e.target.closest('.btn-list-add-task');
+      if (addBtn) {
+        openListTaskCreateModal();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      const row = e.target.closest('.task-list-row');
+      if (!row) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        row.click();
+      }
+    });
+
+    window.applyProjectBoardViewMode();
+
+    const projectPrivateInput = document.getElementById('project-edit-private');
+    const projectSharingFields = document.querySelectorAll('.project-edit-sharing-fields');
+    function syncProjectEditSharingVisibility() {
+      if (!projectPrivateInput || !projectSharingFields.length) return;
+      const show = projectPrivateInput.checked;
+      projectSharingFields.forEach((el) => el.classList.toggle('d-none', !show));
+    }
+    if (projectPrivateInput) {
+      projectPrivateInput.addEventListener('change', syncProjectEditSharingVisibility);
+      syncProjectEditSharingVisibility();
+    }
+
+    const createForm = document.getElementById('list-view-task-create-form');
+    createForm?.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const root = getBoardRoot();
+      const projectId = root?.dataset.projectId;
+      if (!projectId) return;
+
+      const fd = new FormData(createForm);
+      const title = (fd.get('title') || '').toString().trim();
+      const listId = (fd.get('task_list_id') || '').toString();
+      if (!title) {
+        showError('Task title is required.');
+        return;
+      }
+      if (!listId) {
+        showError('Please select a status/column.');
+        return;
+      }
+
+      const payload = new URLSearchParams();
+      fd.forEach((value, key) => {
+        if (value !== null && value !== '') payload.append(key, value.toString());
+      });
+
+      fetch(`/project/${projectId}/task/create/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': (document.querySelector('#list-view-task-create-form [name=csrfmiddlewaretoken]')?.value || ''),
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: payload.toString()
+      }).then((resp) => resp.json()).then((resp) => {
+        if (!resp.success) {
+          const firstError = resp?.errors ? Object.values(resp.errors)[0] : null;
+          showError(firstError ? String(firstError).replace(/[\[\]']/g, '') : 'Failed to create task.');
+          return;
+        }
+
+        const firstFilter = document.querySelector('#task-filter-form input, #task-filter-form select');
+        if (window.$ && firstFilter) {
+          window.$(firstFilter).trigger('change');
+        } else {
+          if (resp.html) {
+            const col = document.querySelector(`.task-column[data-list-id="${resp.task_list_id}"]`);
+            if (col) col.insertAdjacentHTML('beforeend', resp.html);
+          }
+          if (resp.list_row_html) {
+            const body = document.getElementById('task-list-body');
+            if (body) body.insertAdjacentHTML('beforeend', resp.list_row_html);
+          }
+        }
+
+        const modalEl = document.getElementById('listTaskCreateModal');
+        bootstrap.Modal.getInstance(modalEl)?.hide();
+      }).catch(() => {
+        showError('Failed to create task.');
+      });
+    });
+  })();
+</script>
+{% endblock %}

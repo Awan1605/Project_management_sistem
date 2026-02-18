@@ -1,0 +1,48 @@
+{% with current=request.resolver_match.url_name %}
+<div class="sidebar-brand">
+  <a class="sidebar-brand-link" href="{% url 'project_list' %}">
+    <span class="sidebar-brand-media">
+      {% if settings.logo %}
+        <img src="{{ settings.logo_url }}" alt="{{ settings.site_name }}" class="sidebar-logo-full">
+      {% else %}
+        <span class="sidebar-brand-fallback sidebar-logo-full">{{ settings.site_name|slice:":2"|upper }}</span>
+      {% endif %}
+      <img src="{{ settings.favicon_url }}" alt="{{ settings.site_name }} icon" class="sidebar-logo-icon">
+    </span>
+  </a>
+</div>
+
+<nav class="sidebar-nav">
+  <a href="{% url 'project_list' %}" title="Projects" class="sidebar-link {% if current == 'project_list' or current == 'subproject_list' or current == 'project_subprojects' %}active{% endif %}">
+    <i class="bi bi-folder2-open"></i>
+    <span class="sidebar-label">Projects</span>
+  </a>
+  <a href="{% url 'my_cards' %}" title="Boards" class="sidebar-link {% if current == 'my_cards' or current == 'project_detail' or current == 'project_activity' or current == 'project_archive' or current == 'project_members' %}active{% endif %}">
+    <i class="bi bi-kanban"></i>
+    <span class="sidebar-label">Boards</span>
+  </a>
+  <a href="{% url 'user_settings' %}" title="Settings" class="sidebar-link {% if current == 'user_settings' or current == 'website_settings' %}active{% endif %}">
+    <i class="bi bi-gear"></i>
+    <span class="sidebar-label">Settings</span>
+  </a>
+  {% if user.is_superuser %}
+    <a href="{% url 'user_list' %}" title="Users" class="sidebar-link {% if current == 'user_list' or current == 'user_edit' %}active{% endif %}">
+      <i class="bi bi-people"></i>
+      <span class="sidebar-label">Users</span>
+    </a>
+  {% endif %}
+</nav>
+
+<div class="sidebar-footer">
+  <div class="sidebar-profile">
+    <img src="{{ request.user.userprofile.avatar_url }}" class="avatar-sm" alt="{{ user.username }}">
+    <div class="sidebar-meta">
+      <div class="fw-semibold">{{ user.username }}</div>
+      <small class="text-muted text-capitalize">{{ user.is_superuser|yesno:"Admin,Member" }}</small>
+    </div>
+  </div>
+  <a href="{% url 'logout' %}" title="Logout" class="btn btn-outline-danger btn-sm w-100 mt-3 sidebar-logout-btn">
+    <i class="bi bi-box-arrow-right me-1"></i> <span class="sidebar-label">Logout</span>
+  </a>
+</div>
+{% endwith %}

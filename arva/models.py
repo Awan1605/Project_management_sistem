@@ -64,6 +64,12 @@ class UserProfile(models.Model):
         (THEME_DARK, "Dark"),
         (THEME_AUTO, "Auto"),
     )
+    LAYOUT_SIDEBAR = "sidebar"
+    LAYOUT_CLASSIC = "classic"
+    LAYOUT_CHOICES = (
+        (LAYOUT_SIDEBAR, "Sidebar Layout"),
+        (LAYOUT_CLASSIC, "Classic Layout"),
+    )
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     avatar = models.ImageField(upload_to=user_avatar_path, blank=True, null=True)
@@ -73,6 +79,11 @@ class UserProfile(models.Model):
         max_length=10,
         choices=THEME_CHOICES,
         default=THEME_INHERIT,
+    )
+    layout_preference = models.CharField(
+        max_length=10,
+        choices=LAYOUT_CHOICES,
+        default=LAYOUT_SIDEBAR,
     )
 
     def __str__(self):
@@ -90,6 +101,7 @@ class Project(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects')
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    is_private = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -101,7 +113,23 @@ class Project(models.Model):
         if self.owner == user:
             return ProjectMember.ROLE_ADMIN
         membership = self.memberships.filter(user=user).first()
-        return membership.role if membership else None
+        if membership:
+            return membership.role
+        # Transparency-first: public projects are visible to all users as viewers.
+        if not self.is_private:
+            return ProjectMember.ROLE_VIEWER
+        return None
+
+    def can_user_view(self, user):
+        return self.get_user_role(user) is not None
+
+    @property
+    def access_scope_label(self):
+        return "Private" if self.is_private else "Shared with all users"
+
+    @property
+    def shared_user_count(self):
+        return self.memberships.count()
     
     @property
     def progress(self):

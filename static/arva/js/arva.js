@@ -111,6 +111,12 @@ $(function() {
         }
       },
       error: function() {
+        const errors = arguments[0]?.responseJSON?.errors;
+        if (errors) {
+          const first = Object.values(errors)[0];
+          showError(Array.isArray(first) ? first[0] : String(first));
+          return;
+        }
         showError('Failed to create project');
       }
     });
@@ -129,13 +135,18 @@ $(function() {
       data: $(this).serialize(),
       success: function(resp) {
         if (resp.success) {
-          $(".board-header .project-header").text(resp.name);
-          $(".board-header .project-description").text(resp.description || "-");
-
           $("#projectEditModal").modal("hide");
+          // Refresh to ensure access badges and shared-user indicators stay in sync.
+          window.location.reload();
         }
       },
       error: function() {
+        const errors = arguments[0]?.responseJSON?.errors;
+        if (errors) {
+          const first = Object.values(errors)[0];
+          showError(Array.isArray(first) ? first[0] : String(first));
+          return;
+        }
         showError("Failed to save changes.");
       }
     });
@@ -513,8 +524,9 @@ $(function() {
   });
 
   $(document).on('click', '.btn-view-task', function() {
-    const card = $(this).closest('.task-card');
-    const taskId = card.data('task-id');
+    const target = $(this).closest('[data-task-id]');
+    const taskId = target.data('task-id');
+    if (!taskId) return;
 
     $('#taskViewModal').data('task-id', taskId);
 
@@ -1326,6 +1338,9 @@ $(document).on("click", "#btn-save-member", function () {
       success: function(resp) {
         $('#task-board-wrapper').html(resp.html);
         initSortable();
+        if (typeof window.applyProjectBoardViewMode === 'function') {
+          window.applyProjectBoardViewMode();
+        }
       },
       error: function() {
         showError('Failed to apply filter');
@@ -1493,6 +1508,16 @@ $(document).on("click", "#btn-save-member", function () {
   }
 
   function initSortable() {
+    if ($('#board-lists').data('ui-sortable')) {
+      $('#board-lists').sortable('destroy');
+    }
+
+    $('.task-column').each(function() {
+      if ($(this).data('ui-sortable')) {
+        $(this).sortable('destroy');
+      }
+    });
+
     $('#board-lists').sortable({
       items: '> .board-list:not(.add-list-column)',
       axis: 'x',
@@ -1505,6 +1530,10 @@ $(document).on("click", "#btn-save-member", function () {
       connectWith: '.task-column',
       placeholder: 'task-placeholder',
       handle: '.card-body',
+      tolerance: 'pointer',
+      scroll: true,
+      scrollSensitivity: 60,
+      scrollSpeed: 18,
       start: function (event, ui) {
         ui.item.addClass('dragging');
       },

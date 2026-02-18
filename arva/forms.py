@@ -133,13 +133,35 @@ class RegisterForm(UserCreationForm):
         fields = ['username', 'email', 'password1', 'password2']
 
 class ProjectForm(forms.ModelForm):
+    shared_users = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        widget=forms.SelectMultiple(attrs={'class': 'form-select', 'size': 6}),
+        help_text="Only used for private projects. Selected users get project access."
+    )
+    shared_role = forms.ChoiceField(
+        choices=ProjectMember.ROLE_CHOICES,
+        required=False,
+        initial=ProjectMember.ROLE_VIEWER,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        help_text="Default role for selected users."
+    )
+
     class Meta:
         model = Project
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'is_private']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
+            'is_private': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        current_user = kwargs.pop('current_user', None)
+        super().__init__(*args, **kwargs)
+        self.fields['shared_users'].queryset = User.objects.all().order_by('username')
+        if current_user and current_user.is_authenticated:
+            self.fields['shared_users'].queryset = self.fields['shared_users'].queryset.exclude(id=current_user.id)
 
 class SubProjectForm(forms.ModelForm):
     class Meta:

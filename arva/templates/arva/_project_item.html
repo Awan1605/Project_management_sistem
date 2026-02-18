@@ -23,6 +23,13 @@
             <i class="bi bi-folder-fill text-primary me-2"></i>
             {{ project.name }}
           </h5>
+          <div class="small">
+            {% if project.is_private %}
+              <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-lock-fill me-1"></i>Private</span>
+            {% else %}
+              <span class="badge bg-info-subtle text-dark border"><i class="bi bi-globe2 me-1"></i>Shared</span>
+            {% endif %}
+          </div>
         </div>
         <span class="badge bg-light text-dark border">{{ project.progress.percent }}%</span>
       </div>
@@ -56,6 +63,23 @@
           {% endif %}
         {% endwith %}
       </div>
+      <div class="mb-2">
+        <div class="small text-muted">
+          {% if project.is_private %}
+            Access: Owner + {{ project.shared_user_count }} shared user{{ project.shared_user_count|pluralize }}
+            {% if project.memberships.all %}
+              <span class="d-block mt-1">Users:
+                {% for membership in project.memberships.all|slice:":3" %}
+                  {{ membership.user.username }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+                {% if project.shared_user_count > 3 %} +{{ project.shared_user_count|add:"-3" }} more{% endif %}
+              </span>
+            {% endif %}
+          {% else %}
+            Access: All users (transparent)
+          {% endif %}
+        </div>
+      </div>
 
       <div class="d-flex flex-wrap gap-3 text-muted" style="font-size: .85rem;">
         <div class="d-flex align-items-center">
@@ -79,7 +103,7 @@
           <a href="{% url 'subproject_list' project.id %}" class="btn btn-outline-secondary btn-sm" style="border-radius: 10px; padding: 6px 12px;" title="Sub-projects">
             <i class="bi bi-diagram-3"></i>
           </a>
-          {% if project_roles|get_item:project.id == 'admin' %}
+          {% if project_role == 'admin' or project_roles|get_item:project.id == 'admin' %}
           <button type="button" class="btn btn-outline-warning btn-sm btn-convert-subproject" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="Convert to sub-project" style="border-radius: 10px; padding: 6px 12px;">
             <i class="bi bi-arrow-left-right"></i>
           </button>

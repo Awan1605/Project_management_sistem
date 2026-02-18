@@ -54,8 +54,7 @@
       box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
     }
 
-    .view-toggle .nav-link,
-    .density-toggle .nav-link {
+    .view-toggle .nav-link {
       border-radius: 999px;
       padding: 0.35rem 0.85rem;
       font-weight: 600;
@@ -63,8 +62,7 @@
       background: rgba(15, 23, 42, 0.06);
     }
 
-    .view-toggle .nav-link.active,
-    .density-toggle .nav-link.active {
+    .view-toggle .nav-link.active {
       background: #0f172a;
       color: #fff;
     }
@@ -236,18 +234,6 @@
           </button>
         </li>
       </ul>
-      <ul class="nav nav-pills density-toggle" id="subprojectDensityTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="subproject-density-comfortable" type="button">
-            <i class="bi bi-arrows-expand"></i> Comfortable
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="subproject-density-compact" type="button">
-            <i class="bi bi-arrows-collapse"></i> Compact
-          </button>
-        </li>
-      </ul>
     </div>
   </div>
 
@@ -264,7 +250,7 @@
       </div>
 
       <div class="tab-content" id="subprojectViewContent">
-        <div class="tab-pane fade show active card-density-comfortable" id="subproject-card-view" role="tabpanel" aria-labelledby="subproject-card-tab" tabindex="0">
+        <div class="tab-pane fade show active card-density-compact" id="subproject-card-view" role="tabpanel" aria-labelledby="subproject-card-tab" tabindex="0">
           <div id="subproject-list" class="row g-4">
             {% for sp in subprojects %}
             <div class="col-md-4 col-sm-6 subproject-card-item"
@@ -352,7 +338,7 @@
           </div>
         </div>
 
-        <div class="tab-pane fade table-density-comfortable" id="subproject-table-view" role="tabpanel" aria-labelledby="subproject-table-tab" tabindex="0">
+        <div class="tab-pane fade table-density-compact" id="subproject-table-view" role="tabpanel" aria-labelledby="subproject-table-tab" tabindex="0">
           <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0 table-modern" id="subproject-table">
               <thead>
@@ -530,7 +516,6 @@
   <script>
     (function() {
       const viewStorageKey = 'arva_subproject_view';
-      const densityStorageKey = 'arva_subproject_density';
 
       const viewTabs = document.querySelectorAll('#subprojectViewTabs [data-bs-toggle="pill"]');
       const storedView = localStorage.getItem(viewStorageKey);
@@ -550,26 +535,6 @@
           }
         });
       });
-
-      const densityComfortable = document.getElementById('subproject-density-comfortable');
-      const densityCompact = document.getElementById('subproject-density-compact');
-      const tablePane = document.getElementById('subproject-table-view');
-      const cardPane = document.getElementById('subproject-card-view');
-
-      function setDensity(mode) {
-        if (!tablePane || !cardPane) return;
-        tablePane.classList.toggle('table-density-compact', mode === 'compact');
-        cardPane.classList.toggle('card-density-compact', mode === 'compact');
-        densityComfortable?.classList.toggle('active', mode === 'comfortable');
-        densityCompact?.classList.toggle('active', mode === 'compact');
-        localStorage.setItem(densityStorageKey, mode);
-      }
-
-      const storedDensity = localStorage.getItem(densityStorageKey) || 'comfortable';
-      setDensity(storedDensity);
-
-      densityComfortable?.addEventListener('click', () => setDensity('comfortable'));
-      densityCompact?.addEventListener('click', () => setDensity('compact'));
 
       const searchInput = document.getElementById('subproject-search');
       const countLabel = document.getElementById('subproject-count');

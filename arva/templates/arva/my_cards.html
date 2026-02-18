@@ -61,18 +61,6 @@
       color: #fff;
     }
 
-    .density-toggle .nav-link {
-      border-radius: 999px;
-      padding: 0.35rem 0.85rem;
-      font-weight: 600;
-      color: #334155;
-      background: rgba(15, 23, 42, 0.06);
-    }
-
-    .density-toggle .nav-link.active {
-      background: #0f172a;
-      color: #fff;
-    }
 
     .cards-grid {
       display: grid;
@@ -350,7 +338,7 @@
   </div>
 
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div class="text-muted">Quickly switch between a visual Card View and a compact table.</div>
+    <div class="text-muted">Quickly switch between a visual Card View and a table.</div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
       <ul class="nav nav-pills view-toggle" id="myCardsViewTabs" role="tablist">
         <li class="nav-item" role="presentation">
@@ -361,18 +349,6 @@
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="cards-view-tab" data-bs-toggle="pill" data-bs-target="#cards-view" type="button" role="tab" aria-controls="cards-view" aria-selected="false">
             <i class="bi bi-grid-3x3-gap me-1"></i> Card View
-          </button>
-        </li>
-      </ul>
-      <ul class="nav nav-pills density-toggle" id="myCardsDensityTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="mycards-density-comfortable" type="button">
-            <i class="bi bi-arrows-expand"></i> Comfortable
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="mycards-density-compact" type="button">
-            <i class="bi bi-arrows-collapse"></i> Compact
           </button>
         </li>
       </ul>
@@ -411,7 +387,7 @@
       </div>
 
       <div class="tab-content" id="myCardsViewContent">
-        <div class="tab-pane fade card-density-comfortable" id="cards-view" role="tabpanel" aria-labelledby="cards-view-tab" tabindex="0">
+        <div class="tab-pane fade card-density-compact" id="cards-view" role="tabpanel" aria-labelledby="cards-view-tab" tabindex="0">
           {% if tasks %}
             <div class="cards-grid">
               {% for task in tasks %}
@@ -496,7 +472,7 @@
           {% endif %}
         </div>
 
-        <div class="tab-pane fade show active table-density-comfortable" id="table-view" role="tabpanel" aria-labelledby="table-view-tab" tabindex="0">
+        <div class="tab-pane fade show active table-density-compact" id="table-view" role="tabpanel" aria-labelledby="table-view-tab" tabindex="0">
           <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0 table-modern" id="mycards-table">
               <thead>
@@ -641,27 +617,6 @@
           }
         });
       });
-
-      const densityStorageKey = 'arva_my_cards_density';
-      const densityComfortable = document.getElementById('mycards-density-comfortable');
-      const densityCompact = document.getElementById('mycards-density-compact');
-      const tablePane = document.getElementById('table-view');
-      const cardPane = document.getElementById('cards-view');
-
-      function setDensity(mode) {
-        if (!tablePane || !cardPane) return;
-        tablePane.classList.toggle('table-density-compact', mode === 'compact');
-        cardPane.classList.toggle('card-density-compact', mode === 'compact');
-        densityComfortable?.classList.toggle('active', mode === 'comfortable');
-        densityCompact?.classList.toggle('active', mode === 'compact');
-        localStorage.setItem(densityStorageKey, mode);
-      }
-
-      const storedDensity = localStorage.getItem(densityStorageKey) || 'comfortable';
-      setDensity(storedDensity);
-
-      densityComfortable?.addEventListener('click', () => setDensity('comfortable'));
-      densityCompact?.addEventListener('click', () => setDensity('compact'));
 
       const searchInput = document.getElementById('mycards-search');
       const prioritySelect = document.getElementById('mycards-priority');

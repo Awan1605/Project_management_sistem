@@ -11,6 +11,7 @@ urlpatterns = [
     # Projects & board
     path('', views.project_list, name='project_list'),
     path('my/cards/', views.my_cards, name='my_cards'),
+    path('tasks/search/', views.task_search_by_user, name='task_search_by_user'),
     path('project/create/', views.project_create, name='project_create'),
     path('project/<int:pk>/', views.project_detail, name='project_detail'),
     path('project/<int:pk>/update/', views.project_update, name='project_update'),
@@ -75,6 +76,8 @@ urlpatterns = [
     path('project-member/<int:pm_id>/remove/', views.project_member_remove, name='project_member_remove'),
 
     # Settings
+    path('settings/', views.user_settings, name='user_settings'),
     path('settings/website/', views.website_settings, name='website_settings'),
     path('profile/theme/update/', views.update_user_theme, name='update_user_theme'),
+    path('profile/layout/update/', views.update_user_layout, name='update_user_layout'),
 ]

@@ -2,6 +2,7 @@
 {% load arva_tags %}
 {% get_settings as settings %}
 {% effective_theme request.user settings as effective_theme %}
+{% effective_layout request.user as active_layout %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -11,6 +12,9 @@
   <link rel="icon" href="{{ settings.favicon_url }}" type="image/png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="{% static 'arva/css/arva.css' %}">
@@ -64,7 +68,7 @@
     body {
       background: var(--body-bg);
       color: var(--text-color);
-      font-family: 'Inter', sans-serif;
+      font-family: "Manrope", sans-serif;
     }
     .card, .modal-content, .section-box, .sidebar-box {
       background-color: var(--card-bg);
@@ -79,6 +83,10 @@
     .text-muted {
       color: var(--muted-text) !important;
     }
+    .dropdown-item.active {
+      background-color: var(--primary-color) !important;
+      color: white !important;
+    }
     .navbar-modern {
       backdrop-filter: blur(var(--blur));
       background-color: var(--navbar-bg) !important;
@@ -87,8 +95,6 @@
     }
     .navbar-modern .nav-link {
       color: var(--text-color);
-    }
-    .navbar-modern .nav-link {
       font-weight: 500;
       padding: 8px 14px;
       border-radius: var(--radius);
@@ -99,10 +105,6 @@
     }
     .navbar-modern .nav-link.active {
       background-color: var(--primary-color);
-      color: white !important;
-    }
-    .dropdown-item.active {
-      background-color: var(--primary-color) !important;
       color: white !important;
     }
     .avatar-sm {
@@ -175,69 +177,226 @@
   {% block extra_css %}{% endblock %}
 </head>
 
-
-<body class="arva-body d-flex flex-column min-vh-100">
-<nav class="navbar navbar-expand-lg navbar-modern mb-3">
-  <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="{% url 'project_list' %}">
-      {% if settings.logo %}
-        <img src="{{ settings.logo_url }}" height="32" style="border-radius: var(--radius);">
-      {% else %}
-        {{ settings.site_name }}
-      {% endif %}
-    </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarMain">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        {% if user.is_authenticated %}
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'project_list' %}"><i class="bi bi-kanban"></i> Boards</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'my_cards' %}"><i class="bi bi-card-checklist"></i> Tasks</a>
-          </li>
-          {% if user.is_superuser %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'user_list' %}"><i class="bi bi-people"></i> Users</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'website_settings' %}"><i class="bi bi-gear"></i> Settings</a>
-            </li>
-          {% endif %}
-        {% endif %}
-      </ul>
-
-      <div class="d-flex align-items-center">
-        {% if user.is_authenticated %}
-          <div class="me-3 d-flex align-items-center">
-            <img src="{{ request.user.userprofile.avatar_url }}" class="avatar-sm me-2">
-            <span class="fw-semibold">{{ user.username }}</span>
+<body class="arva-body {% if user.is_authenticated %}layout-{{ active_layout }}{% else %}layout-public{% endif %}">
+{% if user.is_authenticated %}
+  {% if active_layout == 'classic' %}
+    <div class="d-flex flex-column min-vh-100">
+      <nav class="navbar navbar-expand-lg navbar-modern mb-3">
+        <div class="container-fluid">
+          <a class="navbar-brand fw-bold" href="{% url 'project_list' %}">
+            {% if settings.logo %}
+              <img src="{{ settings.logo_url }}" height="32" style="border-radius: var(--radius);" alt="{{ settings.site_name }}">
+            {% else %}
+              {{ settings.site_name }}
+            {% endif %}
+          </a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarMain">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'project_list' %}"><i class="bi bi-kanban"></i> Boards</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'my_cards' %}"><i class="bi bi-card-checklist"></i> Tasks</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'user_settings' %}"><i class="bi bi-sliders"></i> Settings</a>
+              </li>
+              {% if user.is_superuser %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'user_list' %}"><i class="bi bi-people"></i> Users</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'website_settings' %}"><i class="bi bi-gear"></i> Website</a>
+                </li>
+              {% endif %}
+            </ul>
+            <div class="d-flex align-items-center">
+              <div class="me-3 d-flex align-items-center">
+                <img src="{{ request.user.userprofile.avatar_url }}" class="avatar-sm me-2" alt="{{ user.username }}">
+                <span class="fw-semibold">{{ user.username }}</span>
+              </div>
+              <a href="{% url 'logout' %}" class="btn btn-danger btn-sm px-3">Logout</a>
+            </div>
           </div>
-          <a href="{% url 'logout' %}" class="btn btn-danger btn-sm px-3">Logout</a>
+        </div>
+      </nav>
+      <main class="container-fluid mb-5 flex-grow-1">
+  {% else %}
+    <div class="app-shell">
+      <aside class="app-sidebar d-none d-lg-flex flex-column">
+        {% include "arva/_app_sidebar.html" %}
+      </aside>
+
+      <div class="app-main">
+        <header class="app-topbar">
+          <div class="d-flex align-items-center gap-2">
+            <button id="sidebarToggleDesktop" class="btn topbar-icon-btn d-none d-lg-inline-flex" type="button" aria-label="Collapse sidebar" aria-pressed="false" title="Collapse sidebar">
+              <i class="bi bi-list"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#appSidebarMobile" aria-controls="appSidebarMobile">
+              <i class="bi bi-list"></i>
+            </button>
+            <a href="{% url 'project_list' %}" class="topbar-brand d-lg-none">
+              {% if settings.logo %}
+                <img src="{{ settings.logo_url }}" alt="{{ settings.site_name }}">
+              {% else %}
+                {{ settings.site_name }}
+              {% endif %}
+            </a>
+          </div>
+
+          <form class="topbar-search" action="{% url 'project_list' %}" method="get">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" placeholder="Search projects, boards, and tasks">
+          </form>
+
+          <div class="topbar-actions">
+            <div class="dropdown">
+              <button class="btn topbar-icon-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                <i class="bi bi-bell"></i>
+              </button>
+              <div class="dropdown-menu dropdown-menu-end p-0 topbar-dropdown">
+                <div class="topbar-dropdown-header">
+                  <span class="fw-semibold">Notifications</span>
+                </div>
+                <div class="list-group list-group-flush">
+                  {% if messages %}
+                    {% for message in messages %}
+                      <div class="list-group-item border-0 small">{{ message }}</div>
+                    {% endfor %}
+                  {% else %}
+                    <div class="list-group-item border-0 small text-muted">No new notifications.</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div class="dropdown">
+              <button class="btn topbar-profile-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                <img src="{{ request.user.userprofile.avatar_url }}" class="avatar-sm" alt="{{ user.username }}">
+                <span class="d-none d-md-inline fw-semibold">{{ user.username }}</span>
+                <i class="bi bi-chevron-down small text-muted"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end topbar-dropdown">
+                <li><span class="dropdown-item-text small text-muted text-capitalize">Role: {{ user.is_superuser|yesno:"Admin,Member" }}</span></li>
+                <li><a class="dropdown-item" href="{% url 'user_settings' %}"><i class="bi bi-sliders me-2"></i>Settings</a></li>
+                {% if user.is_superuser %}
+                  <li><a class="dropdown-item" href="{% url 'website_settings' %}"><i class="bi bi-gear me-2"></i>Website Settings</a></li>
+                {% endif %}
+                <li><a class="dropdown-item" href="{% url 'my_cards' %}"><i class="bi bi-card-checklist me-2"></i>My Tasks</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+              </ul>
+            </div>
+          </div>
+        </header>
+
+        <main class="app-content">
+  {% endif %}
+{% else %}
+  <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="{% url 'project_list' %}">
+        {% if settings.logo %}
+          <img src="{{ settings.logo_url }}" alt="{{ settings.site_name }}" height="32" style="border-radius: var(--radius);">
         {% else %}
-          <a href="{% url 'login' %}" class="btn btn-primary btn-sm">Login</a>
+          {{ settings.site_name }}
         {% endif %}
+      </a>
+      <a href="{% url 'login' %}" class="btn btn-primary btn-sm">Login</a>
+    </div>
+  </nav>
+  <main class="container-fluid py-4">
+{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+{% if user.is_authenticated %}
+  {% if active_layout == 'classic' %}
+      <footer class="site-footer">
+        <div class="container-fluid">
+          <small class="text-muted">{{ settings.footer_text }}</small>
+        </div>
+      </footer>
+    </div>
+  {% else %}
+        <footer class="site-footer">
+          <div class="px-4">
+            <small class="text-muted">{{ settings.footer_text }}</small>
+          </div>
+        </footer>
       </div>
     </div>
-  </div>
-</nav>
-
-<div class="container-fluid mb-5 flex-grow-1">
-  {% block content %}{% endblock %}
-</div>
-<footer class="site-footer">
-  <div class="container-fluid">
-    <small class="text-muted">{{ settings.footer_text }}</small>
-  </div>
-</footer>
+    <div class="offcanvas offcanvas-start d-lg-none app-mobile-sidebar" tabindex="-1" id="appSidebarMobile" aria-labelledby="appSidebarMobileLabel">
+      <div class="offcanvas-body p-0 d-flex flex-column">
+        <div class="app-sidebar d-flex flex-column h-100 border-0">
+          {% include "arva/_app_sidebar.html" %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% else %}
+  <footer class="site-footer">
+    <div class="container-fluid">
+      <small class="text-muted">{{ settings.footer_text }}</small>
+    </div>
+  </footer>
+{% endif %}
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
 <script src="{% static 'arva/js/arva.js' %}"></script>
+<script>
+  (function () {
+    const toggleBtn = document.getElementById('sidebarToggleDesktop');
+    if (!toggleBtn) return;
+
+    const stateKey = 'arva_sidebar_collapsed';
+    const desktopQuery = window.matchMedia('(min-width: 992px)');
+    const icon = toggleBtn.querySelector('i');
+
+    function setCollapsed(collapsed) {
+      document.body.classList.toggle('sidebar-collapsed', collapsed);
+      toggleBtn.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+      toggleBtn.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      toggleBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      if (icon) {
+        icon.classList.toggle('bi-list', !collapsed);
+        icon.classList.toggle('bi-layout-sidebar-inset', collapsed);
+      }
+    }
+
+    if (desktopQuery.matches && localStorage.getItem(stateKey) === '1') {
+      setCollapsed(true);
+    }
+
+    toggleBtn.addEventListener('click', function () {
+      if (!desktopQuery.matches) return;
+      const collapsed = !document.body.classList.contains('sidebar-collapsed');
+      setCollapsed(collapsed);
+      localStorage.setItem(stateKey, collapsed ? '1' : '0');
+    });
+
+    const handleViewportChange = function (event) {
+      if (!event.matches) {
+        document.body.classList.remove('sidebar-collapsed');
+      } else if (localStorage.getItem(stateKey) === '1') {
+        document.body.classList.add('sidebar-collapsed');
+      }
+    };
+
+    if (desktopQuery.addEventListener) {
+      desktopQuery.addEventListener('change', handleViewportChange);
+    } else if (desktopQuery.addListener) {
+      desktopQuery.addListener(handleViewportChange);
+    }
+  })();
+</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

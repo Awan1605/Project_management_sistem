@@ -91,6 +91,9 @@
       border-radius: 10px;
       font-weight: 600;
     }
+    .archive-search {
+      max-width: 460px;
+    }
   </style>
 {% endblock %}
 
@@ -139,12 +142,26 @@
       </div>
 
       <div class="archive-card">
-        <h5 class="section-title">Archived Tasks</h5>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+          <h5 class="section-title mb-0">Archived Tasks</h5>
+          <input id="archive-user-search" type="text" class="form-control form-control-sm archive-search" placeholder="Search by assignee username or email">
+        </div>
         {% for task in archived_tasks %}
-          <div class="archive-item">
+          <div class="archive-item archived-task-item"
+               data-title="{{ task.title|lower }}"
+               data-assignees="{% for u in task.assignees.all %}{{ u.username|lower }} {{ u.email|lower }} {% endfor %}">
             <div>
               <div class="fw-semibold">{{ task.title }}</div>
-              <div class="archive-meta">List: {{ task.task_list.name }}</div>
+              <div class="archive-meta">
+                List: {{ task.task_list.name }} |
+                Assignees:
+                {% for u in task.assignees.all|slice:":3" %}
+                  {{ u.username }}{% if not forloop.last %}, {% endif %}
+                {% empty %}
+                  No assignee
+                {% endfor %}
+                {% if task.assignees.count > 3 %} +{{ task.assignees.count|add:"-3" }} more{% endif %}
+              </div>
             </div>
             <button class="btn btn-sm btn-outline-success btn-restore btn-unarchive-task d-flex align-items-center gap-1"
                     data-task-id="{{ task.id }}"
@@ -162,4 +179,25 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    (function() {
+      const input = document.getElementById('archive-user-search');
+      const items = Array.from(document.querySelectorAll('.archived-task-item'));
+      if (!input || !items.length) return;
+
+      function applyArchiveFilter() {
+        const q = (input.value || '').trim().toLowerCase();
+        items.forEach((item) => {
+          const text = `${item.dataset.title || ''} ${item.dataset.assignees || ''}`;
+          item.style.display = !q || text.includes(q) ? '' : 'none';
+        });
+      }
+
+      input.addEventListener('input', applyArchiveFilter);
+      applyArchiveFilter();
+    })();
+  </script>
 {% endblock %}

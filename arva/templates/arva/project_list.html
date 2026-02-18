@@ -55,8 +55,7 @@
       box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
     }
 
-    .view-toggle .nav-link,
-    .density-toggle .nav-link {
+    .view-toggle .nav-link {
       border-radius: 999px;
       padding: 0.35rem 0.85rem;
       font-weight: 600;
@@ -64,8 +63,7 @@
       background: rgba(15, 23, 42, 0.06);
     }
 
-    .view-toggle .nav-link.active,
-    .density-toggle .nav-link.active {
+    .view-toggle .nav-link.active {
       background: #0f172a;
       color: #fff;
     }
@@ -221,6 +219,49 @@
       border: 2px solid #fff;
       box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
     }
+    .task-finder-shell {
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 12px;
+      padding: 0.75rem;
+      background: rgba(15, 23, 42, 0.02);
+      margin-bottom: 1rem;
+    }
+    .task-finder-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) 160px 160px 170px 180px;
+      gap: 0.6rem;
+      align-items: center;
+    }
+    .task-finder-results {
+      margin-top: 0.75rem;
+      max-height: 300px;
+      overflow: auto;
+    }
+    .task-finder-table th,
+    .task-finder-table td {
+      font-size: 0.82rem;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .task-finder-empty {
+      padding: 0.7rem;
+      border: 1px dashed rgba(15, 23, 42, 0.2);
+      border-radius: 10px;
+      color: #64748b;
+      font-size: 0.85rem;
+      text-align: center;
+      background: #fff;
+    }
+    @media (max-width: 991.98px) {
+      .task-finder-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 575.98px) {
+      .task-finder-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 {% endblock %}
 
@@ -271,18 +312,6 @@
           </button>
         </li>
       </ul>
-      <ul class="nav nav-pills density-toggle" id="projectDensityTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="project-density-comfortable" type="button">
-            <i class="bi bi-arrows-expand"></i> Comfortable
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="project-density-compact" type="button">
-            <i class="bi bi-arrows-collapse"></i> Compact
-          </button>
-        </li>
-      </ul>
     </div>
   </div>
 
@@ -298,8 +327,52 @@
         <div class="text-muted small filter-count" id="project-count"></div>
       </div>
 
+      <div class="task-finder-shell">
+        <div class="small fw-semibold mb-2"><i class="bi bi-person-bounding-box me-1"></i>Search Tasks by User</div>
+        <div class="task-finder-grid">
+          <input id="task-user-search" type="text" class="form-control form-control-sm" placeholder="Enter username or email">
+          <select id="task-user-project" class="form-select form-select-sm">
+            <option value="">All projects</option>
+            {% for p in search_projects %}
+              <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+          <select id="task-user-status" class="form-select form-select-sm">
+            <option value="">All status</option>
+            {% for s in search_statuses %}
+              <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+          <select id="task-user-label" class="form-select form-select-sm">
+            <option value="">All labels</option>
+            {% for label in search_labels %}
+              <option value="{{ label.id }}">{{ label.name }}</option>
+            {% endfor %}
+          </select>
+          <input id="task-user-due" type="date" class="form-control form-control-sm">
+        </div>
+        <div class="task-finder-results">
+          <div class="task-finder-empty" id="task-finder-empty">Type a username or email to search tasks.</div>
+          <div class="table-responsive d-none" id="task-finder-table-wrap">
+            <table class="table table-sm table-hover mb-0 task-finder-table" id="task-finder-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Project</th>
+                  <th>Assignees</th>
+                  <th>Due</th>
+                  <th>Status</th>
+                  <th class="text-end">Open</th>
+                </tr>
+              </thead>
+              <tbody id="task-finder-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div class="tab-content" id="projectViewContent">
-        <div class="tab-pane fade show active card-density-comfortable" id="project-card-view" role="tabpanel" aria-labelledby="project-card-tab" tabindex="0">
+        <div class="tab-pane fade show active card-density-compact" id="project-card-view" role="tabpanel" aria-labelledby="project-card-tab" tabindex="0">
           <div id="project-list" class="row g-4">
             {% for project in projects %}
             {% include "arva/_project_item.html" with project=project %}
@@ -318,7 +391,7 @@
           </div>
         </div>
 
-        <div class="tab-pane fade table-density-comfortable" id="project-table-view" role="tabpanel" aria-labelledby="project-table-tab" tabindex="0">
+        <div class="tab-pane fade table-density-compact" id="project-table-view" role="tabpanel" aria-labelledby="project-table-tab" tabindex="0">
           <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0 table-modern" id="project-table">
               <thead>
@@ -366,12 +439,34 @@
                       <div class="summary-title">
                         {{ project.progress.percent }}% complete
                       </div>
+                      <div class="small">
+                        {% if project.is_private %}
+                          <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-lock-fill me-1"></i>Private</span>
+                        {% else %}
+                          <span class="badge bg-info-subtle text-dark border"><i class="bi bi-globe2 me-1"></i>Shared</span>
+                        {% endif %}
+                      </div>
                       {% with subprojects=project.subprojects.all %}
                         <div class="small text-muted">
                           {% if subprojects %}
                             {{ project.subprojects.count }} sub-projects
                           {% else %}
                             No sub-projects yet
+                          {% endif %}
+                        </div>
+                        <div class="small text-muted">
+                          {% if project.is_private %}
+                            Access: Owner + {{ project.shared_user_count }} shared user{{ project.shared_user_count|pluralize }}
+                            {% if project.memberships.all %}
+                              <span class="d-block">Users:
+                                {% for membership in project.memberships.all|slice:":3" %}
+                                  {{ membership.user.username }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                                {% if project.shared_user_count > 3 %}+{{ project.shared_user_count|add:"-3" }} more{% endif %}
+                              </span>
+                            {% endif %}
+                          {% else %}
+                            Access: All users
                           {% endif %}
                         </div>
                       {% endwith %}
@@ -440,7 +535,30 @@
       <div class="modal-body">
         {% csrf_token %}
         <div class="p-2">
-          {{ project_form.as_p }}
+          <div class="mb-2">
+            <label class="form-label fw-semibold mb-1" for="id_name">Project Name</label>
+            {{ project_form.name }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold mb-1" for="id_description">Description</label>
+            {{ project_form.description }}
+          </div>
+          <div class="mb-2 form-check">
+            {{ project_form.is_private }}
+            <label class="form-check-label fw-semibold" for="id_is_private">Private Project</label>
+            <div class="small text-muted">Off = shared with all users. On = only owner and selected users.</div>
+          </div>
+          <div id="project-create-sharing-fields" class="border rounded p-2">
+            <div class="mb-2">
+              <label class="form-label fw-semibold mb-1" for="id_shared_users">Share with Specific Users</label>
+              {{ project_form.shared_users }}
+              <div class="small text-muted mt-1">Only applies when Private Project is enabled.</div>
+            </div>
+            <div class="mb-0">
+              <label class="form-label fw-semibold mb-1" for="id_shared_role">Role for Selected Users</label>
+              {{ project_form.shared_role }}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -489,7 +607,6 @@
   <script>
     (function() {
       const viewStorageKey = 'arva_project_view';
-      const densityStorageKey = 'arva_project_density';
 
       const viewTabs = document.querySelectorAll('#projectViewTabs [data-bs-toggle="pill"]');
       const storedView = localStorage.getItem(viewStorageKey);
@@ -509,26 +626,6 @@
           }
         });
       });
-
-      const densityComfortable = document.getElementById('project-density-comfortable');
-      const densityCompact = document.getElementById('project-density-compact');
-      const tablePane = document.getElementById('project-table-view');
-      const cardPane = document.getElementById('project-card-view');
-
-      function setDensity(mode) {
-        if (!tablePane || !cardPane) return;
-        tablePane.classList.toggle('table-density-compact', mode === 'compact');
-        cardPane.classList.toggle('card-density-compact', mode === 'compact');
-        densityComfortable?.classList.toggle('active', mode === 'comfortable');
-        densityCompact?.classList.toggle('active', mode === 'compact');
-        localStorage.setItem(densityStorageKey, mode);
-      }
-
-      const storedDensity = localStorage.getItem(densityStorageKey) || 'comfortable';
-      setDensity(storedDensity);
-
-      densityComfortable?.addEventListener('click', () => setDensity('comfortable'));
-      densityCompact?.addEventListener('click', () => setDensity('compact'));
 
       const searchInput = document.getElementById('project-search');
       const countLabel = document.getElementById('project-count');
@@ -615,6 +712,115 @@
 
       bindSortButtons();
       applyFilters();
+
+      const privateToggle = document.getElementById('id_is_private');
+      const sharingFields = document.getElementById('project-create-sharing-fields');
+      const syncSharingFields = () => {
+        if (!privateToggle || !sharingFields) return;
+        const visible = privateToggle.checked;
+        sharingFields.classList.toggle('d-none', !visible);
+      };
+      if (privateToggle) {
+        privateToggle.addEventListener('change', syncSharingFields);
+        syncSharingFields();
+      }
+
+      const userSearch = document.getElementById('task-user-search');
+      const projectFilter = document.getElementById('task-user-project');
+      const statusFilter = document.getElementById('task-user-status');
+      const labelFilter = document.getElementById('task-user-label');
+      const dueFilter = document.getElementById('task-user-due');
+      const taskFinderTableWrap = document.getElementById('task-finder-table-wrap');
+      const taskFinderTableBody = document.getElementById('task-finder-body');
+      const emptyState = document.getElementById('task-finder-empty');
+      let finderTimer = null;
+
+      function renderTaskFinderRows(rows) {
+        if (!taskFinderTableBody || !taskFinderTableWrap || !emptyState) return;
+        taskFinderTableBody.innerHTML = '';
+        if (!rows.length) {
+          taskFinderTableWrap.classList.add('d-none');
+          emptyState.classList.remove('d-none');
+          emptyState.textContent = 'No matching tasks found for current filters.';
+          return;
+        }
+        rows.forEach((item) => {
+          const tr = document.createElement('tr');
+          const tdTitle = document.createElement('td');
+          tdTitle.textContent = item.title || '';
+          const tdProject = document.createElement('td');
+          tdProject.textContent = item.project_name || '';
+          const tdAssignees = document.createElement('td');
+          tdAssignees.textContent = item.assignees_display || '-';
+          const tdDue = document.createElement('td');
+          tdDue.textContent = item.due_date_display || 'No due';
+          const tdStatus = document.createElement('td');
+          const statusBadge = document.createElement('span');
+          statusBadge.className = 'badge bg-light text-dark border';
+          statusBadge.textContent = item.status || '-';
+          tdStatus.appendChild(statusBadge);
+          const tdOpen = document.createElement('td');
+          tdOpen.className = 'text-end';
+          const openLink = document.createElement('a');
+          openLink.className = 'btn btn-outline-primary btn-sm';
+          openLink.href = item.url || '#';
+          openLink.innerHTML = '<i class="bi bi-eye"></i>';
+          tdOpen.appendChild(openLink);
+
+          tr.appendChild(tdTitle);
+          tr.appendChild(tdProject);
+          tr.appendChild(tdAssignees);
+          tr.appendChild(tdDue);
+          tr.appendChild(tdStatus);
+          tr.appendChild(tdOpen);
+          taskFinderTableBody.appendChild(tr);
+        });
+        emptyState.classList.add('d-none');
+        taskFinderTableWrap.classList.remove('d-none');
+      }
+
+      function triggerTaskFinder() {
+        if (!userSearch || !taskFinderTableWrap || !emptyState) return;
+        const q = (userSearch.value || '').trim();
+        if (!q) {
+          taskFinderTableWrap.classList.add('d-none');
+          emptyState.classList.remove('d-none');
+          emptyState.textContent = 'Type a username or email to search tasks.';
+          return;
+        }
+
+        const params = new URLSearchParams({
+          user_q: q,
+          project: projectFilter?.value || '',
+          status: statusFilter?.value || '',
+          label: labelFilter?.value || '',
+          due: dueFilter?.value || ''
+        });
+
+        fetch(`/tasks/search/?${params.toString()}`, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+          .then((resp) => resp.json())
+          .then((resp) => {
+            if (!resp.success) {
+              renderTaskFinderRows([]);
+              return;
+            }
+            renderTaskFinderRows(resp.results || []);
+          })
+          .catch(() => {
+            renderTaskFinderRows([]);
+          });
+      }
+
+      [userSearch, projectFilter, statusFilter, labelFilter, dueFilter].forEach((el) => {
+        if (!el) return;
+        const isTyping = el === userSearch;
+        el.addEventListener(isTyping ? 'input' : 'change', () => {
+          clearTimeout(finderTimer);
+          finderTimer = setTimeout(triggerTaskFinder, isTyping ? 250 : 50);
+        });
+      });
     })();
   </script>
 {% endblock %}

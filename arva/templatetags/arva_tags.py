@@ -18,6 +18,14 @@ def effective_theme(user, settings):
 
     return settings.theme_mode
 
+@register.simple_tag
+def effective_layout(user):
+    if user.is_authenticated:
+        profile = getattr(user, "userprofile", None)
+        if profile and profile.layout_preference in ["sidebar", "classic"]:
+            return profile.layout_preference
+    return "sidebar"
+
 @register.filter
 def get_item(mapping, key):
     if mapping is None:

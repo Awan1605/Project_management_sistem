@@ -1,0 +1,59 @@
+<div class="task-list-row btn-view-task"
+     data-task-id="{{ task.id }}"
+     data-title="{{ task.title|lower }}"
+     data-status="{{ task.task_list.name|lower }}"
+     data-due="{{ task.due_date|date:'Y-m-d'|default:'' }}"
+     data-updated="{{ task.updated_at|date:'Y-m-d H:i:s' }}"
+     tabindex="0"
+     role="button"
+     aria-label="Open task {{ task.title }}">
+  <div class="task-row-main">
+    <div class="task-row-title">{{ task.title }}</div>
+    <div class="task-row-sub">
+      {% if task.sub_project %}
+        <span class="badge bg-light text-dark border">{{ task.sub_project.name }}</span>
+      {% endif %}
+      <span class="badge bg-light text-dark border">{{ task.task_list.name }}</span>
+      <span class="text-muted">{{ task.description|default:'No description'|truncatechars:90 }}</span>
+    </div>
+  </div>
+  <div class="task-row-status">
+    {% if task.task_list.name|lower == 'done' %}
+      <span class="badge bg-success">Done</span>
+    {% elif task.is_overdue %}
+      <span class="badge bg-danger">Overdue</span>
+    {% elif task.is_due_today %}
+      <span class="badge bg-warning text-dark">Due Today</span>
+    {% else %}
+      <span class="badge bg-secondary">Active</span>
+    {% endif %}
+  </div>
+  <div class="task-row-meta">
+    <div class="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+      {% for assignee in task.assignees.all|slice:":3" %}
+        <img src="{{ assignee.userprofile.avatar_url }}" class="assignee-avatar" title="{{ assignee.username }}" alt="{{ assignee.username }}">
+      {% empty %}
+        <span class="text-muted small">No members</span>
+      {% endfor %}
+      {% if task.assignees.count > 3 %}
+        <span class="small text-muted">+{{ task.assignees.count|add:"-3" }}</span>
+      {% endif %}
+    </div>
+    <div class="d-flex align-items-center gap-2 justify-content-end mt-1">
+      {% for label in task.labels.all|slice:":2" %}
+        <span class="label-chip bg-light text-dark border">{{ label.name }}</span>
+      {% endfor %}
+      <span class="small text-muted">{% if task.due_date %}{{ task.due_date|date:"d M Y" }}{% else %}No due{% endif %}</span>
+    </div>
+  </div>
+  <div class="task-row-progress">
+    <div class="small text-muted">{{ task.checklist_done }}/{{ task.checklist_total }}</div>
+    <div class="progress" style="height: 6px; min-width: 84px;">
+      <div class="progress-bar bg-info" style="width: {{ task.checklist_percent }}%;"></div>
+    </div>
+  </div>
+  <div class="task-row-activity">
+    <span class="activity-dot"></span>
+    <small class="text-muted">{{ task.updated_at|timesince }} ago</small>
+  </div>
+</div>

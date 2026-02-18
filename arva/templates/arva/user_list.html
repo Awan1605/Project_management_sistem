@@ -94,18 +94,6 @@
       gap: 1.25rem;
     }
 
-    .density-toggle .nav-link {
-      border-radius: 999px;
-      padding: 0.35rem 0.85rem;
-      font-weight: 600;
-      color: #334155;
-      background: rgba(15, 23, 42, 0.06);
-    }
-
-    .density-toggle .nav-link.active {
-      background: #0f172a;
-      color: #fff;
-    }
 
     .table-density-compact .table-modern tbody td {
       padding-top: 0.55rem;
@@ -279,18 +267,6 @@
           </button>
         </li>
       </ul>
-      <ul class="nav nav-pills density-toggle" id="userDensityTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="density-comfortable" type="button">
-            <i class="bi bi-arrows-expand"></i> Comfortable
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="density-compact" type="button">
-            <i class="bi bi-arrows-collapse"></i> Compact
-          </button>
-        </li>
-      </ul>
     </div>
   </div>
 
@@ -317,7 +293,7 @@
       </form>
 
       <div class="tab-content" id="userViewContent">
-        <div class="tab-pane fade show active table-density-comfortable" id="user-table-view" role="tabpanel" aria-labelledby="user-table-tab" tabindex="0">
+        <div class="tab-pane fade show active table-density-compact" id="user-table-view" role="tabpanel" aria-labelledby="user-table-tab" tabindex="0">
           <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0 table-modern" id="user-table">
               <thead>
@@ -442,7 +418,7 @@
           </div>
         </div>
 
-        <div class="tab-pane fade card-density-comfortable" id="user-card-view" role="tabpanel" aria-labelledby="user-card-tab" tabindex="0">
+        <div class="tab-pane fade card-density-compact" id="user-card-view" role="tabpanel" aria-labelledby="user-card-tab" tabindex="0">
           <div class="cards-grid">
             {% for u in users %}
               <div class="user-card"
@@ -535,27 +511,6 @@
           }
         });
       });
-
-      const densityStorageKey = 'arva_user_density';
-      const densityComfortable = document.getElementById('density-comfortable');
-      const densityCompact = document.getElementById('density-compact');
-      const tablePane = document.getElementById('user-table-view');
-      const cardPane = document.getElementById('user-card-view');
-
-      function setDensity(mode) {
-        if (!tablePane || !cardPane) return;
-        tablePane.classList.toggle('table-density-compact', mode === 'compact');
-        cardPane.classList.toggle('card-density-compact', mode === 'compact');
-        densityComfortable?.classList.toggle('active', mode === 'comfortable');
-        densityCompact?.classList.toggle('active', mode === 'compact');
-        localStorage.setItem(densityStorageKey, mode);
-      }
-
-      const storedDensity = localStorage.getItem(densityStorageKey) || 'comfortable';
-      setDensity(storedDensity);
-
-      densityComfortable?.addEventListener('click', () => setDensity('comfortable'));
-      densityCompact?.addEventListener('click', () => setDensity('compact'));
 
       const searchInput = document.getElementById('user-search');
       const activeSelect = document.getElementById('user-active');

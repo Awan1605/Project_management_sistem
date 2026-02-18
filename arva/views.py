@@ -30,6 +30,14 @@ from .forms import (
 
 User = get_user_model()
 
+
+def get_accessible_projects_queryset(user):
+    return Project.objects.filter(
+        Q(is_private=False) |
+        Q(owner=user) |
+        Q(memberships__user=user)
+    ).distinct()
+
 def register(request):
     if request.user.is_authenticated:
         return redirect('project_list')
@@ -44,11 +52,7 @@ def register(request):
     return render(request, 'arva/auth_register.html', {'form': form})
 
 def get_user_project_or_404(user, pk):
-    qs = Project.objects.filter(
-        Q(owner=user) |
-        Q(memberships__user=user) |
-        Q(tasks__assignees=user)
-    ).distinct()
+    qs = get_accessible_projects_queryset(user)
     return get_object_or_404(qs, pk=pk)
 
 def get_project_subproject_or_404(project, sub_id):
@@ -63,11 +67,38 @@ def require_role(user, project, allowed_roles):
         return False
     return True
 
+def sync_project_shares(project, cleaned_data):
+    selected_users = cleaned_data.get('shared_users') or User.objects.none()
+    default_role = cleaned_data.get('shared_role') or ProjectMember.ROLE_VIEWER
+    selected_ids = set(selected_users.values_list('id', flat=True))
+
+    if project.is_private:
+        # Private projects are owner + explicitly shared users only.
+        project.memberships.exclude(user_id__in=selected_ids).delete()
+        for user in selected_users:
+            membership, _ = ProjectMember.objects.get_or_create(
+                project=project,
+                user=user,
+                defaults={'role': default_role},
+            )
+            if membership.role != default_role:
+                membership.role = default_role
+                membership.save(update_fields=['role'])
+    # Public projects remain transparent; existing memberships still define elevated roles.
+
+@login_required
+def user_settings(request):
+    profile = request.user.userprofile
+    return render(request, "arva/user_settings.html", {
+        "layout_preference": profile.layout_preference,
+        "theme_preference": profile.theme_preference,
+    })
+
 @login_required
 def website_settings(request):
     if not request.user.is_superuser:
-        messages.error(request, "You do not have permission to manage settings.")
-        return redirect("dashboard")
+        messages.error(request, "You do not have permission to manage website settings.")
+        return redirect("user_settings")
 
     settings_obj = WebsiteSettings.objects.first()
 
@@ -100,6 +131,20 @@ def update_user_theme(request):
     profile.save()
 
     return JsonResponse({"success": True})
+
+@login_required
+@require_POST
+def update_user_layout(request):
+    layout = request.POST.get("layout")
+
+    if layout not in ["sidebar", "classic"]:
+        return JsonResponse({"success": False, "error": "Invalid layout"}, status=400)
+
+    profile = request.user.userprofile
+    profile.layout_preference = layout
+    profile.save(update_fields=["layout_preference"])
+
+    return JsonResponse({"success": True, "layout": layout})
 
 @login_required
 def user_list(request):
@@ -271,24 +316,87 @@ def project_member_remove(request, pm_id):
 
 @login_required
 def project_list(request):
-    projects = Project.objects.filter(
-        Q(owner=request.user) | Q(memberships__user=request.user)
-    ).annotate(last_task_activity=Max('tasks__updated_at')).prefetch_related('subprojects').distinct().order_by('-created_at')
+    accessible_projects = get_accessible_projects_queryset(request.user)
+    projects = accessible_projects.annotate(last_task_activity=Max('tasks__updated_at')).prefetch_related(
+        'subprojects',
+        'memberships__user',
+    ).distinct().order_by('-created_at')
     admin_projects = Project.objects.filter(
         Q(owner=request.user) | Q(memberships__user=request.user, memberships__role=ProjectMember.ROLE_ADMIN)
     ).distinct().order_by('name')
     online_cutoff = now() - timedelta(minutes=1)
     online_users = User.objects.filter(useractivity__last_activity__gte=online_cutoff).order_by('username')
 
-    form = ProjectForm()
+    form = ProjectForm(current_user=request.user)
     project_roles = {project.id: project.get_user_role(request.user) for project in projects}
+    search_statuses = TaskList.objects.filter(
+        project__in=accessible_projects,
+        is_archived=False,
+    ).values_list('name', flat=True).distinct().order_by('name')
+    search_labels = Label.objects.filter(
+        tasks__project__in=accessible_projects,
+        tasks__is_archived=False,
+    ).distinct().order_by('name')
     return render(request, 'arva/project_list.html', {
         'projects': projects, 
         'project_form': form,
         'online_users': online_users,
         'admin_projects': admin_projects,
         'project_roles': project_roles,
+        'search_projects': projects.order_by('name'),
+        'search_statuses': search_statuses,
+        'search_labels': search_labels,
     })
+
+
+@login_required
+def task_search_by_user(request):
+    user_query = request.GET.get('user_q', '').strip()
+    status = request.GET.get('status', '').strip()
+    due = request.GET.get('due', '').strip()
+    label_id = request.GET.get('label', '').strip()
+    project_id = request.GET.get('project', '').strip()
+
+    accessible_projects = get_accessible_projects_queryset(request.user)
+    tasks = Task.objects.filter(
+        project__in=accessible_projects,
+        is_archived=False,
+    ).select_related('project', 'task_list').prefetch_related(
+        Prefetch('assignees', queryset=User.objects.select_related('userprofile').order_by('username')),
+    ).distinct()
+
+    if user_query:
+        tasks = tasks.filter(
+            Q(assignees__username__icontains=user_query) |
+            Q(assignees__email__icontains=user_query)
+        )
+    if status:
+        tasks = tasks.filter(task_list__name__iexact=status)
+    if due:
+        tasks = tasks.filter(due_date__lte=due)
+    if label_id:
+        tasks = tasks.filter(labels__id=label_id)
+    if project_id:
+        tasks = tasks.filter(project_id=project_id)
+
+    tasks = tasks.order_by('-updated_at')[:200]
+    results = []
+    for task in tasks:
+        assignees = list(task.assignees.all())
+        results.append({
+            'id': task.id,
+            'title': task.title,
+            'project_id': task.project_id,
+            'project_name': task.project.name,
+            'status': task.task_list.name,
+            'due_date': task.due_date.isoformat() if task.due_date else '',
+            'due_date_display': task.due_date.strftime('%d %b %Y') if task.due_date else 'No due',
+            'assignees': [u.username for u in assignees],
+            'assignees_display': ', '.join(u.username for u in assignees[:3]) + (f" +{len(assignees)-3}" if len(assignees) > 3 else ''),
+            'url': f"/project/{task.project_id}/",
+        })
+
+    return JsonResponse({'success': True, 'count': len(results), 'results': results})
 
 @login_required
 def my_cards(request):
@@ -301,11 +409,12 @@ def my_cards(request):
 @login_required
 @require_POST
 def project_create(request):
-    form = ProjectForm(request.POST)
+    form = ProjectForm(request.POST, current_user=request.user)
     if form.is_valid():
         project = form.save(commit=False)
         project.owner = request.user
         project.save()
+        sync_project_shares(project, form.cleaned_data)
 
         TaskList.objects.create(project=project, name='To Do', position=0)
         TaskList.objects.create(project=project, name='In Progress', position=1)
@@ -317,7 +426,10 @@ def project_create(request):
             action='project_created',
             description=f"Project '{project.name}' created",
         )
-        html = render_to_string('arva/_project_item.html', {'project': project}, request=request)
+        html = render_to_string('arva/_project_item.html', {
+            'project': project,
+            'project_role': project.get_user_role(request.user),
+        }, request=request)
         return JsonResponse({'success': True, 'html': html, 'project_id': project.id, 'project_name': project.name})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
@@ -330,13 +442,15 @@ def project_edit(request, pk):
     if role != ProjectMember.ROLE_ADMIN:
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
 
-    form = ProjectForm(request.POST, instance=project)
+    form = ProjectForm(request.POST, instance=project, current_user=request.user)
     if form.is_valid():
         form.save()
+        sync_project_shares(project, form.cleaned_data)
         return JsonResponse({
             'success': True,
             'name': project.name,
-            'description': project.description
+            'description': project.description,
+            'is_private': project.is_private,
         })
 
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
@@ -540,6 +654,7 @@ def project_detail(request, pk):
 
     q = request.GET.get('q', '')
     assignee_id = request.GET.get('assignee', '')
+    assignee_query = request.GET.get('assignee_q', '').strip()
     label_id = request.GET.get('label', '')
     due = request.GET.get('due', '')
 
@@ -565,6 +680,11 @@ def project_detail(request, pk):
         base_tasks = base_tasks.filter(title__icontains=q)
     if assignee_id:
         base_tasks = base_tasks.filter(assignees__id=assignee_id)
+    if assignee_query:
+        base_tasks = base_tasks.filter(
+            Q(assignees__username__icontains=assignee_query) |
+            Q(assignees__email__icontains=assignee_query)
+        )
     if label_id:
         base_tasks = base_tasks.filter(labels__id=label_id)
     if due:
@@ -600,6 +720,9 @@ def project_detail(request, pk):
     attachment_form = AttachmentForm()
     checklist_form = ChecklistItemForm()
 
+    shared_members = project.memberships.select_related('user', 'user__userprofile').order_by('user__username')
+    shared_user_ids = set(shared_members.values_list('user_id', flat=True))
+
     context = {
         'project': project,
         'task_lists': task_lists,
@@ -610,14 +733,16 @@ def project_detail(request, pk):
         'users': User.objects.filter(
             Q(owned_projects=project) | Q(project_memberships__project=project)
         ).select_related('userprofile').distinct().order_by('username'),
-        'projects': Project.objects.filter(
-            Q(owner=request.user) | Q(memberships__user=request.user)
-        ).distinct().order_by('name'),
+        'projects': get_accessible_projects_queryset(request.user).order_by('name'),
         'user_role': role,
         'subprojects': subprojects,
         'selected_subproject': selected_subproject,
         'task_scope': 'all' if scope_all else 'sub',
         'grouped_task_lists': grouped_task_lists,
+        'shared_members': shared_members,
+        'shared_user_ids': shared_user_ids,
+        'shared_role_default': shared_members.first().role if shared_members.exists() else ProjectMember.ROLE_VIEWER,
+        'all_users': User.objects.exclude(id=request.user.id).order_by('username'),
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -634,7 +759,9 @@ def project_archive(request, pk):
         return HttpResponseForbidden("Forbidden")
 
     archived_lists = project.lists.filter(is_archived=True).order_by('position')
-    archived_tasks = project.tasks.filter(is_archived=True).select_related('task_list').order_by('task_list__position', 'order')
+    archived_tasks = project.tasks.filter(is_archived=True).select_related('task_list').prefetch_related(
+        Prefetch('assignees', queryset=User.objects.select_related('userprofile').order_by('username'))
+    ).order_by('task_list__position', 'order')
     return render(request, 'arva/project_archive.html', {
         'project': project,
         'archived_lists': archived_lists,
@@ -738,9 +865,10 @@ def project_update(request, pk):
             "success": False,
             "error": "The project cannot be updated because you are not the owner of this project."
         }, status=400)
-    form = ProjectForm(request.POST, instance=project)
+    form = ProjectForm(request.POST, instance=project, current_user=request.user)
     if form.is_valid():
         form.save()
+        sync_project_shares(project, form.cleaned_data)
         ActivityLog.objects.create(
             user=request.user,
             project=project,
@@ -1219,7 +1347,18 @@ def task_create(request, pk):
             'project': project,
             'user_role': get_role(request.user, project),
         }, request=request)
-        return JsonResponse({'success': True, 'html': html})
+        list_row_html = render_to_string('arva/_task_list_row.html', {
+            'task': task,
+            'project': project,
+            'user_role': get_role(request.user, project),
+        }, request=request)
+        return JsonResponse({
+            'success': True,
+            'html': html,
+            'list_row_html': list_row_html,
+            'task_id': task.id,
+            'task_list_id': task.task_list_id,
+        })
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
 @login_required
