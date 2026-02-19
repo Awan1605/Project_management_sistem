@@ -1,0 +1,31 @@
+<div
+  id="{{ toggle_id }}"
+  class="btn-group btn-group-sm view-switcher arva-view-toggle"
+  role="tablist"
+  aria-label="{{ aria_label|default:'View mode' }}"
+  data-view-storage-key="{{ storage_key }}"
+  data-view-default-target="{% if default_active == 'right' %}{{ right_target }}{% else %}{{ left_target }}{% endif %}"
+>
+  <button
+    type="button"
+    class="btn{% if default_active != 'right' %} active{% endif %}"
+    data-bs-toggle="pill"
+    data-bs-target="{{ left_target }}"
+    role="tab"
+    aria-controls="{{ left_target|slice:'1:' }}"
+    aria-selected="{% if default_active != 'right' %}true{% else %}false{% endif %}"
+  >
+    <i class="bi {{ left_icon }} me-1"></i>{{ left_label }}
+  </button>
+  <button
+    type="button"
+    class="btn{% if default_active == 'right' %} active{% endif %}"
+    data-bs-toggle="pill"
+    data-bs-target="{{ right_target }}"
+    role="tab"
+    aria-controls="{{ right_target|slice:'1:' }}"
+    aria-selected="{% if default_active == 'right' %}true{% else %}false{% endif %}"
+  >
+    <i class="bi {{ right_icon }} me-1"></i>{{ right_label }}
+  </button>
+</div>

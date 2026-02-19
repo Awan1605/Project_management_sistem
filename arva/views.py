@@ -89,15 +89,38 @@ def sync_project_shares(project, cleaned_data):
 @login_required
 def user_settings(request):
     profile = request.user.userprofile
+    layout_preference = profile.layout_preference
+    is_classic = layout_preference == UserProfile.LAYOUT_CLASSIC
+    settings_obj = WebsiteSettings.objects.first()
+    website_form = None
+
+    if is_classic and request.user.is_superuser:
+        if request.method == "POST" and request.POST.get("settings_scope") == "website":
+            website_form = WebsiteSettingsForm(request.POST, request.FILES, instance=settings_obj)
+            if website_form.is_valid():
+                website_form.save()
+                messages.success(request, "Website settings updated successfully.")
+                return redirect("user_settings")
+            messages.error(request, "Error saving website settings.")
+        else:
+            website_form = WebsiteSettingsForm(instance=settings_obj)
+
     return render(request, "arva/user_settings.html", {
-        "layout_preference": profile.layout_preference,
+        "layout_preference": layout_preference,
         "theme_preference": profile.theme_preference,
+        "layout_is_classic": is_classic,
+        "website_form": website_form,
+        "settings": settings_obj,
     })
 
 @login_required
 def website_settings(request):
     if not request.user.is_superuser:
         messages.error(request, "You do not have permission to manage website settings.")
+        return redirect("user_settings")
+
+    if request.user.userprofile.layout_preference == UserProfile.LAYOUT_CLASSIC:
+        messages.info(request, "Website settings are available in the unified Settings page (Classic Layout).")
         return redirect("user_settings")
 
     settings_obj = WebsiteSettings.objects.first()
@@ -329,23 +352,12 @@ def project_list(request):
 
     form = ProjectForm(current_user=request.user)
     project_roles = {project.id: project.get_user_role(request.user) for project in projects}
-    search_statuses = TaskList.objects.filter(
-        project__in=accessible_projects,
-        is_archived=False,
-    ).values_list('name', flat=True).distinct().order_by('name')
-    search_labels = Label.objects.filter(
-        tasks__project__in=accessible_projects,
-        tasks__is_archived=False,
-    ).distinct().order_by('name')
     return render(request, 'arva/project_list.html', {
         'projects': projects, 
         'project_form': form,
         'online_users': online_users,
         'admin_projects': admin_projects,
         'project_roles': project_roles,
-        'search_projects': projects.order_by('name'),
-        'search_statuses': search_statuses,
-        'search_labels': search_labels,
     })
 
 

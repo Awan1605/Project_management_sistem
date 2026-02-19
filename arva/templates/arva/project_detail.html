@@ -1,222 +1,9 @@
 ﻿{% extends "arva/base.html" %}
+{% load static %}
 {% block title %}{{ project.name }}{% endblock %}
 
 {% block extra_css %}
-<style>
-  .project-detail-page {
-    width: 100%;
-  }
-  .project-detail-header {
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-  .project-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  .project-actions a {
-    margin-right: 0 !important;
-  }
-  .view-switcher {
-    background: rgba(15, 23, 42, 0.05);
-    padding: 0.2rem;
-    border-radius: 12px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-  }
-  .view-switcher .btn {
-    border: 0;
-    border-radius: 9px;
-    font-weight: 600;
-    padding: 0.35rem 0.7rem;
-    color: #334155;
-  }
-  .view-switcher .btn.active {
-    background: #0f172a;
-    color: #fff;
-  }
-  .task-list-shell {
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 14px;
-    overflow: hidden;
-    background: #fff;
-  }
-  .task-list-head {
-    display: grid;
-    grid-template-columns: minmax(220px, 2fr) 120px 110px 150px auto;
-    gap: 0.75rem;
-    padding: 0.65rem 0.9rem;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-    background: rgba(15, 23, 42, 0.03);
-  }
-  .task-list-sort {
-    border: 0;
-    background: transparent;
-    text-align: left;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-weight: 700;
-    color: #64748b;
-    padding: 0;
-  }
-  .compact-add-btn {
-    border-radius: 9px;
-    padding: 0.32rem 0.62rem;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .task-list-sort.active {
-    color: #0f172a;
-  }
-  .task-list-row {
-    display: grid;
-    grid-template-columns: minmax(240px, 2fr) 130px minmax(150px, 1.2fr) 100px 170px;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.7rem 0.9rem;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-  }
-  .task-list-row:hover {
-    background: rgba(15, 23, 42, 0.03);
-  }
-  .task-list-row:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: -2px;
-  }
-  .task-row-title {
-    font-weight: 700;
-    color: #0f172a;
-  }
-  .task-row-sub {
-    display: flex;
-    gap: 0.4rem;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-top: 0.2rem;
-    font-size: 0.82rem;
-  }
-  .task-row-meta {
-    min-width: 0;
-  }
-  .task-row-progress {
-    min-width: 84px;
-  }
-  .task-row-activity {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    justify-content: flex-end;
-  }
-  .activity-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #0ea5e9;
-    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
-  }
-  .task-list-empty {
-    background: rgba(15, 23, 42, 0.02);
-  }
-  .task-create-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.6rem;
-  }
-  .task-create-grid .full {
-    grid-column: 1 / -1;
-  }
-  .task-create-grid .form-label {
-    margin-bottom: 0.2rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-  #task-board-wrapper {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
-  .project-detail-page #task-board {
-    overflow-x: auto;
-    overflow-y: hidden;
-    width: 100%;
-  }
-  .project-detail-page .board-wrapper {
-    align-items: flex-start;
-  }
-  .project-detail-page .board-list {
-    scroll-margin-top: 90px;
-  }
-  .layout-sidebar .project-detail-page .board-list {
-    max-height: calc(100vh - 260px);
-  }
-  .layout-sidebar .project-detail-page .task-column {
-    max-height: calc(100vh - 360px);
-  }
-  @media (max-width: 991.98px) {
-    .task-list-head {
-      display: none;
-    }
-    .task-list-row {
-      grid-template-columns: 1fr;
-      gap: 0.45rem;
-      padding: 0.8rem;
-    }
-    .task-row-status,
-    .task-row-meta,
-    .task-row-progress,
-    .task-row-activity {
-      justify-content: flex-start;
-    }
-    .task-row-activity {
-      margin-top: 0.1rem;
-    }
-    .project-detail-page .board-list {
-      width: min(86vw, 320px);
-      flex: 0 0 min(86vw, 320px);
-      max-height: none;
-    }
-    .project-detail-page .task-column {
-      max-height: 58vh;
-    }
-  }
-  @media (max-width: 575.98px) {
-    .project-detail-page .board-list {
-      width: min(92vw, 320px);
-      flex: 0 0 min(92vw, 320px);
-    }
-    .project-detail-page .project-actions {
-      gap: 0.5rem;
-    }
-    .view-switcher .btn {
-      padding: 0.3rem 0.55rem;
-      font-size: 0.82rem;
-    }
-  }
-  .task-skeleton {
-    display: grid;
-    gap: 10px;
-  }
-  .skel-line {
-    height: 12px;
-    border-radius: 6px;
-    background: linear-gradient(90deg, #eee 25%, #f5f5f5 37%, #eee 63%);
-    background-size: 400% 100%;
-    animation: taskShimmer 1.1s infinite;
-  }
-  .skel-title {
-    height: 20px;
-    width: 60%;
-  }
-  .skel-block {
-    height: 64px;
-  }
-  @keyframes taskShimmer {
-    0% { background-position: 100% 0; }
-    100% { background-position: -100% 0; }
-  }
-</style>
+  <link rel="stylesheet" href="{% static 'arva/css/pages/project_detail.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -234,7 +21,7 @@
           </h4>
 
           {% if user_role == 'admin' %}
-          <button class="btn btn-outline-primary btn-sm" id="btn-edit-project" style="border-radius: 10px;">
+          <button class="btn btn-outline-primary btn-sm rounded-btn-10" id="btn-edit-project">
             <i class="bi bi-pencil-square me-1"></i>Edit
           </button>
           {% endif %}
@@ -279,7 +66,7 @@
 
         {% if subprojects or user_role == 'admin' %}
         <div class="mt-3 d-flex flex-wrap align-items-end gap-2">
-          <div class="flex-grow-1" style="min-width: 220px;">
+          <div class="flex-grow-1 project-subproject-select-wrap">
             <label class="form-label small text-muted mb-1">Sub-project</label>
             <select id="subproject-select" class="form-select form-select-sm" data-project-id="{{ project.id }}">
               {% if subprojects %}
@@ -417,9 +204,9 @@
         <div class="task-skeleton">
           <div class="skel-line skel-title"></div>
           <div class="skel-line"></div>
-          <div class="skel-line" style="width: 85%;"></div>
+          <div class="skel-line skel-w-85"></div>
           <div class="skel-line skel-block"></div>
-          <div class="skel-line" style="width: 40%;"></div>
+          <div class="skel-line skel-w-40"></div>
         </div>
       </div>
 
@@ -479,12 +266,12 @@
 
         <div class="mb-3">
           <label class="form-label fw-semibold">Project Name</label>
-          <input class="form-control" name="name" style="border-radius: 10px;" value="{{ project.name }}">
+          <input class="form-control rounded-btn-10" name="name" value="{{ project.name }}">
         </div>
 
         <div class="mb-3">
           <label class="form-label fw-semibold">Description</label>
-          <textarea class="form-control" name="description" rows="3" style="border-radius: 10px;">{{ project.description }}</textarea>
+          <textarea class="form-control rounded-btn-10" name="description" rows="3">{{ project.description }}</textarea>
         </div>
 
         <div class="mb-3 form-check">
@@ -536,12 +323,12 @@
 
         <div class="mb-3">
           <label class="form-label fw-semibold">Sub-project Name</label>
-          <input class="form-control" name="name" style="border-radius: 10px;" required>
+          <input class="form-control rounded-btn-10" name="name" required>
         </div>
 
         <div class="mb-3">
           <label class="form-label fw-semibold">Description</label>
-          <textarea class="form-control" name="description" rows="3" style="border-radius: 10px;"></textarea>
+          <textarea class="form-control rounded-btn-10" name="description" rows="3"></textarea>
         </div>
       </div>
 
@@ -570,12 +357,12 @@
 
         <div class="mb-3">
           <label class="form-label fw-semibold">Sub-project Name</label>
-          <input class="form-control" name="name" id="subproject-edit-name" style="border-radius: 10px;" required>
+          <input class="form-control rounded-btn-10" name="name" id="subproject-edit-name" required>
         </div>
 
         <div class="mb-3">
           <label class="form-label fw-semibold">Description</label>
-          <textarea class="form-control" name="description" id="subproject-edit-description" rows="3" style="border-radius: 10px;"></textarea>
+          <textarea class="form-control rounded-btn-10" name="description" id="subproject-edit-description" rows="3"></textarea>
         </div>
       </div>
 
@@ -855,3 +642,5 @@
   })();
 </script>
 {% endblock %}
+
+

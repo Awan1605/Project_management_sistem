@@ -6,17 +6,16 @@
      data-description="{{ project.description|default:''|lower }}"
      data-created="{{ project.created_at|date:'Y-m-d' }}"
      data-progress="{{ project.progress.percent }}">
-  <div class="card shadow-sm h-100 project-card position-relative" style="border-radius: 16px; transition: .25s;">
+  <div class="card shadow-sm h-100 project-card position-relative card-shell-rounded">
 
-    {% comment %} <button type="button" class="btn btn-outline-danger btn-sm btn-delete-project position-absolute" data-id="{{ project.id }}" title="Delete Project"
-            style="top: 10px; right: 10px; border-radius: 10px; padding: 4px 8px;">
+    {% comment %} <button type="button" class="btn btn-outline-danger btn-sm btn-delete-project position-absolute" data-id="{{ project.id }}" title="Delete Project">
       <i class="bi bi-x-lg"></i>
     </button> {% endcomment %}
 
     <div class="card-body d-flex flex-column">
       <div class="d-flex justify-content-between align-items-start mb-2">
         <div>
-          <div class="text-uppercase text-muted" style="font-size: 0.7rem; letter-spacing: 0.12em;">
+          <div class="text-uppercase text-muted text-overline-compact">
             Project
           </div>
           <h5 class="card-title fw-semibold d-flex align-items-center mb-1">
@@ -34,13 +33,13 @@
         <span class="badge bg-light text-dark border">{{ project.progress.percent }}%</span>
       </div>
 
-      <p class="text-muted flex-grow-1 mb-3" style="overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: .9rem;">
+      <p class="text-muted flex-grow-1 mb-3 text-clamp-2 font-size-90">
         {{ project.description|default:"There is no description." }}
       </p>
 
       <div class="mb-3">
         {% if project.progress.total > 0 %}
-          <div class="progress" style="height: 6px; border-radius: 10px;">
+          <div class="progress progress-compact">
             <div class="progress-bar bg-success" role="progressbar" style="width: {{ project.progress.percent }}%;"></div>
           </div>
           <small class="text-muted fw-semibold">
@@ -81,7 +80,7 @@
         </div>
       </div>
 
-      <div class="d-flex flex-wrap gap-3 text-muted" style="font-size: .85rem;">
+      <div class="d-flex flex-wrap gap-3 text-muted font-size-85">
         <div class="d-flex align-items-center">
           <i class="bi bi-calendar-event me-1"></i>
           {{ project.created_at|date:"d M Y" }}
@@ -94,29 +93,29 @@
 
       <div class="d-flex justify-content-between align-items-center mt-auto pt-3">
         <div class="d-flex gap-2">
-          {% comment %} <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="btn btn-outline-primary btn-sm" style="border-radius: 10px; padding: 6px 12px;" title="Open Project">
+          {% comment %} <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="btn btn-outline-primary btn-sm" title="Open Project">
             <i class="bi bi-box-arrow-in-right"></i> Open
           </a> {% endcomment %}
           <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="btn btn-outline-primary btn-sm table-action">
             <i class="bi bi-eye"></i>
           </a>
-          <a href="{% url 'subproject_list' project.id %}" class="btn btn-outline-secondary btn-sm" style="border-radius: 10px; padding: 6px 12px;" title="Sub-projects">
+          <a href="{% url 'subproject_list' project.id %}" class="btn btn-outline-secondary btn-sm rounded-btn-10 btn-pad-6-12" title="Sub-projects">
             <i class="bi bi-diagram-3"></i>
           </a>
           {% if project_role == 'admin' or project_roles|get_item:project.id == 'admin' %}
-          <button type="button" class="btn btn-outline-warning btn-sm btn-convert-subproject" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="Convert to sub-project" style="border-radius: 10px; padding: 6px 12px;">
+          <button type="button" class="btn btn-outline-warning btn-sm btn-convert-subproject rounded-btn-10 btn-pad-6-12" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="Convert to sub-project">
             <i class="bi bi-arrow-left-right"></i>
           </button>
           {% endif %}
         </div>
         {% if project.last_task_activity %}
           {% language 'en' %}
-            <span class="text-muted" style="font-size: 0.78rem;">
+            <span class="text-muted font-size-78">
               Last update: {{ project.last_task_activity|timesince }} ago
             </span>
           {% endlanguage %}
         {% else %}
-          <span class="text-muted" style="font-size: 0.78rem;">No activity yet</span>
+          <span class="text-muted font-size-78">No activity yet</span>
         {% endif %}
       </div>
     </div>

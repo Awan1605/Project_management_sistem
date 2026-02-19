@@ -40,7 +40,7 @@
         {% endif %}
       </div>
 
-      <div class="progress my-2" style="height: 8px;">
+      <div class="progress my-2 checklist-progress">
         <div class="progress-bar bg-success" style="width: {{ checklist_percent }}%;"></div>
       </div>
       <small class="text-muted d-block mb-2">
@@ -165,7 +165,7 @@
 
     <div class="sidebar-box">
       <h6 class="fw-semibold">Activity</h6>
-      <div class="border rounded px-2 py-2" style="max-height: 260px; overflow-y: auto;">
+      <div class="border rounded px-2 py-2 task-activity-scroll">
         {% for act in task.activities.all %}
         <div class="small mb-2">
           <strong>{{ act.user.username|default:'System' }}</strong>

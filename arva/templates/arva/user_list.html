@@ -1,235 +1,9 @@
-{% extends "arva/base.html" %}
+﻿{% extends "arva/base.html" %}
+{% load static %}
 {% block title %}User Management{% endblock %}
 
 {% block extra_css %}
-  <style>
-    .page-hero {
-      border-radius: 18px;
-      padding: 1.5rem 1.75rem;
-      background:
-        radial-gradient(600px 240px at 0% 0%, rgba(9, 175, 255, 0.18), transparent 65%),
-        radial-gradient(520px 220px at 90% 20%, rgba(16, 185, 129, 0.18), transparent 60%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.35rem 0.75rem;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.06);
-      font-size: 0.85rem;
-      color: #334155;
-    }
-
-    .hero-title {
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin: 0 0 0.35rem;
-    }
-
-    .hero-subtitle {
-      margin: 0;
-      color: #64748b;
-    }
-
-    .cta-btn {
-      border-radius: 12px;
-      padding: 0.45rem 0.8rem;
-      font-weight: 600;
-    }
-
-    .cards-shell {
-      border-radius: 18px;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      background: #fff;
-      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
-    }
-
-    .filter-bar {
-      display: grid;
-      grid-template-columns: minmax(240px, 1fr) 160px 160px auto;
-      gap: 0.75rem;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .filter-bar .form-control,
-    .filter-bar .form-select {
-      border-radius: 12px;
-      border-color: rgba(15, 23, 42, 0.12);
-      padding: 0.55rem 0.85rem;
-      font-size: 0.9rem;
-    }
-
-    .filter-count {
-      justify-self: end;
-      white-space: nowrap;
-    }
-
-    .view-toggle .nav-link {
-      border-radius: 999px;
-      padding: 0.35rem 0.85rem;
-      font-weight: 600;
-      color: #334155;
-      background: rgba(15, 23, 42, 0.06);
-    }
-
-    .view-toggle .nav-link.active {
-      background: #0f172a;
-      color: #fff;
-    }
-
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 1.25rem;
-    }
-
-
-    .table-density-compact .table-modern tbody td {
-      padding-top: 0.55rem;
-      padding-bottom: 0.55rem;
-      font-size: 0.85rem;
-    }
-
-    .table-density-compact .table-modern thead th {
-      padding-top: 0.6rem;
-      padding-bottom: 0.6rem;
-      font-size: 0.72rem;
-    }
-
-    .user-card {
-      border-radius: 18px;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      background: #fff;
-      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
-      padding: 1.1rem 1.2rem 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .user-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
-    }
-
-    .user-card-header {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .user-card-title {
-      font-weight: 600;
-      margin: 0;
-    }
-
-    .user-card-meta {
-      color: #94a3b8;
-      font-size: 0.85rem;
-    }
-
-    .user-card-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.45rem;
-    }
-
-    .card-density-compact .user-card {
-      padding: 0.85rem 0.95rem 0.8rem;
-      gap: 0.55rem;
-    }
-
-    .card-density-compact .user-card-meta {
-      font-size: 0.82rem;
-    }
-
-    .card-density-compact .user-card-tags {
-      gap: 0.35rem;
-    }
-
-    .table-modern thead th {
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #64748b;
-      background: rgba(15, 23, 42, 0.05);
-      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-      padding-top: 0.9rem;
-      padding-bottom: 0.9rem;
-    }
-
-    .sort-btn {
-      border: none;
-      background: transparent;
-      padding: 0;
-      font-size: 0.75rem;
-      color: #64748b;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-weight: 600;
-    }
-
-    .sort-btn.active {
-      color: #0f172a;
-    }
-
-    .table-modern tbody td {
-      padding-top: 0.95rem;
-      padding-bottom: 0.95rem;
-      border-color: rgba(15, 23, 42, 0.06);
-      vertical-align: middle;
-    }
-
-    .table-modern tbody tr:hover {
-      background: rgba(15, 23, 42, 0.03);
-    }
-
-    .user-identity {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      font-weight: 600;
-    }
-
-    .user-identity small {
-      display: block;
-      color: #94a3b8;
-      font-weight: 500;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.2rem 0.55rem;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: rgba(15, 23, 42, 0.08);
-      color: #334155;
-    }
-
-    .status-online { background: rgba(16, 185, 129, 0.18); color: #0f766e; }
-    .status-offline { background: rgba(148, 163, 184, 0.25); color: #475569; }
-    .status-never { background: rgba(239, 68, 68, 0.18); color: #b91c1c; }
-  </style>
+  <link rel="stylesheet" href="{% static 'arva/css/pages/user_list.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -255,18 +29,7 @@
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div class="text-muted">Switch between table and Card Views.</div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <ul class="nav nav-pills view-toggle" id="userViewTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="user-table-tab" data-bs-toggle="pill" data-bs-target="#user-table-view" type="button" role="tab" aria-controls="user-table-view" aria-selected="true">
-            <i class="bi bi-table me-1"></i> Table View
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="user-card-tab" data-bs-toggle="pill" data-bs-target="#user-card-view" type="button" role="tab" aria-controls="user-card-view" aria-selected="false">
-            <i class="bi bi-grid-3x3-gap me-1"></i> Card View
-          </button>
-        </li>
-      </ul>
+      {% include "arva/_view_toggle_tabs.html" with toggle_id="userViewTabs" storage_key="arva_user_view" left_target="#user-table-view" left_label="Table View" left_icon="bi-table" right_target="#user-card-view" right_label="Card View" right_icon="bi-grid-3x3-gap" default_active="left" aria_label="User view mode" %}
     </div>
   </div>
 
@@ -492,26 +255,6 @@
 {% block extra_js %}
   <script>
     (function() {
-      const viewStorageKey = 'arva_user_view';
-      const viewTabs = document.querySelectorAll('#userViewTabs [data-bs-toggle="pill"]');
-      const storedView = localStorage.getItem(viewStorageKey);
-
-      if (storedView) {
-        const target = document.querySelector(`#userViewTabs [data-bs-target="${storedView}"]`);
-        if (target) {
-          bootstrap.Tab.getOrCreateInstance(target).show();
-        }
-      }
-
-      viewTabs.forEach((tab) => {
-        tab.addEventListener('shown.bs.tab', (event) => {
-          const target = event.target.getAttribute('data-bs-target');
-          if (target) {
-            localStorage.setItem(viewStorageKey, target);
-          }
-        });
-      });
-
       const searchInput = document.getElementById('user-search');
       const activeSelect = document.getElementById('user-active');
       const staffSelect = document.getElementById('user-staff');
@@ -633,3 +376,5 @@
     })();
   </script>
 {% endblock %}
+
+

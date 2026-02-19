@@ -1,155 +1,9 @@
-{% extends "arva/base.html" %}
+﻿{% extends "arva/base.html" %}
+{% load static %}
 {% block title %}Activity - {{ project.name }}{% endblock %}
 
 {% block extra_css %}
-  <style>
-    .page-hero {
-      border-radius: 18px;
-      padding: 1.5rem 1.75rem;
-      background:
-        radial-gradient(600px 240px at 0% 0%, rgba(9, 175, 255, 0.18), transparent 65%),
-        radial-gradient(520px 220px at 90% 20%, rgba(16, 185, 129, 0.18), transparent 60%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.35rem 0.75rem;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.06);
-      font-size: 0.85rem;
-      color: #334155;
-    }
-
-    .hero-title {
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin: 0 0 0.35rem;
-    }
-
-    .hero-subtitle {
-      margin: 0;
-      color: #64748b;
-    }
-
-    .cta-btn {
-      border-radius: 12px;
-      padding: 0.45rem 0.8rem;
-      font-weight: 600;
-    }
-
-    .cards-shell {
-      border-radius: 18px;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      background: #fff;
-      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
-    }
-
-    .filter-bar {
-      display: grid;
-      grid-template-columns: minmax(220px, 1.2fr) minmax(160px, 0.8fr) minmax(160px, 0.8fr) minmax(160px, 0.7fr) minmax(160px, 0.7fr) auto;
-      gap: 0.75rem;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .filter-bar .form-control,
-    .filter-bar .form-select,
-    .filter-bar .form-date {
-      border-radius: 12px;
-      border-color: rgba(15, 23, 42, 0.12);
-      padding: 0.55rem 0.85rem;
-      font-size: 0.9rem;
-    }
-
-    .filter-count {
-      justify-self: end;
-      white-space: nowrap;
-    }
-
-    .activity-row {
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 16px;
-      padding: 1rem 1.1rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem;
-      background: #fff;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-    }
-
-    .activity-title {
-      font-size: 0.98rem;
-      font-weight: 600;
-      margin-bottom: 0.2rem;
-    }
-
-    .activity-desc {
-      color: #64748b;
-    }
-
-    .activity-meta {
-      text-align: right;
-      font-size: 0.82rem;
-      color: #6b7280;
-    }
-
-    .activity-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.75rem;
-      border: 1px solid rgba(0,0,0,0.08);
-      border-radius: 999px;
-      padding: 2px 10px;
-      color: #64748b;
-      background: #f8fafc;
-    }
-
-    .activity-list {
-      display: grid;
-      gap: 0.5rem;
-    }
-
-    .pagination .page-link {
-      border-radius: 999px;
-      padding: 0.35rem 0.85rem;
-      border-color: rgba(15, 23, 42, 0.12);
-      color: #334155;
-    }
-
-    .pagination .page-item.active .page-link {
-      background: #0f172a;
-      border-color: #0f172a;
-      color: #fff;
-    }
-
-    @media (max-width: 992px) {
-      .filter-bar {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .filter-count {
-        justify-self: start;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .activity-meta {
-        text-align: left;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="{% static 'arva/css/pages/activity_log.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -167,7 +21,7 @@
     </div>
     <div class="d-flex align-items-center gap-2">
       <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-secondary btn-sm cta-btn" title="Back">
-        <i class="bi bi-arrow-left"></i> Back to Board
+        <i class="bi bi-arrow-left"></i> Back to Task
       </a>
     </div>
   </div>
@@ -272,3 +126,5 @@
   </div>
 </div>
 {% endblock %}
+
+

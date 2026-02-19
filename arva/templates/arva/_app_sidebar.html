@@ -17,9 +17,9 @@
     <i class="bi bi-folder2-open"></i>
     <span class="sidebar-label">Projects</span>
   </a>
-  <a href="{% url 'my_cards' %}" title="Boards" class="sidebar-link {% if current == 'my_cards' or current == 'project_detail' or current == 'project_activity' or current == 'project_archive' or current == 'project_members' %}active{% endif %}">
+  <a href="{% url 'my_cards' %}" title="My Tasks" class="sidebar-link {% if current == 'my_cards' or current == 'project_detail' or current == 'project_activity' or current == 'project_archive' or current == 'project_members' %}active{% endif %}">
     <i class="bi bi-kanban"></i>
-    <span class="sidebar-label">Boards</span>
+    <span class="sidebar-label">My Tasks</span>
   </a>
   <a href="{% url 'user_settings' %}" title="Settings" class="sidebar-link {% if current == 'user_settings' or current == 'website_settings' %}active{% endif %}">
     <i class="bi bi-gear"></i>
@@ -32,6 +32,10 @@
     </a>
   {% endif %}
 </nav>
+
+<div class="sidebar-task-search">
+  {% include "arva/_task_user_search_widget.html" with widget_class="task-user-search-sidebar" %}
+</div>
 
 <div class="sidebar-footer">
   <div class="sidebar-profile">

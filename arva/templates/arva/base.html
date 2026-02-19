@@ -18,6 +18,13 @@
   <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <link rel="stylesheet" href="{% static 'arva/css/arva.css' %}">
+  {% if user.is_authenticated %}
+    {% if active_layout == 'sidebar' %}
+      <link rel="stylesheet" href="{% static 'arva/css/layout/sidebar.css' %}">
+    {% elif active_layout == 'classic' %}
+      <link rel="stylesheet" href="{% static 'arva/css/layout/classic.css' %}">
+    {% endif %}
+  {% endif %}
   <style>
     :root {
       --primary-color: {{ settings.primary_color|default:'#09affe' }};
@@ -185,7 +192,7 @@
         <div class="container-fluid">
           <a class="navbar-brand fw-bold" href="{% url 'project_list' %}">
             {% if settings.logo %}
-              <img src="{{ settings.logo_url }}" height="32" style="border-radius: var(--radius);" alt="{{ settings.site_name }}">
+              <img src="{{ settings.logo_url }}" height="32" class="brand-logo-rounded" alt="{{ settings.site_name }}">
             {% else %}
               {{ settings.site_name }}
             {% endif %}
@@ -196,10 +203,10 @@
           <div class="collapse navbar-collapse" id="navbarMain">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
               <li class="nav-item">
-                <a class="nav-link" href="{% url 'project_list' %}"><i class="bi bi-kanban"></i> Boards</a>
+                <a class="nav-link" href="{% url 'project_list' %}"><i class="bi bi-kanban"></i> Projects</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" href="{% url 'my_cards' %}"><i class="bi bi-card-checklist"></i> Tasks</a>
+                <a class="nav-link" href="{% url 'my_cards' %}"><i class="bi bi-card-checklist"></i> My Tasks</a>
               </li>
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'user_settings' %}"><i class="bi bi-sliders"></i> Settings</a>
@@ -208,11 +215,11 @@
                 <li class="nav-item">
                   <a class="nav-link" href="{% url 'user_list' %}"><i class="bi bi-people"></i> Users</a>
                 </li>
-                <li class="nav-item">
-                  <a class="nav-link" href="{% url 'website_settings' %}"><i class="bi bi-gear"></i> Website</a>
-                </li>
               {% endif %}
             </ul>
+            <div class="classic-task-search me-3">
+              {% include "arva/_task_user_search_widget.html" with widget_class="task-user-search-classic" %}
+            </div>
             <div class="d-flex align-items-center">
               <div class="me-3 d-flex align-items-center">
                 <img src="{{ request.user.userprofile.avatar_url }}" class="avatar-sm me-2" alt="{{ user.username }}">
@@ -250,7 +257,7 @@
 
           <form class="topbar-search" action="{% url 'project_list' %}" method="get">
             <i class="bi bi-search"></i>
-            <input type="search" name="q" placeholder="Search projects, boards, and tasks">
+            <input type="search" name="q" placeholder="Search projects and tasks">
           </form>
 
           <div class="topbar-actions">
@@ -301,7 +308,7 @@
     <div class="container-fluid">
       <a class="navbar-brand fw-bold" href="{% url 'project_list' %}">
         {% if settings.logo %}
-          <img src="{{ settings.logo_url }}" alt="{{ settings.site_name }}" height="32" style="border-radius: var(--radius);">
+          <img src="{{ settings.logo_url }}" alt="{{ settings.site_name }}" height="32" class="brand-logo-rounded">
         {% else %}
           {{ settings.site_name }}
         {% endif %}

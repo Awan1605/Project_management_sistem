@@ -68,6 +68,130 @@ function stripBomText(node) {
 $(function() {
   stripBomText(document.body);
 
+  function initPersistentViewToggles() {
+    document.querySelectorAll('.arva-view-toggle[data-view-storage-key]').forEach((container) => {
+      const key = container.getAttribute('data-view-storage-key');
+      if (!key) return;
+
+      const buttons = Array.from(container.querySelectorAll('[data-bs-toggle="pill"][data-bs-target]'));
+      if (!buttons.length) return;
+
+      const defaultTarget = container.getAttribute('data-view-default-target') || buttons[0].getAttribute('data-bs-target');
+      const storedTarget = localStorage.getItem(key);
+      const targetToShow = storedTarget || defaultTarget;
+      const initialBtn = buttons.find((btn) => btn.getAttribute('data-bs-target') === targetToShow);
+
+      if (initialBtn && window.bootstrap?.Tab) {
+        bootstrap.Tab.getOrCreateInstance(initialBtn).show();
+      }
+
+      buttons.forEach((btn) => {
+        btn.addEventListener('shown.bs.tab', (event) => {
+          const target = event.target.getAttribute('data-bs-target');
+          if (!target) return;
+
+          localStorage.setItem(key, target);
+          buttons.forEach((x) => x.classList.toggle('active', x === event.target));
+        });
+      });
+    });
+  }
+
+  initPersistentViewToggles();
+
+  function initTaskUserSearchWidgets() {
+    const widgets = Array.from(document.querySelectorAll('[data-task-user-search-widget]'));
+    if (!widgets.length) return;
+
+    widgets.forEach((widget) => {
+      const input = widget.querySelector('.task-user-search-input');
+      const results = widget.querySelector('[data-task-user-search-results]');
+      if (!input || !results) return;
+
+      let timer = null;
+      let lastQuery = '';
+
+      function hideResults() {
+        results.classList.add('d-none');
+      }
+
+      function showResults() {
+        results.classList.remove('d-none');
+      }
+
+      function renderEmpty(text) {
+        results.innerHTML = `<div class="task-user-search-empty">${text}</div>`;
+        showResults();
+      }
+
+      function renderItems(items) {
+        if (!items.length) {
+          renderEmpty('No matching tasks found.');
+          return;
+        }
+        results.innerHTML = '';
+        items.slice(0, 12).forEach((item) => {
+          const link = document.createElement('a');
+          link.href = item.url || '#';
+          link.className = 'task-user-search-item';
+
+          const title = document.createElement('div');
+          title.className = 'task-user-search-item-title';
+          title.textContent = item.title || '-';
+
+          const meta = document.createElement('div');
+          meta.className = 'task-user-search-item-meta';
+          meta.textContent = `${item.project_name || '-'} | ${item.assignees_display || 'No assignee'} | ${item.status || '-'}`;
+
+          link.appendChild(title);
+          link.appendChild(meta);
+          results.appendChild(link);
+        });
+        showResults();
+      }
+
+      function fetchResults(query) {
+        fetch(`/tasks/search/?${new URLSearchParams({ user_q: query }).toString()}`, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then((resp) => resp.json()).then((resp) => {
+          if (!resp.success) {
+            renderEmpty('Search failed.');
+            return;
+          }
+          renderItems(resp.results || []);
+        }).catch(() => {
+          renderEmpty('Search failed.');
+        });
+      }
+
+      input.addEventListener('input', () => {
+        const query = (input.value || '').trim();
+        if (query === lastQuery) return;
+        lastQuery = query;
+
+        clearTimeout(timer);
+        if (!query) {
+          hideResults();
+          return;
+        }
+
+        timer = setTimeout(() => fetchResults(query), 220);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!widget.contains(e.target)) hideResults();
+      });
+
+      input.addEventListener('focus', () => {
+        const query = (input.value || '').trim();
+        if (!query) return;
+        fetchResults(query);
+      });
+    });
+  }
+
+  initTaskUserSearchWidgets();
+
   $(document).on('click', '.theme-select', function() {
     const theme = $(this).data('theme');
 
@@ -416,7 +540,7 @@ $(function() {
       },
       error: function(xhr) {
         if (xhr.status === 403) {
-          showError('You do not have access to create tasks on this board.');
+          showError('You do not have access to create tasks on this task.');
         } else {
           showError('Failed to create task');
         }

@@ -1,268 +1,10 @@
-{% extends "arva/base.html" %}
+﻿{% extends "arva/base.html" %}
+{% load static %}
 {% load arva_tags %}
 {% block title %}Projects{% endblock %}
 
 {% block extra_css %}
-  <style>
-    .page-hero {
-      border-radius: 18px;
-      padding: 1.5rem 1.75rem;
-      background:
-        radial-gradient(600px 240px at 0% 0%, rgba(9, 175, 255, 0.18), transparent 65%),
-        radial-gradient(520px 220px at 90% 20%, rgba(16, 185, 129, 0.18), transparent 60%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.35rem 0.75rem;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.06);
-      font-size: 0.85rem;
-      color: #334155;
-    }
-
-    .hero-title {
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin: 0 0 0.35rem;
-    }
-
-    .hero-subtitle {
-      margin: 0;
-      color: #64748b;
-    }
-
-    .cta-btn {
-      border-radius: 12px;
-      padding: 0.45rem 0.8rem;
-      font-weight: 600;
-    }
-
-    .cards-shell {
-      border-radius: 18px;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      background: #fff;
-      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
-    }
-
-    .view-toggle .nav-link {
-      border-radius: 999px;
-      padding: 0.35rem 0.85rem;
-      font-weight: 600;
-      color: #334155;
-      background: rgba(15, 23, 42, 0.06);
-    }
-
-    .view-toggle .nav-link.active {
-      background: #0f172a;
-      color: #fff;
-    }
-
-    .filter-bar {
-      display: grid;
-      grid-template-columns: minmax(240px, 1fr) auto;
-      gap: 0.75rem;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .filter-bar .form-control {
-      border-radius: 12px;
-      border-color: rgba(15, 23, 42, 0.12);
-      padding: 0.55rem 0.85rem;
-      font-size: 0.9rem;
-    }
-
-    .filter-count {
-      justify-self: end;
-      white-space: nowrap;
-    }
-
-    .table-modern thead th {
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #64748b;
-      background: rgba(15, 23, 42, 0.05);
-      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-      padding-top: 0.9rem;
-      padding-bottom: 0.9rem;
-    }
-
-    .table-modern tbody td {
-      padding-top: 0.95rem;
-      padding-bottom: 0.95rem;
-      border-color: rgba(15, 23, 42, 0.06);
-      vertical-align: middle;
-    }
-
-    .table-modern tbody tr:hover {
-      background: rgba(15, 23, 42, 0.03);
-    }
-
-    .sort-btn {
-      border: none;
-      background: transparent;
-      padding: 0;
-      font-size: 0.75rem;
-      color: #64748b;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-weight: 600;
-    }
-
-    .sort-btn.active {
-      color: #0f172a;
-    }
-
-    .summary-title {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #111827;
-      margin-top: 0.45rem;
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-    }
-
-    .summary-title .title-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #1c5cff;
-      box-shadow: 0 0 0 6px rgba(28, 92, 255, 0.12);
-      flex: 0 0 auto;
-    }
-
-    .summary-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.15rem;
-    }
-
-    .table-action {
-      border-radius: 10px;
-      padding: 0.45rem 0.8rem;
-      font-weight: 600;
-    }
-
-    .table-density-compact .table-modern tbody td {
-      padding-top: 0.55rem;
-      padding-bottom: 0.55rem;
-      font-size: 0.85rem;
-    }
-
-    .table-density-compact .table-modern thead th {
-      padding-top: 0.6rem;
-      padding-bottom: 0.6rem;
-      font-size: 0.72rem;
-    }
-
-    .card-density-compact .project-card .card-body {
-      padding: 0.8rem !important;
-    }
-
-    .project-card {
-      border: 1px solid rgba(15, 23, 42, 0.12);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      background: #fff;
-    }
-
-    .project-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
-    }
-
-    .online-users {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .online-user {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      background: rgba(15, 23, 42, 0.04);
-      border-radius: 12px;
-      padding: 0.45rem 0.7rem;
-    }
-
-    .online-strip {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.25rem 0.6rem;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.04);
-    }
-
-    .online-avatar {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #fff;
-      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
-    }
-    .task-finder-shell {
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 12px;
-      padding: 0.75rem;
-      background: rgba(15, 23, 42, 0.02);
-      margin-bottom: 1rem;
-    }
-    .task-finder-grid {
-      display: grid;
-      grid-template-columns: minmax(220px, 1fr) 160px 160px 170px 180px;
-      gap: 0.6rem;
-      align-items: center;
-    }
-    .task-finder-results {
-      margin-top: 0.75rem;
-      max-height: 300px;
-      overflow: auto;
-    }
-    .task-finder-table th,
-    .task-finder-table td {
-      font-size: 0.82rem;
-      vertical-align: middle;
-      white-space: nowrap;
-    }
-    .task-finder-empty {
-      padding: 0.7rem;
-      border: 1px dashed rgba(15, 23, 42, 0.2);
-      border-radius: 10px;
-      color: #64748b;
-      font-size: 0.85rem;
-      text-align: center;
-      background: #fff;
-    }
-    @media (max-width: 991.98px) {
-      .task-finder-grid {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-    @media (max-width: 575.98px) {
-      .task-finder-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="{% static 'arva/css/pages/project_list.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -274,7 +16,7 @@
         Workspace Overview
       </div>
       <h3 class="hero-title">
-        <i class="bi bi-kanban me-2 text-primary"></i> Boards / Projects
+        <i class="bi bi-kanban me-2 text-primary"></i> Projects
       </h3>
       <p class="hero-subtitle">Track active projects, progress, and team presence.</p>
     </div>
@@ -300,18 +42,7 @@
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div class="text-muted">Switch between task and table views.</div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <ul class="nav nav-pills view-toggle" id="projectViewTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="project-card-tab" data-bs-toggle="pill" data-bs-target="#project-card-view" type="button" role="tab" aria-controls="project-card-view" aria-selected="true">
-            <i class="bi bi-grid-3x3-gap me-1"></i> Card View
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="project-table-tab" data-bs-toggle="pill" data-bs-target="#project-table-view" type="button" role="tab" aria-controls="project-table-view" aria-selected="false">
-            <i class="bi bi-table me-1"></i> Table View
-          </button>
-        </li>
-      </ul>
+      {% include "arva/_view_toggle_tabs.html" with toggle_id="projectViewTabs" storage_key="arva_project_view" left_target="#project-card-view" left_label="Card View" left_icon="bi-grid-3x3-gap" right_target="#project-table-view" right_label="Table View" right_icon="bi-table" default_active="left" aria_label="Project view mode" %}
     </div>
   </div>
 
@@ -327,50 +58,6 @@
         <div class="text-muted small filter-count" id="project-count"></div>
       </div>
 
-      <div class="task-finder-shell">
-        <div class="small fw-semibold mb-2"><i class="bi bi-person-bounding-box me-1"></i>Search Tasks by User</div>
-        <div class="task-finder-grid">
-          <input id="task-user-search" type="text" class="form-control form-control-sm" placeholder="Enter username or email">
-          <select id="task-user-project" class="form-select form-select-sm">
-            <option value="">All projects</option>
-            {% for p in search_projects %}
-              <option value="{{ p.id }}">{{ p.name }}</option>
-            {% endfor %}
-          </select>
-          <select id="task-user-status" class="form-select form-select-sm">
-            <option value="">All status</option>
-            {% for s in search_statuses %}
-              <option value="{{ s }}">{{ s }}</option>
-            {% endfor %}
-          </select>
-          <select id="task-user-label" class="form-select form-select-sm">
-            <option value="">All labels</option>
-            {% for label in search_labels %}
-              <option value="{{ label.id }}">{{ label.name }}</option>
-            {% endfor %}
-          </select>
-          <input id="task-user-due" type="date" class="form-control form-control-sm">
-        </div>
-        <div class="task-finder-results">
-          <div class="task-finder-empty" id="task-finder-empty">Type a username or email to search tasks.</div>
-          <div class="table-responsive d-none" id="task-finder-table-wrap">
-            <table class="table table-sm table-hover mb-0 task-finder-table" id="task-finder-table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Project</th>
-                  <th>Assignees</th>
-                  <th>Due</th>
-                  <th>Status</th>
-                  <th class="text-end">Open</th>
-                </tr>
-              </thead>
-              <tbody id="task-finder-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
       <div class="tab-content" id="projectViewContent">
         <div class="tab-pane fade show active card-density-compact" id="project-card-view" role="tabpanel" aria-labelledby="project-card-tab" tabindex="0">
           <div id="project-list" class="row g-4">
@@ -378,7 +65,7 @@
             {% include "arva/_project_item.html" with project=project %}
             {% empty %}
             <div class="col-12">
-              <div class="p-5 text-center text-muted" style="border: 2px dashed #cbd5e1; border-radius: 14px;">
+              <div class="p-5 text-center text-muted project-empty-state">
                 <i class="bi bi-folder-x fs-1 d-block mb-3"></i>
                 <h5 class="fw-semibold">There are no projects yet</h5>
                 <p class="mb-3">Create a new project to start task management.</p>
@@ -476,7 +163,7 @@
                   <td>{{ project.created_at|date:"d M Y" }}</td>
                   <td>
                     {% if project.progress.total > 0 %}
-                      <div class="progress" style="height: 6px; border-radius: 10px;">
+                      <div class="progress project-progress-compact">
                         <div class="progress-bar bg-success" role="progressbar" style="width: {{ project.progress.percent }}%;"></div>
                       </div>
                       <small class="text-muted fw-semibold">
@@ -524,7 +211,7 @@
 
 <div class="modal fade" id="projectModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
-    <form id="project-create-form" class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+    <form id="project-create-form" class="modal-content border-0 shadow-lg project-create-modal">
       <div class="modal-header border-0">
         <h5 class="modal-title fw-semibold">
           <i class="bi bi-folder-plus me-2 text-primary"></i> New Project
@@ -563,9 +250,9 @@
       </div>
 
       <div class="modal-footer border-0">
-        <button type="button" class="btn btn-secondary px-3" style="border-radius: 10px;" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-secondary px-3 project-modal-btn" data-bs-dismiss="modal">Close</button>
 
-        <button type="submit" class="btn btn-primary px-3" style="border-radius: 10px;">
+        <button type="submit" class="btn btn-primary px-3 project-modal-btn">
           Save
         </button>
       </div>
@@ -606,27 +293,6 @@
 {% block extra_js %}
   <script>
     (function() {
-      const viewStorageKey = 'arva_project_view';
-
-      const viewTabs = document.querySelectorAll('#projectViewTabs [data-bs-toggle="pill"]');
-      const storedView = localStorage.getItem(viewStorageKey);
-
-      if (storedView) {
-        const target = document.querySelector(`#projectViewTabs [data-bs-target="${storedView}"]`);
-        if (target) {
-          bootstrap.Tab.getOrCreateInstance(target).show();
-        }
-      }
-
-      viewTabs.forEach((tab) => {
-        tab.addEventListener('shown.bs.tab', (event) => {
-          const target = event.target.getAttribute('data-bs-target');
-          if (target) {
-            localStorage.setItem(viewStorageKey, target);
-          }
-        });
-      });
-
       const searchInput = document.getElementById('project-search');
       const countLabel = document.getElementById('project-count');
       const cardItems = Array.from(document.querySelectorAll('.project-card-item'));
@@ -725,102 +391,6 @@
         syncSharingFields();
       }
 
-      const userSearch = document.getElementById('task-user-search');
-      const projectFilter = document.getElementById('task-user-project');
-      const statusFilter = document.getElementById('task-user-status');
-      const labelFilter = document.getElementById('task-user-label');
-      const dueFilter = document.getElementById('task-user-due');
-      const taskFinderTableWrap = document.getElementById('task-finder-table-wrap');
-      const taskFinderTableBody = document.getElementById('task-finder-body');
-      const emptyState = document.getElementById('task-finder-empty');
-      let finderTimer = null;
-
-      function renderTaskFinderRows(rows) {
-        if (!taskFinderTableBody || !taskFinderTableWrap || !emptyState) return;
-        taskFinderTableBody.innerHTML = '';
-        if (!rows.length) {
-          taskFinderTableWrap.classList.add('d-none');
-          emptyState.classList.remove('d-none');
-          emptyState.textContent = 'No matching tasks found for current filters.';
-          return;
-        }
-        rows.forEach((item) => {
-          const tr = document.createElement('tr');
-          const tdTitle = document.createElement('td');
-          tdTitle.textContent = item.title || '';
-          const tdProject = document.createElement('td');
-          tdProject.textContent = item.project_name || '';
-          const tdAssignees = document.createElement('td');
-          tdAssignees.textContent = item.assignees_display || '-';
-          const tdDue = document.createElement('td');
-          tdDue.textContent = item.due_date_display || 'No due';
-          const tdStatus = document.createElement('td');
-          const statusBadge = document.createElement('span');
-          statusBadge.className = 'badge bg-light text-dark border';
-          statusBadge.textContent = item.status || '-';
-          tdStatus.appendChild(statusBadge);
-          const tdOpen = document.createElement('td');
-          tdOpen.className = 'text-end';
-          const openLink = document.createElement('a');
-          openLink.className = 'btn btn-outline-primary btn-sm';
-          openLink.href = item.url || '#';
-          openLink.innerHTML = '<i class="bi bi-eye"></i>';
-          tdOpen.appendChild(openLink);
-
-          tr.appendChild(tdTitle);
-          tr.appendChild(tdProject);
-          tr.appendChild(tdAssignees);
-          tr.appendChild(tdDue);
-          tr.appendChild(tdStatus);
-          tr.appendChild(tdOpen);
-          taskFinderTableBody.appendChild(tr);
-        });
-        emptyState.classList.add('d-none');
-        taskFinderTableWrap.classList.remove('d-none');
-      }
-
-      function triggerTaskFinder() {
-        if (!userSearch || !taskFinderTableWrap || !emptyState) return;
-        const q = (userSearch.value || '').trim();
-        if (!q) {
-          taskFinderTableWrap.classList.add('d-none');
-          emptyState.classList.remove('d-none');
-          emptyState.textContent = 'Type a username or email to search tasks.';
-          return;
-        }
-
-        const params = new URLSearchParams({
-          user_q: q,
-          project: projectFilter?.value || '',
-          status: statusFilter?.value || '',
-          label: labelFilter?.value || '',
-          due: dueFilter?.value || ''
-        });
-
-        fetch(`/tasks/search/?${params.toString()}`, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-          .then((resp) => resp.json())
-          .then((resp) => {
-            if (!resp.success) {
-              renderTaskFinderRows([]);
-              return;
-            }
-            renderTaskFinderRows(resp.results || []);
-          })
-          .catch(() => {
-            renderTaskFinderRows([]);
-          });
-      }
-
-      [userSearch, projectFilter, statusFilter, labelFilter, dueFilter].forEach((el) => {
-        if (!el) return;
-        const isTyping = el === userSearch;
-        el.addEventListener(isTyping ? 'input' : 'change', () => {
-          clearTimeout(finderTimer);
-          finderTimer = setTimeout(triggerTaskFinder, isTyping ? 250 : 50);
-        });
-      });
     })();
   </script>
 {% endblock %}

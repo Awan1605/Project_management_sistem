@@ -1,0 +1,91 @@
+﻿.page-hero {
+      border-radius: 18px;
+      padding: 1.5rem 1.75rem;
+      background:
+        radial-gradient(600px 240px at 0% 0%, rgba(9, 175, 255, 0.18), transparent 65%),
+        radial-gradient(520px 220px at 90% 20%, rgba(16, 185, 129, 0.18), transparent 60%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.06);
+      font-size: 0.85rem;
+      color: #334155;
+    }
+
+    .hero-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+    }
+
+    .hero-subtitle {
+      margin: 0;
+      color: #64748b;
+    }
+
+    .cards-shell {
+      border-radius: 18px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: #fff;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    .section-card {
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    .form-label {
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .cta-btn {
+      border-radius: 12px;
+      padding: 0.55rem 0.9rem;
+      font-weight: 600;
+    }
+
+    .table-membership thead th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      background: rgba(15, 23, 42, 0.05);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
+    }
+
+.table-membership tbody td {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-color: rgba(15, 23, 42, 0.06);
+}
+
+.icon-option-label {
+  cursor: pointer;
+}
+
+.icon-radio-hidden {
+  display: none;
+}
+
+.rounded-btn-8 {
+  border-radius: 8px;
+}
+
