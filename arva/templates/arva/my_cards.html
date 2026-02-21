@@ -66,6 +66,24 @@
           <div class="text-muted small filter-count" id="mycards-count"></div>
         </div>
       </div>
+      <div class="page-pagination-bar" id="mycards-pagination-controls">
+        <div class="page-pagination-left">
+          <label for="mycards-per-page" class="small text-muted mb-0">Rows</label>
+          <select id="mycards-per-page" class="form-select form-select-sm">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div class="page-pagination-right">
+          <span id="mycards-page-summary" class="small text-muted"></span>
+          <div class="btn-group btn-group-sm" role="group" aria-label="My tasks pagination controls">
+            <button type="button" class="btn btn-outline-secondary" id="mycards-page-prev"><i class="bi bi-chevron-left"></i></button>
+            <button type="button" class="btn btn-outline-secondary" id="mycards-page-next"><i class="bi bi-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
 
       <div class="tab-content" id="myCardsViewContent">
         <div class="tab-pane fade card-density-compact" id="cards-view" role="tabpanel" aria-labelledby="cards-view-tab" tabindex="0">
@@ -279,13 +297,48 @@
 {% block extra_js %}
   <script>
     (function() {
+      const pagingStorageKey = 'arva_my_cards_paging';
       const searchInput = document.getElementById('mycards-search');
       const prioritySelect = document.getElementById('mycards-priority');
       const dueSelect = document.getElementById('mycards-due');
       const countLabel = document.getElementById('mycards-count');
+      const perPageSelect = document.getElementById('mycards-per-page');
+      const pageSummary = document.getElementById('mycards-page-summary');
+      const prevButton = document.getElementById('mycards-page-prev');
+      const nextButton = document.getElementById('mycards-page-next');
+      const controls = document.getElementById('mycards-pagination-controls');
       const tableBody = document.querySelector('#mycards-table tbody');
       const cardItems = Array.from(document.querySelectorAll('.mycard-card'));
-      const tableRows = Array.from(document.querySelectorAll('#mycards-table tbody tr'));
+      const emptyTableRow = document.querySelector('#mycards-table tbody tr:not([data-task-id])');
+
+      const state = {
+        page: 1,
+        perPage: 10,
+      };
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(pagingStorageKey);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          const parsedPage = parseInt(parsed.page, 10);
+          const parsedPerPage = parseInt(parsed.perPage, 10);
+          if (Number.isInteger(parsedPage) && parsedPage > 0) state.page = parsedPage;
+          if ([10, 25, 50, 100].includes(parsedPerPage)) state.perPage = parsedPerPage;
+        } catch (e) {
+          state.page = 1;
+          state.perPage = 10;
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(pagingStorageKey, JSON.stringify(state));
+      }
+
+      function getTableRows() {
+        if (!tableBody) return [];
+        return Array.from(tableBody.querySelectorAll('tr[data-task-id]'));
+      }
 
       function matchesFilters(el, query, priority, due) {
         const text = `${el.dataset.title || ''} ${el.dataset.project || ''} ${el.dataset.list || ''}`;
@@ -295,26 +348,56 @@
         return matchesQuery && matchesPriority && matchesDue;
       }
 
-      function applyFilters() {
+      function applyFiltersAndPagination() {
         const query = (searchInput?.value || '').trim().toLowerCase();
         const priority = prioritySelect?.value || '';
         const due = dueSelect?.value || '';
+        const filteredCards = cardItems.filter((card) => matchesFilters(card, query, priority, due));
+        const filteredRows = getTableRows().filter((row) => matchesFilters(row, query, priority, due));
+        const totalItems = filteredCards.length || filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / state.perPage));
+        state.page = Math.min(state.page, totalPages);
+        state.page = Math.max(1, state.page);
 
-        let visibleCount = 0;
+        const start = (state.page - 1) * state.perPage;
+        const end = start + state.perPage;
+        const visibleCards = filteredCards.slice(start, end);
+        const visibleRows = filteredRows.slice(start, end);
+
         cardItems.forEach((card) => {
-          const show = matchesFilters(card, query, priority, due);
-          card.style.display = show ? '' : 'none';
-          if (show) visibleCount += 1;
+          card.style.display = 'none';
+        });
+        visibleCards.forEach((card) => {
+          card.style.display = '';
         });
 
-        tableRows.forEach((row) => {
-          const show = matchesFilters(row, query, priority, due);
-          row.style.display = show ? '' : 'none';
+        getTableRows().forEach((row) => {
+          row.style.display = 'none';
+        });
+        visibleRows.forEach((row) => {
+          row.style.display = '';
         });
 
         if (countLabel) {
-          countLabel.textContent = `${visibleCount} task${visibleCount === 1 ? '' : 's'} shown`;
+          countLabel.textContent = `${totalItems} task${totalItems === 1 ? '' : 's'} found`;
         }
+        if (pageSummary) {
+          if (totalItems) {
+            pageSummary.textContent = `Showing ${start + 1}-${Math.min(end, totalItems)} of ${totalItems}`;
+          } else {
+            pageSummary.textContent = 'Showing 0 of 0';
+          }
+        }
+        if (prevButton) prevButton.disabled = state.page <= 1;
+        if (nextButton) nextButton.disabled = state.page >= totalPages || totalItems === 0;
+        if (controls) controls.classList.toggle('d-none', totalItems === 0);
+        if (emptyTableRow) {
+          emptyTableRow.style.display = getTableRows().length ? 'none' : '';
+        }
+        if (perPageSelect && String(state.perPage) !== perPageSelect.value) {
+          perPageSelect.value = String(state.perPage);
+        }
+        saveState();
       }
 
       function getPriorityRank(value) {
@@ -334,7 +417,7 @@
 
       function sortTable(key, direction) {
         if (!tableBody) return;
-        const sorted = tableRows.slice().sort((a, b) => {
+        const sorted = getTableRows().slice().sort((a, b) => {
           let aVal = '';
           let bVal = '';
 
@@ -379,19 +462,50 @@
             btn.classList.add('active');
 
             sortTable(key, nextDir);
+            applyFiltersAndPagination();
           });
         });
       }
 
       [searchInput, prioritySelect, dueSelect].forEach((control) => {
         if (control) {
-          control.addEventListener('input', applyFilters);
-          control.addEventListener('change', applyFilters);
+          const onControlChange = () => {
+            state.page = 1;
+            applyFiltersAndPagination();
+          };
+          control.addEventListener('input', onControlChange);
+          control.addEventListener('change', onControlChange);
         }
       });
 
+      if (perPageSelect) {
+        perPageSelect.addEventListener('change', () => {
+          const nextPerPage = parseInt(perPageSelect.value, 10);
+          if (![10, 25, 50, 100].includes(nextPerPage)) return;
+          state.perPage = nextPerPage;
+          state.page = 1;
+          applyFiltersAndPagination();
+        });
+      }
+
+      if (prevButton) {
+        prevButton.addEventListener('click', () => {
+          if (state.page <= 1) return;
+          state.page -= 1;
+          applyFiltersAndPagination();
+        });
+      }
+
+      if (nextButton) {
+        nextButton.addEventListener('click', () => {
+          state.page += 1;
+          applyFiltersAndPagination();
+        });
+      }
+
+      loadState();
       bindSortButtons();
-      applyFilters();
+      applyFiltersAndPagination();
     })();
   </script>
 {% endblock %}

@@ -1082,3 +1082,34 @@
     font-size: 0.82rem;
   }
 }
+
+.page-pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.page-pagination-left,
+.page-pagination-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-pagination-left .form-select {
+  min-width: 78px;
+}
+
+.page-pagination-right .btn {
+  padding: 0.2rem 0.5rem;
+}
+
+@media (max-width: 767.98px) {
+  .page-pagination-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

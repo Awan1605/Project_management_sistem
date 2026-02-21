@@ -49,6 +49,24 @@
         </div>
         <div class="text-muted small filter-count" id="subproject-count"></div>
       </div>
+      <div class="page-pagination-bar" id="subproject-pagination-controls">
+        <div class="page-pagination-left">
+          <label for="subproject-per-page" class="small text-muted mb-0">Rows</label>
+          <select id="subproject-per-page" class="form-select form-select-sm">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div class="page-pagination-right">
+          <span id="subproject-page-summary" class="small text-muted"></span>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Sub-project pagination controls">
+            <button type="button" class="btn btn-outline-secondary" id="subproject-page-prev"><i class="bi bi-chevron-left"></i></button>
+            <button type="button" class="btn btn-outline-secondary" id="subproject-page-next"><i class="bi bi-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
 
       <div class="tab-content" id="subprojectViewContent">
         <div class="tab-pane fade show active card-density-compact" id="subproject-card-view" role="tabpanel" aria-labelledby="subproject-card-tab" tabindex="0">
@@ -316,40 +334,105 @@
 {% block extra_js %}
   <script>
     (function() {
+      const pagingStorageKey = 'arva_subproject_list_paging';
       const searchInput = document.getElementById('subproject-search');
       const countLabel = document.getElementById('subproject-count');
+      const perPageSelect = document.getElementById('subproject-per-page');
+      const pageSummary = document.getElementById('subproject-page-summary');
+      const prevButton = document.getElementById('subproject-page-prev');
+      const nextButton = document.getElementById('subproject-page-next');
+      const controls = document.getElementById('subproject-pagination-controls');
       const cardItems = Array.from(document.querySelectorAll('.subproject-card-item'));
-      const tableRows = Array.from(document.querySelectorAll('#subproject-table tbody tr'));
       const tableBody = document.querySelector('#subproject-table tbody');
+      const emptyTableRow = document.querySelector('#subproject-table tbody tr:not([data-name])');
+
+      const state = {
+        page: 1,
+        perPage: 10,
+      };
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(pagingStorageKey);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          const parsedPage = parseInt(parsed.page, 10);
+          const parsedPerPage = parseInt(parsed.perPage, 10);
+          if (Number.isInteger(parsedPage) && parsedPage > 0) state.page = parsedPage;
+          if ([10, 25, 50, 100].includes(parsedPerPage)) state.perPage = parsedPerPage;
+        } catch (e) {
+          state.page = 1;
+          state.perPage = 10;
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(pagingStorageKey, JSON.stringify(state));
+      }
+
+      function getTableRows() {
+        if (!tableBody) return [];
+        return Array.from(tableBody.querySelectorAll('tr[data-name]'));
+      }
 
       function matchesFilters(el, query) {
         const text = `${el.dataset.name || ''} ${el.dataset.description || ''}`;
         return !query || text.includes(query);
       }
 
-      function applyFilters() {
+      function applyFiltersAndPagination() {
         const query = (searchInput?.value || '').trim().toLowerCase();
-        let visibleCount = 0;
+        const filteredCards = cardItems.filter((card) => matchesFilters(card, query));
+        const filteredRows = getTableRows().filter((row) => matchesFilters(row, query));
+        const totalItems = filteredCards.length || filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / state.perPage));
+        state.page = Math.min(state.page, totalPages);
+        state.page = Math.max(1, state.page);
+
+        const start = (state.page - 1) * state.perPage;
+        const end = start + state.perPage;
+        const visibleCards = filteredCards.slice(start, end);
+        const visibleRows = filteredRows.slice(start, end);
 
         cardItems.forEach((card) => {
-          const show = matchesFilters(card, query);
-          card.style.display = show ? '' : 'none';
-          if (show) visibleCount += 1;
+          card.style.display = 'none';
+        });
+        visibleCards.forEach((card) => {
+          card.style.display = '';
         });
 
-        tableRows.forEach((row) => {
-          const show = matchesFilters(row, query);
-          row.style.display = show ? '' : 'none';
+        getTableRows().forEach((row) => {
+          row.style.display = 'none';
+        });
+        visibleRows.forEach((row) => {
+          row.style.display = '';
         });
 
         if (countLabel) {
-          countLabel.textContent = `${visibleCount} sub-project${visibleCount === 1 ? '' : 's'} shown`;
+          countLabel.textContent = `${totalItems} sub-project${totalItems === 1 ? '' : 's'} found`;
         }
+        if (pageSummary) {
+          if (totalItems) {
+            pageSummary.textContent = `Showing ${start + 1}-${Math.min(end, totalItems)} of ${totalItems}`;
+          } else {
+            pageSummary.textContent = 'Showing 0 of 0';
+          }
+        }
+        if (prevButton) prevButton.disabled = state.page <= 1;
+        if (nextButton) nextButton.disabled = state.page >= totalPages || totalItems === 0;
+        if (controls) controls.classList.toggle('d-none', totalItems === 0);
+        if (emptyTableRow) {
+          emptyTableRow.style.display = getTableRows().length ? 'none' : '';
+        }
+        if (perPageSelect && String(state.perPage) !== perPageSelect.value) {
+          perPageSelect.value = String(state.perPage);
+        }
+        saveState();
       }
 
       function sortTable(key, direction) {
         if (!tableBody) return;
-        const sorted = tableRows.slice().sort((a, b) => {
+        const sorted = getTableRows().slice().sort((a, b) => {
           let aVal = '';
           let bVal = '';
 
@@ -388,16 +471,46 @@
             btn.dataset.sortDir = nextDir;
             btn.classList.add('active');
             sortTable(key, nextDir);
+            applyFiltersAndPagination();
           });
         });
       }
 
       if (searchInput) {
-        searchInput.addEventListener('input', applyFilters);
+        searchInput.addEventListener('input', () => {
+          state.page = 1;
+          applyFiltersAndPagination();
+        });
       }
 
+      if (perPageSelect) {
+        perPageSelect.addEventListener('change', () => {
+          const nextPerPage = parseInt(perPageSelect.value, 10);
+          if (![10, 25, 50, 100].includes(nextPerPage)) return;
+          state.perPage = nextPerPage;
+          state.page = 1;
+          applyFiltersAndPagination();
+        });
+      }
+
+      if (prevButton) {
+        prevButton.addEventListener('click', () => {
+          if (state.page <= 1) return;
+          state.page -= 1;
+          applyFiltersAndPagination();
+        });
+      }
+
+      if (nextButton) {
+        nextButton.addEventListener('click', () => {
+          state.page += 1;
+          applyFiltersAndPagination();
+        });
+      }
+
+      loadState();
       bindSortButtons();
-      applyFilters();
+      applyFiltersAndPagination();
     })();
   </script>
 {% endblock %}
