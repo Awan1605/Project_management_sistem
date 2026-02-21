@@ -413,7 +413,7 @@ def task_search_by_user(request):
 @login_required
 def my_cards(request):
     tasks = Task.objects.filter(
-        assignees=request.user,
+        # assignees=request.user,
         is_archived=False
     ).select_related('project', 'task_list').order_by('due_date', 'project__name')
     return render(request, 'arva/my_cards.html', {'tasks': tasks})
