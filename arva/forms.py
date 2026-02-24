@@ -140,11 +140,11 @@ class ProjectForm(forms.ModelForm):
         help_text="Only used for private projects. Selected users get project access."
     )
     shared_role = forms.ChoiceField(
-        choices=ProjectMember.ROLE_CHOICES,
+        choices=((ProjectMember.ROLE_MEMBER, 'Member'),),
         required=False,
-        initial=ProjectMember.ROLE_VIEWER,
+        initial=ProjectMember.ROLE_MEMBER,
         widget=forms.Select(attrs={'class': 'form-select'}),
-        help_text="Default role for selected users."
+        help_text="Project sharing role is unified."
     )
 
     class Meta:
@@ -188,7 +188,6 @@ class TaskForm(forms.ModelForm):
         required=False,
         widget=forms.Select(attrs={'class': 'form-select'})
     )
-
     class Meta:
         model = Task
         fields = ['title', 'description', 'priority', 'due_date', 'assignees', 'labels', 'cover_color']

@@ -110,14 +110,13 @@ class Project(models.Model):
     def get_user_role(self, user):
         if not user.is_authenticated:
             return None
+        # Role-based access is deprecated; keep a single legacy role token for UI.
+        if not self.is_private:
+            return ProjectMember.ROLE_ADMIN
         if self.owner == user:
             return ProjectMember.ROLE_ADMIN
-        membership = self.memberships.filter(user=user).first()
-        if membership:
-            return membership.role
-        # Transparency-first: public projects are visible to all users as viewers.
-        if not self.is_private:
-            return ProjectMember.ROLE_VIEWER
+        if self.memberships.filter(user=user).exists():
+            return ProjectMember.ROLE_ADMIN
         return None
 
     def can_user_view(self, user):

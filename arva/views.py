@@ -59,17 +59,22 @@ def get_project_subproject_or_404(project, sub_id):
     return get_object_or_404(SubProject, id=sub_id, project=project)
 
 def get_role(user, project):
-    return project.get_user_role(user)
+    if not project.can_user_view(user):
+        return None
+    # Legacy templates/endpoints still branch on "admin".
+    # With role-based access removed, all project-access users are treated uniformly.
+    return ProjectMember.ROLE_ADMIN
 
 def require_role(user, project, allowed_roles):
-    role = get_role(user, project)
-    if role not in allowed_roles:
-        return False
-    return True
+    # Team/role gating is deprecated. Preserve owner-only control for endpoints
+    # that previously required admin, and allow project-access users otherwise.
+    normalized = set(allowed_roles or [])
+    if normalized == {ProjectMember.ROLE_ADMIN}:
+        return project.owner_id == user.id
+    return project.can_user_view(user)
 
 def sync_project_shares(project, cleaned_data):
     selected_users = cleaned_data.get('shared_users') or User.objects.none()
-    default_role = cleaned_data.get('shared_role') or ProjectMember.ROLE_VIEWER
     selected_ids = set(selected_users.values_list('id', flat=True))
 
     if project.is_private:
@@ -79,10 +84,10 @@ def sync_project_shares(project, cleaned_data):
             membership, _ = ProjectMember.objects.get_or_create(
                 project=project,
                 user=user,
-                defaults={'role': default_role},
+                defaults={'role': ProjectMember.ROLE_MEMBER},
             )
-            if membership.role != default_role:
-                membership.role = default_role
+            if membership.role != ProjectMember.ROLE_MEMBER:
+                membership.role = ProjectMember.ROLE_MEMBER
                 membership.save(update_fields=['role'])
     # Public projects remain transparent; existing memberships still define elevated roles.
 
@@ -315,13 +320,10 @@ def project_member_update_role(request, pm_id):
     pm = get_object_or_404(ProjectMember, id=pm_id)
     if not request.user.is_superuser:
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
-
-    new_role = request.POST.get('role')
-    if new_role not in ['admin', 'member', 'viewer']:
-        return JsonResponse({'success': False, 'error': 'Invalid role'}, status=400)
-
-    pm.role = new_role
-    pm.save()
+    # Role updates are deprecated; keep memberships as plain project sharing.
+    if pm.role != ProjectMember.ROLE_MEMBER:
+        pm.role = ProjectMember.ROLE_MEMBER
+        pm.save(update_fields=['role'])
 
     return JsonResponse({'success': True})
 
@@ -344,9 +346,7 @@ def project_list(request):
         'subprojects',
         'memberships__user',
     ).distinct().order_by('-created_at')
-    admin_projects = Project.objects.filter(
-        Q(owner=request.user) | Q(memberships__user=request.user, memberships__role=ProjectMember.ROLE_ADMIN)
-    ).distinct().order_by('name')
+    admin_projects = Project.objects.filter(owner=request.user).distinct().order_by('name')
     online_cutoff = now() - timedelta(minutes=1)
     online_users = User.objects.filter(useractivity__last_activity__gte=online_cutoff).order_by('username')
 
@@ -412,8 +412,9 @@ def task_search_by_user(request):
 
 @login_required
 def my_cards(request):
+    accessible_projects = get_accessible_projects_queryset(request.user)
     tasks = Task.objects.filter(
-        # assignees=request.user,
+        project__in=accessible_projects,
         is_archived=False
     ).select_related('project', 'task_list').order_by('due_date', 'project__name')
     return render(request, 'arva/my_cards.html', {'tasks': tasks})
@@ -449,9 +450,7 @@ def project_create(request):
 @require_POST
 def project_edit(request, pk):
     project = get_user_project_or_404(request.user, pk)
-    role = get_role(request.user, project)
-
-    if role != ProjectMember.ROLE_ADMIN:
+    if project.owner_id != request.user.id:
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
 
     form = ProjectForm(request.POST, instance=project, current_user=request.user)
@@ -612,7 +611,7 @@ def subproject_convert_to_project(request, subproject_id):
     ProjectMember.objects.get_or_create(
         project=new_project,
         user=source_project.owner,
-        defaults={'role': ProjectMember.ROLE_ADMIN},
+        defaults={'role': ProjectMember.ROLE_MEMBER},
     )
 
     TaskList.objects.filter(sub_project=subproject).update(
@@ -685,9 +684,6 @@ def project_detail(request, pk):
         else:
             base_tasks = base_tasks.filter(sub_project__isnull=True)
 
-    if role != ProjectMember.ROLE_ADMIN:
-        base_tasks = base_tasks.filter(assignees=request.user)
-
     if q:
         base_tasks = base_tasks.filter(title__icontains=q)
     if assignee_id:
@@ -753,7 +749,7 @@ def project_detail(request, pk):
         'grouped_task_lists': grouped_task_lists,
         'shared_members': shared_members,
         'shared_user_ids': shared_user_ids,
-        'shared_role_default': shared_members.first().role if shared_members.exists() else ProjectMember.ROLE_VIEWER,
+        'shared_role_default': ProjectMember.ROLE_MEMBER,
         'all_users': User.objects.exclude(id=request.user.id).order_by('username'),
     }
 
@@ -767,7 +763,7 @@ def project_detail(request, pk):
 def project_archive(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
-    if role != ProjectMember.ROLE_ADMIN:
+    if project.owner_id != request.user.id:
         return HttpResponseForbidden("Forbidden")
 
     archived_lists = project.lists.filter(is_archived=True).order_by('position')
@@ -785,7 +781,7 @@ def project_archive(request, pk):
 def project_activity(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
-    if role != ProjectMember.ROLE_ADMIN:
+    if project.owner_id != request.user.id:
         return HttpResponseForbidden("Forbidden")
 
     activities = project.activities.select_related('user', 'task').order_by('-created_at')
@@ -858,9 +854,7 @@ def subproject_list(request, pk):
         return HttpResponseForbidden("Forbidden")
 
     subprojects = project.subprojects.all().order_by('created_at')
-    admin_projects = Project.objects.filter(
-        Q(owner=request.user) | Q(memberships__user=request.user, memberships__role=ProjectMember.ROLE_ADMIN)
-    ).distinct().order_by('name')
+    admin_projects = Project.objects.filter(owner=request.user).distinct().order_by('name')
     return render(request, 'arva/subproject_list.html', {
         'project': project,
         'subprojects': subprojects,
@@ -966,7 +960,7 @@ def project_delete(request, pk):
 def project_members(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
-    if role != ProjectMember.ROLE_ADMIN:
+    if project.owner_id != request.user.id:
         return HttpResponseForbidden("Forbidden")
 
     members = project.memberships.select_related('user')
@@ -992,6 +986,7 @@ def project_member_add(request, pk):
     if form.is_valid():
         member = form.save(commit=False)
         member.project = project
+        member.role = ProjectMember.ROLE_MEMBER
 
         if member.user == request.user:
             return HttpResponseForbidden("Tidak boleh menambahkan diri sendiri sebagai member.")
@@ -1021,9 +1016,6 @@ def project_member_update(request, member_id):
 
     new_role = request.POST.get("role")
 
-    if new_role not in ["admin", "member", "viewer"]:
-        return JsonResponse({"success": False, "error": "Invalid role"}, status=400)
-
     if member.user == project.owner:
         return JsonResponse({"success": False, "error": "Owner role cannot be changed."}, status=400)
 
@@ -1032,10 +1024,11 @@ def project_member_update(request, member_id):
     #     if remaining_admin == 0:
     #         return JsonResponse({"success": False, "error": "Project must have at least 1 admin."}, status=400)
 
-    member.role = new_role
-    member.save()
+    if member.role != ProjectMember.ROLE_MEMBER:
+        member.role = ProjectMember.ROLE_MEMBER
+        member.save(update_fields=["role"])
 
-    return JsonResponse({"success": True, "role": new_role})
+    return JsonResponse({"success": True, "role": ProjectMember.ROLE_MEMBER})
 
 @login_required
 @require_POST
@@ -1603,7 +1596,7 @@ def comment_delete(request, comment_id):
     project = get_user_project_or_404(request.user, task.project.id)
     role = get_role(request.user, project)
 
-    if not (role == ProjectMember.ROLE_ADMIN or comment.user == request.user):
+    if not (comment.user_id == request.user.id or project.owner_id == request.user.id):
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
 
     ActivityLog.objects.create(
