@@ -666,8 +666,13 @@ def project_detail(request, pk):
     q = request.GET.get('q', '')
     assignee_id = request.GET.get('assignee', '')
     assignee_query = request.GET.get('assignee_q', '').strip()
+    status_id = request.GET.get('status', '').strip()
     label_id = request.GET.get('label', '')
     due = request.GET.get('due', '')
+    page_number = request.GET.get('page', 1)
+    per_page = request.GET.get('per_page', '25').strip()
+    if per_page not in {'10', '25', '50', '100'}:
+        per_page = '25'
 
     base_tasks = Task.objects.filter(project=project, is_archived=False).select_related(
         'task_list', 'project', 'sub_project'
@@ -693,11 +698,17 @@ def project_detail(request, pk):
             Q(assignees__username__icontains=assignee_query) |
             Q(assignees__email__icontains=assignee_query)
         )
+    if status_id:
+        base_tasks = base_tasks.filter(task_list_id=status_id)
     if label_id:
         base_tasks = base_tasks.filter(labels__id=label_id)
     if due:
         base_tasks = base_tasks.filter(due_date__lte=due)
     base_tasks = base_tasks.distinct()
+
+    list_tasks_qs = base_tasks.order_by('-updated_at', '-id')
+    list_paginator = Paginator(list_tasks_qs, int(per_page))
+    list_page_obj = list_paginator.get_page(page_number)
 
     if scope_all:
         grouped_task_lists = []
@@ -723,6 +734,11 @@ def project_detail(request, pk):
         ))
         grouped_task_lists = []
 
+    status_lists_qs = project.lists.filter(is_archived=False)
+    if not scope_all:
+        status_lists_qs = status_lists_qs.filter(sub_project=selected_subproject if selected_subproject else None)
+    available_status_lists = status_lists_qs.order_by('position')
+
     task_form = TaskForm()
     comment_form = CommentForm()
     attachment_form = AttachmentForm()
@@ -730,6 +746,8 @@ def project_detail(request, pk):
 
     shared_members = project.memberships.select_related('user', 'user__userprofile').order_by('user__username')
     shared_user_ids = set(shared_members.values_list('user_id', flat=True))
+    querystring = request.GET.copy()
+    querystring.pop('page', None)
 
     context = {
         'project': project,
@@ -747,6 +765,21 @@ def project_detail(request, pk):
         'selected_subproject': selected_subproject,
         'task_scope': 'all' if scope_all else 'sub',
         'grouped_task_lists': grouped_task_lists,
+        'list_page_obj': list_page_obj,
+        'per_page': per_page,
+        'per_page_options': ['10', '25', '50', '100'],
+        'available_status_lists': available_status_lists,
+        'querystring': querystring.urlencode(),
+        'filter_values': {
+            'q': q,
+            'assignee': assignee_id,
+            'assignee_q': assignee_query,
+            'status': status_id,
+            'label': label_id,
+            'due': due,
+            'page': str(list_page_obj.number),
+            'per_page': per_page,
+        },
         'shared_members': shared_members,
         'shared_user_ids': shared_user_ids,
         'shared_role_default': ProjectMember.ROLE_MEMBER,

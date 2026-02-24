@@ -145,35 +145,46 @@
 <div class="card shadow-sm border-0 h-100 mb-3">
   <div class="card-body">
     <form id="task-filter-form" class="row g-3">
+      <input type="hidden" name="page" id="task-filter-page" value="{{ filter_values.page|default:'1' }}">
+      <input type="hidden" name="per_page" id="task-filter-per-page" value="{{ filter_values.per_page|default:'25' }}">
 
       <div class="col-lg-3 col-md-6">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search for task title...">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search for task title..." value="{{ filter_values.q }}">
       </div>
 
       <div class="col-lg-2 col-md-6">
         <select name="assignee" class="form-select form-select-sm">
           <option value="">Assignee</option>
           {% for u in users %}
-          <option value="{{ u.id }}">{{ u.username }}</option>
+          <option value="{{ u.id }}" {% if filter_values.assignee == u.id|stringformat:'s' %}selected{% endif %}>{{ u.username }}</option>
           {% endfor %}
         </select>
       </div>
 
       <div class="col-lg-3 col-md-6">
-        <input type="text" name="assignee_q" class="form-control form-control-sm" placeholder="Search assignee (username/email)">
+        <input type="text" name="assignee_q" class="form-control form-control-sm" placeholder="Search assignee (username/email)" value="{{ filter_values.assignee_q }}">
       </div>
 
       <div class="col-lg-2 col-md-6">
-        <select name="label" class="form-select form-select-sm">
-          <option value="">Label</option>
-          {% for label in task_form.fields.labels.queryset %}
-          <option value="{{ label.id }}">{{ label.name }}</option>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Status</option>
+          {% for status_list in available_status_lists %}
+          <option value="{{ status_list.id }}" {% if filter_values.status == status_list.id|stringformat:'s' %}selected{% endif %}>{{ status_list.name }}</option>
           {% endfor %}
         </select>
       </div>
 
-      <div class="col-lg-2 col-md-6">
-        <input type="date" name="due" class="form-control form-control-sm">
+      <div class="col-lg-1 col-md-6">
+        <select name="label" class="form-select form-select-sm">
+          <option value="">Label</option>
+          {% for label in task_form.fields.labels.queryset %}
+          <option value="{{ label.id }}" {% if filter_values.label == label.id|stringformat:'s' %}selected{% endif %}>{{ label.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-lg-1 col-md-6">
+        <input type="date" name="due" class="form-control form-control-sm" value="{{ filter_values.due }}">
       </div>
 
     </form>

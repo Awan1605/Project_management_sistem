@@ -19,6 +19,17 @@
     overflow: hidden;
     background: #fff;
   }
+  .task-list-shell > .page-pagination-bar {
+    margin-bottom: 0;
+    padding: 0.55rem 0.9rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+  }
+  .task-list-shell > .page-pagination-bar .page-pagination-right {
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
   .task-list-head {
     display: grid;
     grid-template-columns: minmax(220px, 2fr) 120px 110px 150px auto;
@@ -46,6 +57,9 @@
   }
   .task-list-sort.active {
     color: #0f172a;
+  }
+  .task-list-head > :last-child {
+    justify-self: end;
   }
   .task-list-row {
     display: grid;
@@ -133,6 +147,9 @@
     max-height: calc(100vh - 360px);
   }
   @media (max-width: 991.98px) {
+    .task-list-shell > .page-pagination-bar {
+      padding: 0.55rem 0.75rem;
+    }
     .task-list-head {
       display: none;
     }

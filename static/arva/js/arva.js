@@ -870,9 +870,9 @@ $(function() {
           showError(firstError ? String(firstError).replace(/[\[\]']/g, '') : 'Failed to create task.');
           return;
         }
-        const firstFilter = document.querySelector('#task-filter-form input, #task-filter-form select');
-        if (window.$ && firstFilter) {
-          window.$(firstFilter).trigger('change');
+        const searchInput = document.querySelector('#task-filter-form input[name="q"]');
+        if (window.$ && searchInput) {
+          window.$(searchInput).trigger('keyup');
         } else {
           if (resp.html) {
             const col = document.querySelector(`.task-column[data-list-id="${resp.task_list_id}"]`);
@@ -2149,20 +2149,31 @@ $(document).on("click", "#btn-save-member", function () {
     });
   });
 
-  $('#task-filter-form input, #task-filter-form select').on('change keyup', function() {
+  function reloadProjectDetailBoard(resetPage = false) {
     const projectId = $('#task-board').data('project-id');
+    if (!projectId || !$('#task-filter-form').length) return;
+
     const subProjectId = $('#task-board').data('subproject-id');
     const taskScope = $('#task-board').data('task-scope');
-    let query = $('#task-filter-form').serialize();
+    if (resetPage) {
+      $('#task-filter-page').val('1');
+    }
+
+    const params = new URLSearchParams($('#task-filter-form').serialize());
+    const pageValue = ($('#task-filter-page').val() || '1').toString();
+    const perPageValue = ($('#task-filter-per-page').val() || '25').toString();
+    params.set('page', pageValue);
+    params.set('per_page', perPageValue);
+
     if (taskScope === 'all') {
-      query += `&sub=all`;
+      params.set('sub', 'all');
     } else if (subProjectId) {
-      query += `&sub=${subProjectId}`;
+      params.set('sub', subProjectId);
     }
 
     $.get({
       url: `/project/${projectId}/`,
-      data: query,
+      data: params.toString(),
       headers: {
         'X-Requested-With': 'XMLHttpRequest'
       },
@@ -2177,6 +2188,28 @@ $(document).on("click", "#btn-save-member", function () {
         showError('Failed to apply filter');
       }
     });
+  }
+
+  $(document).on('change', '#task-filter-form select, #task-filter-form input[type="date"]', function() {
+    reloadProjectDetailBoard(true);
+  });
+
+  $(document).on('keyup', '#task-filter-form input[type="text"]', function() {
+    reloadProjectDetailBoard(true);
+  });
+
+  $(document).on('click', '.task-list-page-link', function() {
+    const page = $(this).data('page');
+    if (!page) return;
+    $('#task-filter-page').val(page);
+    reloadProjectDetailBoard(false);
+  });
+
+  $(document).on('change', '#task-list-per-page', function() {
+    const perPage = ($(this).val() || '25').toString();
+    $('#task-filter-per-page').val(perPage);
+    $('#task-filter-page').val('1');
+    reloadProjectDetailBoard(false);
   });
 
   $(document).on('click', '.btn-convert-subproject', function() {
