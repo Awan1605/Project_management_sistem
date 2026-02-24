@@ -90,25 +90,5 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-  <script>
-    (function() {
-      const input = document.getElementById('archive-user-search');
-      const items = Array.from(document.querySelectorAll('.archived-task-item'));
-      if (!input || !items.length) return;
-
-      function applyArchiveFilter() {
-        const q = (input.value || '').trim().toLowerCase();
-        items.forEach((item) => {
-          const text = `${item.dataset.title || ''} ${item.dataset.assignees || ''}`;
-          item.style.display = !q || text.includes(q) ? '' : 'none';
-        });
-      }
-
-      input.addEventListener('input', applyArchiveFilter);
-      applyArchiveFilter();
-    })();
-  </script>
-{% endblock %}
 
 
