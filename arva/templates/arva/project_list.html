@@ -127,6 +127,7 @@
               <tbody>
                 {% for project in projects %}
                 <tr
+                  class="{% if project.is_project %}project-table-row--project{% endif %}"
                   data-name="{{ project.name|lower }}"
                   data-owner="{{ project.owner.username|default:project.owner|lower }}"
                   data-description="{{ project.description|default:''|lower }}"
@@ -145,12 +146,23 @@
                         {{ project.progress.percent }}% complete
                       </div>
                       <div class="small">
+                        {% if project.is_project %}
+                          <span class="badge project-type-badge"><i class="bi bi-briefcase-fill me-1"></i>PROJECT</span>
+                        {% endif %}
                         {% if project.is_private %}
                           <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-lock-fill me-1"></i>Private</span>
                         {% else %}
                           <span class="badge bg-info-subtle text-dark border"><i class="bi bi-globe2 me-1"></i>Shared</span>
                         {% endif %}
                       </div>
+                      {% if project.is_project %}
+                        <div class="project-table-meta small text-muted mt-1">
+                          <span><strong>Priority:</strong> {{ project.get_priority_display }}</span>
+                          <span><strong>PM:</strong> {{ project.pm_assignee.username|default:"-" }}</span>
+                          <span><strong>Start:</strong> {% if project.start_date_tbd %}TBD{% elif project.start_date %}{{ project.start_date|date:"d M Y" }}{% else %}-{% endif %}</span>
+                          <span><strong>ETD:</strong> {{ project.etd|date:"d M Y"|default:"-" }}</span>
+                        </div>
+                      {% endif %}
                       {% with subprojects=project.subprojects.all %}
                         <div class="small text-muted">
                           {% if subprojects %}
@@ -228,7 +240,7 @@
 </div>
 
 <div class="modal fade" id="projectModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
     <form id="project-create-form" class="modal-content border-0 shadow-lg project-create-modal">
       <div class="modal-header border-0">
         <h5 class="modal-title fw-semibold">
@@ -239,21 +251,58 @@
 
       <div class="modal-body">
         {% csrf_token %}
-        <div class="p-2">
-          <div class="mb-2">
+        <div class="p-2 project-modal-form">
+          <div class="project-modal-section">
             <label class="form-label fw-semibold mb-1" for="id_name">Project Name</label>
             {{ project_form.name }}
           </div>
-          <div class="mb-2">
+          <div class="project-modal-section">
             <label class="form-label fw-semibold mb-1" for="id_description">Description</label>
             {{ project_form.description }}
           </div>
-          <div class="mb-2 form-check">
-            {{ project_form.is_private }}
-            <label class="form-check-label fw-semibold" for="id_is_private">Private Project</label>
+          <div class="project-modal-section project-modal-section--toggle">
+            <div class="form-check mb-0">
+              {{ project_form.is_project }}
+              <label class="form-check-label fw-semibold" for="id_is_project">Is Project</label>
+            </div>
+            <div class="small text-muted">Enable this to configure planning fields and delivery target.</div>
+          </div>
+          <div class="project-modal-section project-modal-section--advanced project-advanced-fields d-none">
+            <div class="project-modal-advanced-head">
+              <h6 class="mb-1 fw-semibold">Project Planning</h6>
+              <small class="text-muted">Set priority, ownership, and schedule details.</small>
+            </div>
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold mb-1" for="id_priority">Priority</label>
+                {{ project_form.priority }}
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold mb-1" for="id_pm_assignee">PM / Assignee</label>
+                {{ project_form.pm_assignee }}
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold mb-1" for="id_start_date">Start Date</label>
+                {{ project_form.start_date }}
+                <div class="form-check mt-1 project-modal-inline-check">
+                  {{ project_form.start_date_tbd }}
+                  <label class="form-check-label" for="id_start_date_tbd" title="To Be Determined">TBD (To Be Determined)</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold mb-1" for="id_etd">ETD (Estimated Delivery Date)</label>
+                {{ project_form.etd }}
+              </div>
+            </div>
+          </div>
+          <div class="project-modal-section project-modal-section--toggle">
+            <div class="form-check mb-0">
+              {{ project_form.is_private }}
+              <label class="form-check-label fw-semibold" for="id_is_private">Private Project</label>
+            </div>
             <div class="small text-muted">Off = shared with all users. On = only owner and selected users.</div>
           </div>
-          <div id="project-create-sharing-fields" class="border rounded p-2">
+          <div id="project-create-sharing-fields" class="project-modal-section project-modal-section--sharing">
             <div class="mb-2">
               <label class="form-label fw-semibold mb-1" for="id_shared_users">Share with Specific Users</label>
               {{ project_form.shared_users }}

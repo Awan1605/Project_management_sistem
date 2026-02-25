@@ -82,6 +82,11 @@
                     </button>
                   </th>
                   <th>
+                    <button class="sort-btn" data-sort-key="last_activity" type="button">
+                      Last Activity <i class="bi bi-arrow-down-up"></i>
+                    </button>
+                  </th>
+                  <th>
                     <button class="sort-btn" data-sort-key="last_login" type="button">
                       Last Login <i class="bi bi-arrow-down-up"></i>
                     </button>
@@ -107,9 +112,10 @@
                     data-email="{{ u.email|lower }}"
                     data-active="{{ u.is_active|yesno:'active,inactive' }}"
                     data-staff="{{ u.is_staff|yesno:'staff,non-staff' }}"
+                    data-last-activity="{{ u.last_activity_at|date:'Y-m-d H:i' }}"
                     data-last-login="{{ u.last_login|date:'Y-m-d H:i' }}"
                     data-joined="{{ u.date_joined|date:'Y-m-d' }}"
-                    data-status="{% if u.useractivity.last_activity %}{% if u.useractivity.last_activity|timesince < '1 minute' %}online{% else %}offline{% endif %}{% else %}never{% endif %}">
+                    data-status="{% if u.last_activity_at %}{% if u.last_activity_at|timesince < '1 minute' %}online{% else %}offline{% endif %}{% else %}never{% endif %}">
 
                   <td>
                     <div class="user-identity">
@@ -134,12 +140,13 @@
                     </span>
                   </td>
 
+                  <td>{% if u.last_activity_at %}{{ u.last_activity_at|date:"d M Y H:i" }}{% else %}-{% endif %}</td>
                   <td>{{ u.last_login|date:"d M Y H:i" }}</td>
                   <td>{{ u.date_joined|date:"d M Y" }}</td>
 
                   <td>
-                    {% if u.useractivity.last_activity %}
-                    {% if u.useractivity.last_activity|timesince < "1 minute" %}
+                    {% if u.last_activity_at %}
+                    {% if u.last_activity_at|timesince < "1 minute" %}
                     <span class="status-pill status-online">Online</span>
                     {% else %}
                     <span class="status-pill status-offline">Offline</span>
@@ -205,8 +212,8 @@
                   <span class="badge bg-{{ u.is_staff|yesno:'info,secondary' }}">
                     {{ u.is_staff|yesno:'Staff,Non-staff' }}
                   </span>
-                  {% if u.useractivity.last_activity %}
-                    {% if u.useractivity.last_activity|timesince < "1 minute" %}
+                  {% if u.last_activity_at %}
+                    {% if u.last_activity_at|timesince < "1 minute" %}
                     <span class="status-pill status-online">Online</span>
                     {% else %}
                     <span class="status-pill status-offline">Offline</span>
@@ -217,6 +224,7 @@
                 </div>
 
                 <div class="user-card-meta">
+                  <div><strong>Last activity:</strong> {% if u.last_activity_at %}{{ u.last_activity_at|date:"d M Y H:i" }}{% else %}-{% endif %}</div>
                   <div><strong>Last login:</strong> {{ u.last_login|date:"d M Y H:i" }}</div>
                   <div><strong>Joined:</strong> {{ u.date_joined|date:"d M Y" }}</div>
                 </div>

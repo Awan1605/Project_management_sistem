@@ -426,10 +426,43 @@ $(function() {
 
     const privateToggle = document.getElementById('id_is_private');
     const sharingFields = document.getElementById('project-create-sharing-fields');
+    const isProjectToggle = document.getElementById('id_is_project');
+    const advancedFields = document.querySelectorAll('.project-advanced-fields');
+    const startDateInput = document.getElementById('id_start_date');
+    const startDateTbdInput = document.getElementById('id_start_date_tbd');
+    const etdInput = document.getElementById('id_etd');
     if (privateToggle && sharingFields) {
       const sync = () => sharingFields.classList.toggle('d-none', !privateToggle.checked);
       privateToggle.addEventListener('change', sync);
       sync();
+    }
+    if (isProjectToggle) {
+      const syncProjectFields = () => {
+        const enabled = !!isProjectToggle.checked;
+        advancedFields.forEach((el) => el.classList.toggle('d-none', !enabled));
+      };
+      isProjectToggle.addEventListener('change', syncProjectFields);
+      syncProjectFields();
+    }
+    if (startDateInput && startDateTbdInput) {
+      const syncStartDateTbd = () => {
+        if (startDateTbdInput.checked) {
+          startDateInput.value = '';
+        }
+        startDateInput.disabled = startDateTbdInput.checked;
+      };
+      startDateTbdInput.addEventListener('change', syncStartDateTbd);
+      startDateInput.addEventListener('change', function() {
+        if (startDateInput.value) startDateTbdInput.checked = false;
+        syncStartDateTbd();
+      });
+      etdInput?.addEventListener('change', function() {
+        if (startDateInput.value && etdInput.value && etdInput.value < startDateInput.value) {
+          showError('ETD cannot be earlier than Start Date.');
+          etdInput.value = '';
+        }
+      });
+      syncStartDateTbd();
     }
   }
 
@@ -589,6 +622,7 @@ $(function() {
         else if (key === 'staff') { aVal = getBoolRank(a.dataset.staff); bVal = getBoolRank(b.dataset.staff); }
         else if (key === 'status') { aVal = getStatusRank(a.dataset.status); bVal = getStatusRank(b.dataset.status); }
         else if (key === 'joined') { aVal = a.dataset.joined || ''; bVal = b.dataset.joined || ''; }
+        else if (key === 'last_activity') { aVal = a.dataset.lastActivity || ''; bVal = b.dataset.lastActivity || ''; }
         else if (key === 'last_login') { aVal = a.dataset.lastLogin || ''; bVal = b.dataset.lastLogin || ''; }
         if (aVal < bVal) return direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return direction === 'asc' ? 1 : -1;
@@ -809,6 +843,11 @@ $(function() {
 
     const projectPrivateInput = document.getElementById('project-edit-private');
     const projectSharingFields = document.querySelectorAll('.project-edit-sharing-fields');
+    const projectIsProjectInput = document.getElementById('project-edit-is-project');
+    const projectAdvancedFields = document.querySelectorAll('.project-edit-advanced-fields');
+    const projectStartDateInput = document.getElementById('project-edit-start-date');
+    const projectStartDateTbdInput = document.getElementById('project-edit-start-date-tbd');
+    const projectEtdInput = document.getElementById('project-edit-etd');
     const syncProjectEditSharingVisibility = () => {
       if (!projectPrivateInput || !projectSharingFields.length) return;
       const show = projectPrivateInput.checked;
@@ -817,6 +856,34 @@ $(function() {
     if (projectPrivateInput) {
       projectPrivateInput.addEventListener('change', syncProjectEditSharingVisibility);
       syncProjectEditSharingVisibility();
+    }
+    if (projectIsProjectInput) {
+      const syncEditProjectFields = () => {
+        const enabled = !!projectIsProjectInput.checked;
+        projectAdvancedFields.forEach((el) => el.classList.toggle('d-none', !enabled));
+      };
+      projectIsProjectInput.addEventListener('change', syncEditProjectFields);
+      syncEditProjectFields();
+    }
+    if (projectStartDateInput && projectStartDateTbdInput) {
+      const syncEditStartDateTbd = () => {
+        if (projectStartDateTbdInput.checked) {
+          projectStartDateInput.value = '';
+        }
+        projectStartDateInput.disabled = projectStartDateTbdInput.checked;
+      };
+      projectStartDateTbdInput.addEventListener('change', syncEditStartDateTbd);
+      projectStartDateInput.addEventListener('change', function() {
+        if (projectStartDateInput.value) projectStartDateTbdInput.checked = false;
+        syncEditStartDateTbd();
+      });
+      projectEtdInput?.addEventListener('change', function() {
+        if (projectStartDateInput.value && projectEtdInput.value && projectEtdInput.value < projectStartDateInput.value) {
+          showError('ETD cannot be earlier than Start Date.');
+          projectEtdInput.value = '';
+        }
+      });
+      syncEditStartDateTbd();
     }
 
     document.addEventListener('click', function(e) {
@@ -933,6 +1000,9 @@ $(function() {
           $('#project-list').prepend(resp.html);
           $('#projectModal').modal('hide');
           $form[0].reset();
+          $('#id_is_private').trigger('change');
+          $('#id_is_project').trigger('change');
+          $('#id_start_date_tbd').trigger('change');
           const $convertSelect = $('#project-convert-target');
           if ($convertSelect.length && resp.project_id && resp.project_name) {
             $convertSelect.append(
@@ -1951,13 +2021,23 @@ $(function() {
           $('#createUserModal').modal('hide');
           if ($('#user-table').length) {
             $('#user-table tbody').append(`
-                        <tr data-user-id="${resp.user.id}">
+                        <tr data-user-id="${resp.user.id}"
+                            data-username="${(resp.user.username || '').toLowerCase()}"
+                            data-email="${(resp.user.email || '').toLowerCase()}"
+                            data-active="active"
+                            data-staff="non-staff"
+                            data-last-activity=""
+                            data-last-login=""
+                            data-joined=""
+                            data-status="never">
                           <td>${resp.user.username}</td>
                           <td>${resp.user.email}</td>
                           <td><span class="badge bg-success">Yes</span></td>
-                          <td>No</td>
+                          <td><span class="badge bg-secondary">No</span></td>
+                          <td>-</td>
                           <td></td>
                           <td></td>
+                          <td><span class="status-pill status-never">Never</span></td>
                           <td>
                             <a href="/users/${resp.user.id}/edit/" class="btn btn-sm btn-outline-secondary">Edit</a>
                             <button class="btn btn-sm btn-outline-info btn-reset-password">Reset Password</button>

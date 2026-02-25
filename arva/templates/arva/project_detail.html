@@ -29,6 +29,21 @@
 
         <p class="project-description">{{ project.description|default:"There is no description." }}</p>
 
+        {% if project.is_project %}
+        <div class="project-info-panel mt-2">
+          <div class="project-info-head">
+            <span class="badge project-type-badge"><i class="bi bi-briefcase-fill me-1"></i>PROJECT</span>
+            <span class="small text-muted">Structured project metadata</span>
+          </div>
+          <div class="project-info-grid">
+            <div><span class="k">Priority</span><span class="v">{{ project.get_priority_display }}</span></div>
+            <div><span class="k">PM / Assignee</span><span class="v">{{ project.pm_assignee.username|default:"-" }}</span></div>
+            <div><span class="k">Start Date</span><span class="v">{% if project.start_date_tbd %}TBD{% elif project.start_date %}{{ project.start_date|date:"d M Y" }}{% else %}-{% endif %}</span></div>
+            <div><span class="k">ETD</span><span class="v">{{ project.etd|date:"d M Y"|default:"-" }}</span></div>
+          </div>
+        </div>
+        {% endif %}
+
         {% comment %} <small class="text-muted d-block">
           <i class="bi bi-calendar3 me-1"></i>
           Created: {{ project.created_at|date:"d M Y" }}
@@ -264,34 +279,86 @@
 </div>
 
 <div class="modal fade" id="projectEditModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <form id="project-edit-form" class="modal-content">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <form id="project-edit-form" class="modal-content project-edit-modal">
 
       <div class="modal-header">
         <h5 class="modal-title fw-semibold"><i class="bi bi-pencil text-primary me-2"></i>Edit Project</h5>
         <button class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <div class="modal-body">
+      <div class="modal-body project-edit-modal-body">
         {% csrf_token %}
+        <div class="project-edit-form-grid">
 
-        <div class="mb-3">
+        <div class="project-modal-section">
           <label class="form-label fw-semibold">Project Name</label>
           <input class="form-control rounded-btn-10" name="name" value="{{ project.name }}">
         </div>
 
-        <div class="mb-3">
+        <div class="project-modal-section">
           <label class="form-label fw-semibold">Description</label>
           <textarea class="form-control rounded-btn-10" name="description" rows="3">{{ project.description }}</textarea>
         </div>
 
-        <div class="mb-3 form-check">
-          <input class="form-check-input" type="checkbox" name="is_private" id="project-edit-private" {% if project.is_private %}checked{% endif %}>
-          <label class="form-check-label fw-semibold" for="project-edit-private">Private Project</label>
+        <div class="project-modal-section project-modal-section--toggle">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" name="is_project" id="project-edit-is-project" {% if project.is_project %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="project-edit-is-project">Is Project</label>
+          </div>
+          <div class="small text-muted">Enable this to configure planning fields and delivery target.</div>
+        </div>
+
+        <div class="project-modal-section project-modal-section--advanced project-edit-advanced-fields {% if not project.is_project %}d-none{% endif %}">
+          <div class="project-modal-advanced-head">
+            <h6 class="mb-1 fw-semibold">Project Planning</h6>
+            <small class="text-muted">Set priority, ownership, and schedule details.</small>
+          </div>
+          <div class="row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Priority</label>
+              <select class="form-select" name="priority" id="project-edit-priority">
+                <option value="p0" {% if project.priority == 'p0' %}selected{% endif %}>P0 - Urgent</option>
+                <option value="p1" {% if project.priority == 'p1' %}selected{% endif %}>P1 - High</option>
+                <option value="p2" {% if project.priority == 'p2' %}selected{% endif %}>P2 - Medium</option>
+                <option value="p3" {% if project.priority == 'p3' %}selected{% endif %}>P3 - Low</option>
+                <option value="p4" {% if project.priority == 'p4' %}selected{% endif %}>P4 - Very Low</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">PM / Assignee</label>
+              <select class="form-select" name="pm_assignee" id="project-edit-pm-assignee">
+                <option value="">Select user</option>
+                {% for u in all_users %}
+                  <option value="{{ u.id }}" {% if project.pm_assignee_id == u.id %}selected{% endif %}>{{ u.username }}</option>
+                {% endfor %}
+                <option value="{{ request.user.id }}" {% if project.pm_assignee_id == request.user.id %}selected{% endif %}>{{ request.user.username }}</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Start Date</label>
+              <input class="form-control" type="date" name="start_date" id="project-edit-start-date" value="{{ project.start_date|date:'Y-m-d' }}">
+              <div class="form-check mt-1 project-modal-inline-check">
+                <input class="form-check-input" type="checkbox" name="start_date_tbd" id="project-edit-start-date-tbd" {% if project.start_date_tbd %}checked{% endif %}>
+                <label class="form-check-label" for="project-edit-start-date-tbd" title="To Be Determined">TBD (To Be Determined)</label>
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">ETD (Estimated Delivery Date)</label>
+              <input class="form-control" type="date" name="etd" id="project-edit-etd" value="{{ project.etd|date:'Y-m-d' }}">
+            </div>
+          </div>
+        </div>
+
+        <div class="project-modal-section project-modal-section--toggle">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" name="is_private" id="project-edit-private" {% if project.is_private %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="project-edit-private">Private Project</label>
+          </div>
           <div class="small text-muted">When enabled, only owner and selected users can access this project.</div>
         </div>
 
-        <div class="mb-3 project-edit-sharing-fields">
+        <div class="project-modal-section project-edit-sharing-fields">
           <label class="form-label fw-semibold">Share with Specific Users</label>
           <select class="form-select" name="shared_users" id="project-edit-shared-users" multiple size="6">
             {% for u in all_users %}
@@ -300,13 +367,14 @@
           </select>
         </div>
 
-        <div class="mb-1 project-edit-sharing-fields">
+        <div class="project-modal-section project-edit-sharing-fields">
           <label class="form-label fw-semibold">Default Role for Selected Users</label>
           <select class="form-select" name="shared_role">
             <option value="viewer" {% if shared_role_default == 'viewer' %}selected{% endif %}>Viewer</option>
             <option value="member" {% if shared_role_default == 'member' %}selected{% endif %}>Member</option>
             <option value="admin" {% if shared_role_default == 'admin' %}selected{% endif %}>Admin</option>
           </select>
+        </div>
         </div>
 
       </div>

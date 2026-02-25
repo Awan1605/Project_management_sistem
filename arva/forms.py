@@ -149,19 +149,50 @@ class ProjectForm(forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ['name', 'description', 'is_private']
+        fields = [
+            'name', 'description', 'is_private', 'is_project', 'priority',
+            'pm_assignee', 'start_date', 'start_date_tbd', 'etd',
+        ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
             'is_private': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_project': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'priority': forms.Select(attrs={'class': 'form-select'}),
+            'pm_assignee': forms.Select(attrs={'class': 'form-select'}),
+            'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'start_date_tbd': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'etd': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
 
     def __init__(self, *args, **kwargs):
         current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
         self.fields['shared_users'].queryset = User.objects.all().order_by('username')
+        self.fields['pm_assignee'].queryset = User.objects.all().order_by('username')
+        self.fields['pm_assignee'].required = False
         if current_user and current_user.is_authenticated:
             self.fields['shared_users'].queryset = self.fields['shared_users'].queryset.exclude(id=current_user.id)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_project = cleaned_data.get('is_project')
+        start_date = cleaned_data.get('start_date')
+        start_date_tbd = cleaned_data.get('start_date_tbd')
+        etd = cleaned_data.get('etd')
+
+        if is_project:
+            if not start_date and not start_date_tbd:
+                self.add_error('start_date', 'Start Date is required or mark it as TBD.')
+                self.add_error('start_date_tbd', 'Mark Start Date as TBD if date is unknown.')
+            if not etd:
+                self.add_error('etd', 'ETD is required when Is Project is enabled.')
+        if start_date and start_date_tbd:
+            self.add_error('start_date_tbd', 'Choose either Start Date or TBD, not both.')
+        if start_date and etd and etd < start_date:
+            self.add_error('etd', 'ETD cannot be earlier than Start Date.')
+
+        return cleaned_data
 
 class SubProjectForm(forms.ModelForm):
     class Meta:

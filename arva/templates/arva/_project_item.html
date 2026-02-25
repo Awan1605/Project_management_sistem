@@ -6,7 +6,7 @@
      data-description="{{ project.description|default:''|lower }}"
      data-created="{{ project.created_at|date:'Y-m-d' }}"
      data-progress="{{ project.progress.percent }}">
-  <div class="card shadow-sm h-100 project-card position-relative card-shell-rounded">
+  <div class="card shadow-sm h-100 project-card position-relative card-shell-rounded {% if project.is_project %}project-card--project{% endif %}">
 
     {% comment %} <button type="button" class="btn btn-outline-danger btn-sm btn-delete-project position-absolute" data-id="{{ project.id }}" title="Delete Project">
       <i class="bi bi-x-lg"></i>
@@ -22,7 +22,10 @@
             <i class="bi bi-folder-fill text-primary me-2"></i>
             {{ project.name }}
           </h5>
-          <div class="small">
+          <div class="small d-flex align-items-center gap-1 flex-wrap">
+            {% if project.is_project %}
+              <span class="badge project-type-badge"><i class="bi bi-briefcase-fill me-1"></i>PROJECT</span>
+            {% endif %}
             {% if project.is_private %}
               <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-lock-fill me-1"></i>Private</span>
             {% else %}
@@ -36,6 +39,15 @@
       <p class="text-muted flex-grow-1 mb-3 text-clamp-2 font-size-90">
         {{ project.description|default:"There is no description." }}
       </p>
+
+      {% if project.is_project %}
+      <div class="project-meta-grid mb-3">
+        <div><span class="label">Priority</span><span class="value">{{ project.get_priority_display }}</span></div>
+        <div><span class="label">PM</span><span class="value">{{ project.pm_assignee.username|default:"-" }}</span></div>
+        <div><span class="label">Start</span><span class="value">{% if project.start_date_tbd %}TBD{% elif project.start_date %}{{ project.start_date|date:"d M Y" }}{% else %}-{% endif %}</span></div>
+        <div><span class="label">ETD</span><span class="value">{{ project.etd|date:"d M Y"|default:"-" }}</span></div>
+      </div>
+      {% endif %}
 
       <div class="mb-3">
         {% if project.progress.total > 0 %}

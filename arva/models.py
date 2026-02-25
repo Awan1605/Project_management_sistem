@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -98,14 +99,54 @@ class UserProfile(models.Model):
         return "/static/arva/img/default-avatar.png"
 
 class Project(models.Model):
+    PRIORITY_P0 = "p0"
+    PRIORITY_P1 = "p1"
+    PRIORITY_P2 = "p2"
+    PRIORITY_P3 = "p3"
+    PRIORITY_P4 = "p4"
+    PRIORITY_CHOICES = (
+        (PRIORITY_P0, "P0 - Urgent"),
+        (PRIORITY_P1, "P1 - High"),
+        (PRIORITY_P2, "P2 - Medium"),
+        (PRIORITY_P3, "P3 - Low"),
+        (PRIORITY_P4, "P4 - Very Low"),
+    )
+
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects')
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     is_private = models.BooleanField(default=False)
+    is_project = models.BooleanField(default=False)
+    priority = models.CharField(max_length=2, choices=PRIORITY_CHOICES, default=PRIORITY_P2)
+    pm_assignee = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='managed_projects',
+    )
+    start_date = models.DateField(null=True, blank=True)
+    start_date_tbd = models.BooleanField(default=False)
+    etd = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        errors = {}
+        if self.is_project:
+            if not self.start_date and not self.start_date_tbd:
+                errors["start_date"] = "Start Date is required or mark it as TBD."
+                errors["start_date_tbd"] = "Mark Start Date as TBD if date is unknown."
+            if not self.etd:
+                errors["etd"] = "ETD is required when Is Project is enabled."
+        if self.start_date and self.start_date_tbd:
+            errors["start_date_tbd"] = "Choose either Start Date or TBD, not both."
+        if self.start_date and self.etd and self.etd < self.start_date:
+            errors["etd"] = "ETD cannot be earlier than Start Date."
+        if errors:
+            raise ValidationError(errors)
 
     def get_user_role(self, user):
         if not user.is_authenticated:

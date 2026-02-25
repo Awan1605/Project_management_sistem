@@ -181,12 +181,22 @@ def user_list(request):
         return redirect('project_list')
 
     q = request.GET.get('q', '').strip()
-    users = User.objects.all().order_by('username')
+    users = User.objects.select_related('userprofile', 'useractivity').annotate(
+        last_comment_at=Max('comment__created_at'),
+        last_action_at=Max('activitylog__created_at'),
+        last_presence_at=Max('useractivity__last_activity'),
+    ).order_by('username')
     if q:
         users = users.filter(
             Q(username__icontains=q) |
             Q(email__icontains=q)
         )
+
+    users = list(users)
+    for u in users:
+        candidates = [u.last_comment_at, u.last_action_at, u.last_presence_at]
+        candidates = [dt for dt in candidates if dt is not None]
+        u.last_activity_at = max(candidates) if candidates else None
 
     return render(request, 'arva/user_list.html', {
         'users': users,
@@ -462,6 +472,12 @@ def project_edit(request, pk):
             'name': project.name,
             'description': project.description,
             'is_private': project.is_private,
+            'is_project': project.is_project,
+            'priority': project.priority,
+            'pm_assignee_id': project.pm_assignee_id,
+            'start_date': project.start_date.isoformat() if project.start_date else '',
+            'start_date_tbd': project.start_date_tbd,
+            'etd': project.etd.isoformat() if project.etd else '',
         })
 
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
