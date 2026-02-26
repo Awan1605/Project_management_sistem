@@ -31,6 +31,21 @@ from .forms import (
 User = get_user_model()
 
 
+STRUCTURED_TASK_PRIORITIES = {
+    Task.PRIORITY_P0,
+    Task.PRIORITY_P1,
+    Task.PRIORITY_P2,
+    Task.PRIORITY_P3,
+    Task.PRIORITY_P4,
+}
+STRUCTURED_TASK_STATUSES = {
+    Task.STATUS_NONE,
+    Task.STATUS_IN_PROGRESS,
+    Task.STATUS_DONE,
+    Task.STATUS_INFEASIBLE,
+}
+
+
 def get_accessible_projects_queryset(user):
     return Project.objects.filter(
         Q(is_private=False) |
@@ -683,6 +698,7 @@ def project_detail(request, pk):
     assignee_id = request.GET.get('assignee', '')
     assignee_query = request.GET.get('assignee_q', '').strip()
     status_id = request.GET.get('status', '').strip()
+    priority_code = request.GET.get('priority', '').strip()
     label_id = request.GET.get('label', '')
     due = request.GET.get('due', '')
     page_number = request.GET.get('page', 1)
@@ -714,10 +730,16 @@ def project_detail(request, pk):
             Q(assignees__username__icontains=assignee_query) |
             Q(assignees__email__icontains=assignee_query)
         )
-    if status_id:
-        base_tasks = base_tasks.filter(task_list_id=status_id)
-    if label_id:
-        base_tasks = base_tasks.filter(labels__id=label_id)
+    if project.is_project:
+        if status_id and status_id in STRUCTURED_TASK_STATUSES:
+            base_tasks = base_tasks.filter(status=status_id)
+        if priority_code and priority_code in STRUCTURED_TASK_PRIORITIES:
+            base_tasks = base_tasks.filter(priority=priority_code)
+    else:
+        if status_id:
+            base_tasks = base_tasks.filter(task_list_id=status_id)
+        if label_id:
+            base_tasks = base_tasks.filter(labels__id=label_id)
     if due:
         base_tasks = base_tasks.filter(due_date__lte=due)
     base_tasks = base_tasks.distinct()
@@ -754,8 +776,21 @@ def project_detail(request, pk):
     if not scope_all:
         status_lists_qs = status_lists_qs.filter(sub_project=selected_subproject if selected_subproject else None)
     available_status_lists = status_lists_qs.order_by('position')
+    structured_status_options = [
+        (Task.STATUS_NONE, '-'),
+        (Task.STATUS_IN_PROGRESS, 'In Progress'),
+        (Task.STATUS_DONE, 'Done'),
+        (Task.STATUS_INFEASIBLE, 'Infeasible'),
+    ]
+    structured_priority_options = [
+        (Task.PRIORITY_P0, 'P0 - Urgent'),
+        (Task.PRIORITY_P1, 'P1 - High'),
+        (Task.PRIORITY_P2, 'P2 - Medium'),
+        (Task.PRIORITY_P3, 'P3 - Low'),
+        (Task.PRIORITY_P4, 'P4 - Very Low'),
+    ]
 
-    task_form = TaskForm()
+    task_form = TaskForm(project=project)
     comment_form = CommentForm()
     attachment_form = AttachmentForm()
     checklist_form = ChecklistItemForm()
@@ -785,12 +820,15 @@ def project_detail(request, pk):
         'per_page': per_page,
         'per_page_options': ['10', '25', '50', '100'],
         'available_status_lists': available_status_lists,
+        'structured_status_options': structured_status_options,
+        'structured_priority_options': structured_priority_options,
         'querystring': querystring.urlencode(),
         'filter_values': {
             'q': q,
             'assignee': assignee_id,
             'assignee_q': assignee_query,
             'status': status_id,
+            'priority': priority_code,
             'label': label_id,
             'due': due,
             'page': str(list_page_obj.number),
@@ -1222,6 +1260,7 @@ def task_view(request, task_id):
     html = render_to_string('arva/_task_view.html', {
         'task': task,
         'project': project,
+        'project_is_project': project.is_project,
         'user_role': role,
         'users': users,
         'labels': labels,
@@ -1279,18 +1318,57 @@ def task_inline_update(request, task_id):
         task.description = value
         changed = True
         desc = "Description updated"
+    elif field == 'status':
+        if project.is_project and value not in STRUCTURED_TASK_STATUSES:
+            return JsonResponse({'success': False, 'error': 'Invalid status.'}, status=400)
+        task.status = value or Task.STATUS_NONE
+        changed = True
+        desc = "Status updated"
+    elif field == 'start_date':
+        parsed_start = datetime.strptime(value, "%Y-%m-%d").date() if value else None
+        if project.is_project and not parsed_start and not task.start_date_tbd:
+            return JsonResponse({'success': False, 'error': 'Start Date is required or mark it as TBD.'}, status=400)
+        task.start_date = parsed_start
+        if parsed_start:
+            task.start_date_tbd = False
+        if project.is_project and parsed_start and task.due_date and task.due_date < parsed_start:
+            return JsonResponse({'success': False, 'error': 'End Date cannot be earlier than Start Date.'}, status=400)
+        changed = True
+        desc = "Start date updated"
+    elif field == 'start_date_tbd':
+        is_tbd = str(value).lower() in {'1', 'true', 'on', 'yes'}
+        if project.is_project and not is_tbd and not task.start_date:
+            return JsonResponse({'success': False, 'error': 'Start Date is required or mark it as TBD.'}, status=400)
+        task.start_date_tbd = is_tbd
+        if is_tbd:
+            task.start_date = None
+        changed = True
+        desc = "Start date TBD updated"
     elif field == 'due_date':
-        task.due_date = datetime.strptime(value, "%Y-%m-%d").date() or None
+        parsed_due = datetime.strptime(value, "%Y-%m-%d").date() if value else None
+        if project.is_project and not parsed_due:
+            return JsonResponse({'success': False, 'error': 'End Date is required.'}, status=400)
+        if project.is_project and parsed_due and task.start_date and parsed_due < task.start_date:
+            return JsonResponse({'success': False, 'error': 'End Date cannot be earlier than Start Date.'}, status=400)
+        if project.is_project and parsed_due and project.etd and parsed_due > project.etd:
+            return JsonResponse({'success': False, 'error': 'End Date must not exceed project ETD.'}, status=400)
+        task.due_date = parsed_due
         changed = True
         desc = "Due date updated"
     elif field == 'priority':
-        task.priority = value or Task.PRIORITY_MEDIUM
+        if project.is_project and value not in STRUCTURED_TASK_PRIORITIES:
+            return JsonResponse({'success': False, 'error': 'Invalid priority for project task.'}, status=400)
+        task.priority = value or Task.PRIORITY_P2
         changed = True
         desc = "Priority updated"
     elif field == 'assignees':
         old_ids = set(task.assignees.values_list('id', flat=True))
 
         ids = [i for i in value.split(',') if i]
+        if project.is_project and len(ids) > 1:
+            return JsonResponse({'success': False, 'error': 'Only one assignee is allowed for project tasks.'}, status=400)
+        if project.is_project and len(ids) == 0:
+            return JsonResponse({'success': False, 'error': 'Assignee is required for project tasks.'}, status=400)
         new_ids = set(ids)
         task.assignees.set(ids)
         changed = True
@@ -1341,6 +1419,8 @@ def task_inline_update(request, task_id):
                     print("Email sending error:", e)
 
     elif field == 'labels':
+        if project.is_project:
+            return JsonResponse({'success': False, 'error': 'Labels are disabled for project tasks.'}, status=400)
         ids = [i for i in value.split(',') if i]
         task.labels.set(ids)
         changed = True
@@ -1378,10 +1458,13 @@ def task_create(request, pk):
             return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
 
     data = request.POST.copy()
+    if project.is_project:
+        data.setlist('labels', [])
+        data.pop('cover_color', None)
     if 'priority' not in data or not data['priority']:
-        data['priority'] = Task.PRIORITY_MEDIUM
+        data['priority'] = Task.PRIORITY_P2
 
-    form = TaskForm(data)
+    form = TaskForm(data, project=project)
     if form.is_valid():
         task = form.save(commit=False)
         task.project = project
@@ -1392,6 +1475,13 @@ def task_create(request, pk):
         task.created_by = request.user
         task.save()
         form.save_m2m()
+
+        if not project.is_project:
+            initial_comment = request.POST.get('initial_comment', '').strip()
+            if initial_comment:
+                Comment.objects.create(task=task, user=request.user, content=initial_comment)
+            for uploaded in request.FILES.getlist('comment_files'):
+                Attachment.objects.create(task=task, uploaded_by=request.user, file=uploaded)
         ActivityLog.objects.create(
             user=request.user, project=project, task=task,
             action='task_created', description=f"Task '{task.title}' created"
@@ -1424,9 +1514,12 @@ def task_update(request, task_id):
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
     data = request.POST.copy()
+    if project.is_project:
+        data.setlist('labels', [])
+        data.pop('cover_color', None)
     if 'priority' not in data or not data['priority']:
-        data['priority'] = Task.PRIORITY_MEDIUM
-    form = TaskForm(data, instance=task)
+        data['priority'] = Task.PRIORITY_P2
+    form = TaskForm(data, instance=task, project=project)
     if form.is_valid():
         form.save()
         ActivityLog.objects.create(
@@ -1684,6 +1777,8 @@ def attachment_add(request, task_id):
 def checklist_add(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if project.is_project:
+        return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -1707,6 +1802,8 @@ def checklist_edit(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     task = item.task
     project = get_user_project_or_404(request.user, task.project.id)
+    if project.is_project:
+        return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
@@ -1732,6 +1829,8 @@ def checklist_edit(request, item_id):
 def checklist_toggle(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     project = get_user_project_or_404(request.user, item.task.project.id)
+    if project.is_project:
+        return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
     if role != ProjectMember.ROLE_ADMIN and request.user not in item.task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -1750,6 +1849,8 @@ def checklist_delete(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     task = item.task
     project = get_user_project_or_404(request.user, task.project.id)
+    if project.is_project:
+        return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():

@@ -255,15 +255,35 @@ class TaskList(models.Model):
         return f"{self.project.name} - {self.name}"
 
 class Task(models.Model):
-    PRIORITY_LOW = 'low'
-    PRIORITY_MEDIUM = 'medium'
-    PRIORITY_HIGH = 'high'
-    PRIORITY_CRITICAL = 'critical'
+    PRIORITY_P0 = 'p0'
+    PRIORITY_P1 = 'p1'
+    PRIORITY_P2 = 'p2'
+    PRIORITY_P3 = 'p3'
+    PRIORITY_P4 = 'p4'
+    PRIORITY_LOW = 'low'      # legacy
+    PRIORITY_MEDIUM = 'medium'  # legacy
+    PRIORITY_HIGH = 'high'      # legacy
+    PRIORITY_CRITICAL = 'critical'  # legacy
     PRIORITY_CHOICES = (
+        (PRIORITY_P0, 'P0 - Urgent'),
+        (PRIORITY_P1, 'P1 - High'),
+        (PRIORITY_P2, 'P2 - Medium'),
+        (PRIORITY_P3, 'P3 - Low'),
+        (PRIORITY_P4, 'P4 - Very Low'),
         (PRIORITY_LOW, 'Low'),
         (PRIORITY_MEDIUM, 'Medium'),
         (PRIORITY_HIGH, 'High'),
         (PRIORITY_CRITICAL, 'Critical'),
+    )
+    STATUS_NONE = '-'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_DONE = 'done'
+    STATUS_INFEASIBLE = 'infeasible'
+    STATUS_CHOICES = (
+        (STATUS_NONE, '-'),
+        (STATUS_IN_PROGRESS, 'In Progress'),
+        (STATUS_DONE, 'Done'),
+        (STATUS_INFEASIBLE, 'Infeasible'),
     )
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks')
@@ -272,7 +292,10 @@ class Task(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     order = models.PositiveIntegerField(default=0)
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default=PRIORITY_MEDIUM)
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default=PRIORITY_P2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NONE)
+    start_date = models.DateField(null=True, blank=True)
+    start_date_tbd = models.BooleanField(default=False)
     due_date = models.DateField(null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_tasks')
     labels = models.ManyToManyField(Label, blank=True, related_name='tasks')

@@ -182,13 +182,30 @@
 
       <div class="col-lg-2 col-md-6">
         <select name="status" class="form-select form-select-sm">
-          <option value="">Status</option>
-          {% for status_list in available_status_lists %}
-          <option value="{{ status_list.id }}" {% if filter_values.status == status_list.id|stringformat:'s' %}selected{% endif %}>{{ status_list.name }}</option>
-          {% endfor %}
+          {% if project.is_project %}
+            <option value="">Task Status</option>
+            {% for status_value, status_label in structured_status_options %}
+            <option value="{{ status_value }}" {% if filter_values.status == status_value %}selected{% endif %}>{{ status_label }}</option>
+            {% endfor %}
+          {% else %}
+            <option value="">Status</option>
+            {% for status_list in available_status_lists %}
+            <option value="{{ status_list.id }}" {% if filter_values.status == status_list.id|stringformat:'s' %}selected{% endif %}>{{ status_list.name }}</option>
+            {% endfor %}
+          {% endif %}
         </select>
       </div>
 
+      {% if project.is_project %}
+      <div class="col-lg-1 col-md-6">
+        <select name="priority" class="form-select form-select-sm">
+          <option value="">Priority</option>
+          {% for priority_value, priority_label in structured_priority_options %}
+          <option value="{{ priority_value }}" {% if filter_values.priority == priority_value %}selected{% endif %}>{{ priority_label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% else %}
       <div class="col-lg-1 col-md-6">
         <select name="label" class="form-select form-select-sm">
           <option value="">Label</option>
@@ -197,6 +214,7 @@
           {% endfor %}
         </select>
       </div>
+      {% endif %}
 
       <div class="col-lg-1 col-md-6">
         <input type="date" name="due" class="form-control form-control-sm" value="{{ filter_values.due }}">
@@ -210,8 +228,8 @@
   {% include "arva/_task_board.html" with project=project task_lists=task_lists task_form=task_form user_role=user_role %}
 </div>
 
-<div class="modal fade task-view-modal" id="taskViewModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
+<div class="modal fade task-view-modal {% if project.is_project %}task-view-modal--drawer{% endif %}" id="taskViewModal" tabindex="-1">
+  <div class="modal-dialog {% if project.is_project %}modal-dialog-scrollable{% else %}modal-xl modal-dialog-centered{% endif %}">
     <div class="modal-content">
       <div class="modal-header task-view-header">
         <div class="d-flex align-items-center gap-2">
@@ -478,18 +496,46 @@
             <label class="form-label">Status / Column</label>
             <select name="task_list_id" id="list-task-status" class="form-select form-select-sm" required></select>
           </div>
-          <div>
-            <label class="form-label">Due Date</label>
-            <input type="date" name="due_date" class="form-control form-control-sm">
+          <div class="task-structured-only">
+            <label class="form-label">Task Status</label>
+            <select name="status" id="list-task-work-status" class="form-select form-select-sm">
+              <option value="-">-</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+              <option value="infeasible">Infeasible</option>
+            </select>
+          </div>
+          <div class="task-structured-only">
+            <label class="form-label">Priority</label>
+            <select name="priority" id="list-task-priority" class="form-select form-select-sm">
+              <option value="p0">P0 - Urgent</option>
+              <option value="p1">P1 - High</option>
+              <option value="p2" selected>P2 - Medium</option>
+              <option value="p3">P3 - Low</option>
+              <option value="p4">P4 - Very Low</option>
+            </select>
           </div>
           <div>
-            <label class="form-label">Assigned Members</label>
-            <select name="assignees" class="form-select form-select-sm" multiple size="4">
+            <label class="form-label">Assignee</label>
+            <select name="assignees" id="list-task-assignees" class="form-select form-select-sm" multiple size="4">
               {% for u in users %}
                 <option value="{{ u.id }}">{{ u.username }}</option>
               {% endfor %}
             </select>
           </div>
+          <div class="task-structured-only">
+            <label class="form-label">Start Date</label>
+            <input type="date" name="start_date" id="list-task-start-date" class="form-control form-control-sm">
+            <div class="form-check mt-1">
+              <input class="form-check-input" type="checkbox" name="start_date_tbd" id="list-task-start-date-tbd">
+              <label class="form-check-label" for="list-task-start-date-tbd" title="To Be Determined">TBD (To Be Determined)</label>
+            </div>
+          </div>
+          <div class="task-structured-only">
+            <label class="form-label">End Date</label>
+            <input type="date" name="due_date" id="list-task-end-date" class="form-control form-control-sm">
+          </div>
+          {% if not project.is_project %}
           <div>
             <label class="form-label">Labels</label>
             <select name="labels" class="form-select form-select-sm" multiple size="4">
@@ -498,6 +544,15 @@
               {% endfor %}
             </select>
           </div>
+          <div class="full">
+            <label class="form-label">Initial Comment</label>
+            <textarea name="initial_comment" rows="2" class="form-control form-control-sm" placeholder="Optional comment..."></textarea>
+          </div>
+          <div class="full">
+            <label class="form-label">Upload documents as comment</label>
+            <input type="file" name="comment_files" class="form-control form-control-sm" multiple>
+          </div>
+          {% endif %}
         </div>
       </div>
       <div class="modal-footer">

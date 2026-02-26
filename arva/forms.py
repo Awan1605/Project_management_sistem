@@ -205,7 +205,7 @@ class SubProjectForm(forms.ModelForm):
 
 class TaskForm(forms.ModelForm):
     assignees = forms.ModelMultipleChoiceField(
-        queryset=User.objects.all(),
+        queryset=User.objects.all().order_by('username'),
         widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
         required=False,
     )
@@ -219,9 +219,76 @@ class TaskForm(forms.ModelForm):
         required=False,
         widget=forms.Select(attrs={'class': 'form-select'})
     )
+    status = forms.ChoiceField(
+        choices=Task.STATUS_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
     class Meta:
         model = Task
-        fields = ['title', 'description', 'priority', 'due_date', 'assignees', 'labels', 'cover_color']
+        fields = [
+            'title', 'description', 'priority', 'status', 'start_date',
+            'start_date_tbd', 'due_date', 'assignees', 'labels', 'cover_color'
+        ]
+        widgets = {
+            'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'start_date_tbd': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'due_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.project = kwargs.pop('project', None)
+        super().__init__(*args, **kwargs)
+        self.fields['priority'].choices = (
+            (Task.PRIORITY_P0, 'P0 - Urgent'),
+            (Task.PRIORITY_P1, 'P1 - High'),
+            (Task.PRIORITY_P2, 'P2 - Medium'),
+            (Task.PRIORITY_P3, 'P3 - Low'),
+            (Task.PRIORITY_P4, 'P4 - Very Low'),
+        )
+        self.fields['status'].initial = Task.STATUS_NONE
+
+    def clean(self):
+        cleaned_data = super().clean()
+        project = self.project
+        if not project or not project.is_project:
+            return cleaned_data
+
+        title = (cleaned_data.get('title') or '').strip()
+        assignees = cleaned_data.get('assignees')
+        start_date = cleaned_data.get('start_date')
+        start_date_tbd = cleaned_data.get('start_date_tbd')
+        end_date = cleaned_data.get('due_date')
+        priority = cleaned_data.get('priority')
+        status = cleaned_data.get('status')
+
+        if not title:
+            self.add_error('title', 'Task Name is required.')
+        if not assignees or assignees.count() == 0:
+            self.add_error('assignees', 'Assignee is required.')
+        elif assignees.count() > 1:
+            self.add_error('assignees', 'Only one assignee is allowed for project tasks.')
+
+        if not start_date and not start_date_tbd:
+            self.add_error('start_date', 'Start Date is required or mark it as TBD.')
+            self.add_error('start_date_tbd', 'Mark Start Date as TBD if date is unknown.')
+        if start_date and start_date_tbd:
+            self.add_error('start_date_tbd', 'Choose either Start Date or TBD, not both.')
+
+        if not end_date:
+            self.add_error('due_date', 'End Date is required.')
+        if start_date and end_date and end_date < start_date:
+            self.add_error('due_date', 'End Date cannot be earlier than Start Date.')
+        if project.etd and end_date and end_date > project.etd:
+            self.add_error('due_date', 'End Date must not exceed project ETD.')
+
+        if priority not in {Task.PRIORITY_P0, Task.PRIORITY_P1, Task.PRIORITY_P2, Task.PRIORITY_P3, Task.PRIORITY_P4}:
+            self.add_error('priority', 'Priority is required.')
+
+        if status not in {Task.STATUS_NONE, Task.STATUS_IN_PROGRESS, Task.STATUS_DONE, Task.STATUS_INFEASIBLE}:
+            self.add_error('status', 'Status is required.')
+
+        return cleaned_data
 
 class CommentForm(forms.ModelForm):
     class Meta:

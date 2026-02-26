@@ -99,6 +99,9 @@
   .task-list-head > :last-child {
     justify-self: end;
   }
+  #task-board[data-is-project="1"] .task-list-head {
+    grid-template-columns: minmax(220px, 2fr) minmax(170px, 1.2fr) minmax(260px, 2fr) 150px;
+  }
   .task-list-row {
     display: grid;
     grid-template-columns: minmax(240px, 2fr) 130px minmax(150px, 1.2fr) 100px 170px;
@@ -134,17 +137,82 @@
   .task-row-progress {
     min-width: 84px;
   }
-  .task-row-activity {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    justify-content: flex-end;
-  }
-  .activity-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #0ea5e9;
+.task-row-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+.task-card-structured .task-card-title-main {
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+.task-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+.task-chip-priority-p0 { background: rgba(220, 38, 38, 0.14); color: #b91c1c; border-color: rgba(220, 38, 38, 0.28); }
+.task-chip-priority-p1 { background: rgba(234, 88, 12, 0.14); color: #c2410c; border-color: rgba(234, 88, 12, 0.28); }
+.task-chip-priority-p2 { background: rgba(2, 132, 199, 0.14); color: #0369a1; border-color: rgba(2, 132, 199, 0.26); }
+.task-chip-priority-p3 { background: rgba(34, 197, 94, 0.16); color: #15803d; border-color: rgba(34, 197, 94, 0.26); }
+.task-chip-priority-p4 { background: rgba(100, 116, 139, 0.16); color: #334155; border-color: rgba(100, 116, 139, 0.26); }
+.task-chip-status-- { background: rgba(100, 116, 139, 0.14); color: #475569; border-color: rgba(100, 116, 139, 0.24); }
+.task-chip-status-in_progress { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; border-color: rgba(59, 130, 246, 0.24); }
+.task-chip-status-done { background: rgba(16, 185, 129, 0.14); color: #047857; border-color: rgba(16, 185, 129, 0.24); }
+.task-chip-status-infeasible { background: rgba(148, 163, 184, 0.2); color: #334155; border-color: rgba(148, 163, 184, 0.34); }
+.task-structured-meta {
+  display: grid;
+  gap: 0.22rem;
+}
+.task-structured-meta-item {
+  font-size: 0.79rem;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+}
+.task-structured-desc {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.task-list-row[data-structured="1"] {
+  grid-template-columns: minmax(240px, 2.1fr) minmax(140px, 1fr) minmax(280px, 2fr) 170px;
+}
+.task-list-row[data-structured="1"] .task-row-title {
+  font-size: 0.96rem;
+}
+.task-list-row[data-structured="1"] .task-row-sub {
+  margin-top: 0.12rem;
+}
+.task-list-row[data-structured="1"] .task-row-status {
+  justify-self: start;
+}
+.task-list-row[data-structured="1"] .task-row-meta {
+  min-width: 0;
+}
+.task-structured-list-meta {
+  display: grid;
+  gap: 0.18rem;
+  font-size: 0.79rem;
+  color: #475569;
+}
+.task-structured-list-meta > span {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0ea5e9;
     box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
   }
   .task-list-empty {
@@ -191,15 +259,18 @@
     .task-list-head {
       display: none;
     }
-    .task-list-row {
-      grid-template-columns: 1fr;
-      gap: 0.45rem;
-      padding: 0.8rem;
-    }
-    .task-row-status,
-    .task-row-meta,
-    .task-row-progress,
-    .task-row-activity {
+  .task-list-row {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    padding: 0.8rem;
+  }
+  .task-list-row[data-structured="1"] {
+    grid-template-columns: 1fr;
+  }
+  .task-row-status,
+  .task-row-meta,
+  .task-row-progress,
+  .task-row-activity {
       justify-content: flex-start;
     }
     .task-row-activity {
@@ -319,6 +390,40 @@
 
 .project-edit-form-grid .project-modal-section {
   margin-bottom: 0;
+}
+
+.task-structured-shell {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.task-structured-section {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.75rem;
+}
+
+.task-structured-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 0.75rem;
+}
+
+.task-structured-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 0.75rem;
+}
+
+@media (max-width: 991.98px) {
+  .task-structured-header {
+    grid-template-columns: 1fr;
+  }
+
+  .task-structured-meta-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 991.98px) {

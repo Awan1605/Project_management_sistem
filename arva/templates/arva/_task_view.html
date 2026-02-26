@@ -1,3 +1,96 @@
+{% if project_is_project %}
+<div class="task-structured-shell">
+  <section class="task-structured-section task-structured-header mb-3">
+    <div class="task-structured-header-main">
+      <label class="form-label small text-muted mb-1">Task Name</label>
+      <input type="text" id="task-view-title" class="form-control form-control-lg fw-semibold" value="{{ task.title }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+    </div>
+    <div class="task-structured-header-status">
+      <label class="form-label small text-muted mb-1">Status</label>
+      <select id="task-view-status" class="form-select" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+        <option value="-" {% if task.status == '-' %}selected{% endif %}>-</option>
+        <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+        <option value="done" {% if task.status == 'done' %}selected{% endif %}>Done</option>
+        <option value="infeasible" {% if task.status == 'infeasible' %}selected{% endif %}>Infeasible</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="task-structured-section mb-3">
+    <h6 class="fw-semibold mb-2">Metadata</h6>
+    <div class="task-structured-meta-grid">
+      <div>
+        <label class="form-label small text-muted mb-1">Priority</label>
+        <select id="task-view-priority" class="form-select form-select-sm" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+          <option value="p0" {% if task.priority == 'p0' %}selected{% endif %}>P0 - Urgent</option>
+          <option value="p1" {% if task.priority == 'p1' %}selected{% endif %}>P1 - High</option>
+          <option value="p2" {% if task.priority == 'p2' %}selected{% endif %}>P2 - Medium</option>
+          <option value="p3" {% if task.priority == 'p3' %}selected{% endif %}>P3 - Low</option>
+          <option value="p4" {% if task.priority == 'p4' %}selected{% endif %}>P4 - Very Low</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label small text-muted mb-1">Assignee</label>
+        <select id="task-view-assignees" class="form-select form-select-sm" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+          <option value="">Select assignee</option>
+          {% for u in users %}
+            <option value="{{ u.id }}" {% if u in task.assignees.all %}selected{% endif %}>{{ u.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label small text-muted mb-1">Start Date</label>
+        <input type="date" id="task-view-start-date" class="form-control form-control-sm" value="{{ task.start_date|date:'Y-m-d' }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+        <div class="form-check mt-1">
+          <input class="form-check-input" type="checkbox" id="task-view-start-date-tbd" {% if task.start_date_tbd %}checked{% endif %} {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+          <label class="form-check-label small" for="task-view-start-date-tbd" title="To Be Determined">TBD (To Be Determined)</label>
+        </div>
+      </div>
+      <div>
+        <label class="form-label small text-muted mb-1">End Date</label>
+        <input type="date" id="task-view-due" class="form-control form-control-sm" value="{{ task.due_date|date:'Y-m-d' }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+      </div>
+    </div>
+  </section>
+
+  <section class="task-structured-section mb-3">
+    <h6 class="fw-semibold mb-2">Description</h6>
+    <textarea id="task-view-desc" class="form-control task-desc-input" rows="3" data-autoresize="true" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>{{ task.description }}</textarea>
+  </section>
+
+  <section class="task-structured-section mb-3">
+    <h6 class="fw-semibold mb-2">Comments</h6>
+    <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}></textarea>
+    <button class="btn btn-primary btn-sm mt-2" id="btn-add-comment">Add Comment</button>
+    <div id="task-view-comments" class="mt-3">
+      {% include "arva/_comment_list.html" with comments=root_comments %}
+    </div>
+  </section>
+
+  <section class="task-structured-section mb-3">
+    <h6 class="fw-semibold mb-2">Attachments</h6>
+    {% if user_role == 'admin' or user in task.assignees.all %}
+    <input type="file" id="task-view-upload" class="form-control mb-2" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+    {% endif %}
+    <ul class="list-unstyled mb-0">
+      {% for att in task.attachments.all %}
+      <li class="d-flex align-items-center mb-2" data-id="{{ att.id }}">
+        <div class="attachment-file">
+          <i class="bi bi-paperclip me-1"></i>
+          <a href="{{ att.file.url }}" target="_blank">{{ att.file.name|slice:"30" }}</a>
+        </div>
+        <small class="text-muted ms-2">({{ att.uploaded_at|date:"d M Y H:i" }})</small>
+        {% if user_role == 'admin' or user in task.assignees.all %}
+        <button class="btn btn-sm btn-light text-danger ms-auto btn-delete-attachment">x</button>
+        {% endif %}
+      </li>
+      {% empty %}
+      <small class="text-muted">There are no attachments yet.</small>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% else %}
 <div class="d-flex justify-content-between align-items-start mb-3">
 
   <div class="flex-grow-1 me-3">
@@ -13,12 +106,17 @@
 
   <div class="text-end">
     <select id="task-view-priority" class="form-select form-select-sm priority-select mb-2" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
-      <option value="low" {% if task.priority == 'low' %}selected{% endif %}>Low</option>
-      <option value="medium" {% if task.priority == 'medium' %}selected{% endif %}>Medium</option>
-      <option value="high" {% if task.priority == 'high' %}selected{% endif %}>High</option>
-      <option value="critical" {% if task.priority == 'critical' %}selected{% endif %}>Critical</option>
+      <option value="p0" {% if task.priority == 'p0' %}selected{% endif %}>P0 - Urgent</option>
+      <option value="p1" {% if task.priority == 'p1' %}selected{% endif %}>P1 - High</option>
+      <option value="p2" {% if task.priority == 'p2' %}selected{% endif %}>P2 - Medium</option>
+      <option value="p3" {% if task.priority == 'p3' %}selected{% endif %}>P3 - Low</option>
+      <option value="p4" {% if task.priority == 'p4' %}selected{% endif %}>P4 - Very Low</option>
+      <option value="low" {% if task.priority == 'low' %}selected{% endif %}>Low (Legacy)</option>
+      <option value="medium" {% if task.priority == 'medium' %}selected{% endif %}>Medium (Legacy)</option>
+      <option value="high" {% if task.priority == 'high' %}selected{% endif %}>High (Legacy)</option>
+      <option value="critical" {% if task.priority == 'critical' %}selected{% endif %}>Critical (Legacy)</option>
     </select>
-    <input type="date" id="task-view-due" class="form-control form-control-sm due-input" value="{{ task.due_date|date:'d M Y' }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+    <input type="date" id="task-view-due" class="form-control form-control-sm due-input" value="{{ task.due_date|date:'Y-m-d' }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
   </div>
 
 </div>
@@ -55,7 +153,7 @@
             {{ item.content }}
           </span>
           {% if user_role == 'admin' or user in task.assignees.all %}
-          <button class="btn btn-sm btn-light text-danger ms-2 btn-delete-checkitem" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>×</button>
+          <button class="btn btn-sm btn-light text-danger ms-2 btn-delete-checkitem" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>x</button>
           {% endif %}
         </li>
         {% empty %}
@@ -78,7 +176,7 @@
           </div>
           <small class="text-muted ms-2">({{ att.uploaded_at|date:"d M Y H:i" }})</small>
           {% if user_role == 'admin' or user in task.assignees.all %}
-          <button class="btn btn-sm btn-light text-danger ms-auto btn-delete-attachment">×</button>
+          <button class="btn btn-sm btn-light text-danger ms-auto btn-delete-attachment">x</button>
           {% endif %}
         </li>
         {% empty %}
@@ -102,7 +200,7 @@
   <div class="col-md-4">
     <div class="sidebar-box">
       <h6 class="fw-semibold">Assignees</h6>
-      <select id="task-view-assignees" class="form-select" multiple 
+      <select id="task-view-assignees" class="form-select" multiple
         {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
         {% for u in users %}
           <option value="{{ u.id }}" {% if u in task.assignees.all %}selected{% endif %}>
@@ -188,3 +286,4 @@
     </div>
   </div>
 </div>
+{% endif %}

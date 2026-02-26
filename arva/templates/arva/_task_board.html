@@ -1,4 +1,4 @@
-<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}">
+<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}" data-is-project="{{ project.is_project|yesno:'1,0' }}" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}">
   <div class="board-view-panel board-view-card">
     {% if task_scope == 'all' %}
     <div class="card shadow-sm border-0 mb-3">
@@ -148,11 +148,18 @@
         </div>
       </div>
       <div class="task-list-head">
-        <button type="button" class="task-list-sort" data-sort-key="title">Task</button>
-        <button type="button" class="task-list-sort" data-sort-key="status">Status</button>
-        <button type="button" class="task-list-sort" data-sort-key="due">Due</button>
-        <button type="button" class="task-list-sort" data-sort-key="updated">Recent Activity</button>
-        <span class="small text-muted text-end">Actions</span>
+        {% if project.is_project %}
+          <button type="button" class="task-list-sort" data-sort-key="title">Task</button>
+          <button type="button" class="task-list-sort" data-sort-key="status">Priority / Status</button>
+          <button type="button" class="task-list-sort" data-sort-key="due">Ownership / Dates</button>
+          <button type="button" class="task-list-sort" data-sort-key="updated">Recent Activity</button>
+        {% else %}
+          <button type="button" class="task-list-sort" data-sort-key="title">Task</button>
+          <button type="button" class="task-list-sort" data-sort-key="status">Status</button>
+          <button type="button" class="task-list-sort" data-sort-key="due">Due</button>
+          <button type="button" class="task-list-sort" data-sort-key="updated">Recent Activity</button>
+          <span class="small text-muted text-end">Actions</span>
+        {% endif %}
       </div>
       <div class="task-list-body" id="task-list-body">
         {% for task in list_page_obj.object_list %}

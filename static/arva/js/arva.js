@@ -789,11 +789,38 @@ $(function() {
     }
 
     function openListTaskCreateModal() {
+      const root = getBoardRoot();
+      const isStructuredProject = (root?.dataset.isProject || '0') === '1';
+      const structuredOnlyFields = document.querySelectorAll('#listTaskCreateModal .task-structured-only');
       const statusSelect = document.getElementById('list-task-status');
       const form = document.getElementById('list-view-task-create-form');
+      const assigneeSelect = document.getElementById('list-task-assignees');
+      const startDateInput = document.getElementById('list-task-start-date');
+      const startDateTbdInput = document.getElementById('list-task-start-date-tbd');
+      const endDateInput = document.getElementById('list-task-end-date');
+      const prioritySelect = document.getElementById('list-task-priority');
+      const workStatusSelect = document.getElementById('list-task-work-status');
+      const projectEtd = (root?.dataset.projectEtd || '').trim();
       if (!statusSelect || !form) return;
       form.reset();
+      structuredOnlyFields.forEach((el) => el.classList.toggle('d-none', !isStructuredProject));
       statusSelect.innerHTML = '';
+      if (startDateInput && startDateTbdInput) {
+        startDateInput.disabled = false;
+        startDateInput.required = false;
+        startDateTbdInput.checked = false;
+      }
+      if (endDateInput) {
+        endDateInput.required = false;
+        endDateInput.removeAttribute('max');
+      }
+      if (prioritySelect) prioritySelect.required = false;
+      if (workStatusSelect) workStatusSelect.required = false;
+      if (assigneeSelect) {
+        assigneeSelect.required = false;
+        assigneeSelect.multiple = true;
+        assigneeSelect.size = 4;
+      }
       const options = collectVisibleListOptions();
       if (!options.length) {
         showError('No status/column available. Create a list first.');
@@ -805,6 +832,26 @@ $(function() {
         option.textContent = opt.name;
         statusSelect.appendChild(option);
       });
+      const defaultListId = window.currentStructuredDefaultListId || '';
+      if (defaultListId) {
+        statusSelect.value = defaultListId;
+        window.currentStructuredDefaultListId = '';
+      }
+
+      if (isStructuredProject) {
+        if (startDateInput) startDateInput.required = true;
+        if (endDateInput) {
+          endDateInput.required = true;
+          if (projectEtd) endDateInput.max = projectEtd;
+        }
+        if (prioritySelect) prioritySelect.required = true;
+        if (workStatusSelect) workStatusSelect.required = true;
+        if (assigneeSelect) {
+          assigneeSelect.required = true;
+          assigneeSelect.multiple = false;
+          assigneeSelect.size = 1;
+        }
+      }
       const modalEl = document.getElementById('listTaskCreateModal');
       if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
@@ -893,7 +940,11 @@ $(function() {
       const sortBtn = e.target.closest('.task-list-sort');
       if (sortBtn) sortListRows(sortBtn.dataset.sortKey || 'title');
 
-      if (e.target.closest('.btn-list-add-task')) openListTaskCreateModal();
+      const listAddBtn = e.target.closest('.btn-list-add-task');
+      if (listAddBtn) {
+        window.currentStructuredDefaultListId = listAddBtn.dataset.defaultListId || '';
+        openListTaskCreateModal();
+      }
     });
 
     document.addEventListener('keydown', function(e) {
@@ -906,10 +957,30 @@ $(function() {
     });
 
     const createForm = document.getElementById('list-view-task-create-form');
+    const listStartDateInput = document.getElementById('list-task-start-date');
+    const listStartDateTbdInput = document.getElementById('list-task-start-date-tbd');
+    const listEndDateInput = document.getElementById('list-task-end-date');
+    if (listStartDateInput && listStartDateTbdInput) {
+      const syncListStartDateTbd = () => {
+        if (listStartDateTbdInput.checked) {
+          listStartDateInput.value = '';
+        }
+        listStartDateInput.disabled = listStartDateTbdInput.checked;
+        listStartDateInput.required = !listStartDateTbdInput.checked && ((getBoardRoot()?.dataset.isProject || '0') === '1');
+      };
+      listStartDateTbdInput.addEventListener('change', syncListStartDateTbd);
+      listStartDateInput.addEventListener('change', function() {
+        if (listStartDateInput.value) listStartDateTbdInput.checked = false;
+        syncListStartDateTbd();
+      });
+      syncListStartDateTbd();
+    }
     createForm?.addEventListener('submit', function(e) {
       e.preventDefault();
       const root = getBoardRoot();
       const projectId = root?.dataset.projectId;
+      const isStructuredProject = (root?.dataset.isProject || '0') === '1';
+      const projectEtd = (root?.dataset.projectEtd || '').trim();
       if (!projectId) return;
 
       const fd = new FormData(createForm);
@@ -917,20 +988,26 @@ $(function() {
       const listId = (fd.get('task_list_id') || '').toString();
       if (!title) return showError('Task title is required.');
       if (!listId) return showError('Please select a status/column.');
-
-      const payload = new URLSearchParams();
-      fd.forEach((value, key) => {
-        if (value !== null && value !== '') payload.append(key, value.toString());
-      });
+      const assignees = fd.getAll('assignees');
+      const startDate = (fd.get('start_date') || '').toString();
+      const startDateTbd = !!fd.get('start_date_tbd');
+      const endDate = (fd.get('due_date') || '').toString();
+      if (isStructuredProject) {
+        if (!assignees.length) return showError('Assignee is required.');
+        if (assignees.length > 1) return showError('Only one assignee is allowed.');
+        if (!startDate && !startDateTbd) return showError('Start Date is required or mark it as TBD.');
+        if (!endDate) return showError('End Date is required.');
+        if (startDate && endDate && endDate < startDate) return showError('End Date cannot be earlier than Start Date.');
+        if (projectEtd && endDate > projectEtd) return showError('End Date must not exceed project ETD.');
+      }
 
       fetch(`/project/${projectId}/task/create/`, {
         method: 'POST',
         headers: {
           'X-CSRFToken': (document.querySelector('#list-view-task-create-form [name=csrfmiddlewaretoken]')?.value || ''),
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        body: payload.toString()
+        body: fd
       }).then((resp) => resp.json()).then((resp) => {
         if (!resp.success) {
           const firstError = resp?.errors ? Object.values(resp.errors)[0] : null;
@@ -1400,9 +1477,31 @@ $(function() {
     });
   });
 
+  $(document).on('change', '#task-view-status', function() {
+    const taskId = $('#taskViewModal').data('task-id');
+    inlineUpdate(taskId, 'status', $(this).val(), function() {
+      loadTaskView(taskId);
+    });
+  });
+
+  $(document).on('change', '#task-view-start-date', function() {
+    const taskId = $('#taskViewModal').data('task-id');
+    inlineUpdate(taskId, 'start_date', $(this).val(), function() {
+      loadTaskView(taskId);
+    });
+  });
+
+  $(document).on('change', '#task-view-start-date-tbd', function() {
+    const taskId = $('#taskViewModal').data('task-id');
+    inlineUpdate(taskId, 'start_date_tbd', this.checked ? '1' : '0', function() {
+      loadTaskView(taskId);
+    });
+  });
+
   $(document).on('change', '#task-view-assignees', function() {
     const taskId = $('#taskViewModal').data('task-id');
-    const values = $(this).val() ? $(this).val().join(',') : '';
+    const raw = $(this).val();
+    const values = Array.isArray(raw) ? raw.join(',') : (raw || '');
     inlineUpdate(taskId, 'assignees', values, function() {
       loadTaskView(taskId);
     });
