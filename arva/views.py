@@ -1437,7 +1437,8 @@ def task_inline_update(request, task_id):
     ActivityLog.objects.create(project=project, task=task, user=request.user, action='task_updated', description=desc)
 
     html = render_to_string('arva/_task_card.html', {'task': task, 'project': project, 'user_role': role}, request=request)
-    return JsonResponse({'success': True, 'html': html})
+    list_row_html = render_to_string('arva/_task_list_row.html', {'task': task, 'project': project, 'user_role': role}, request=request)
+    return JsonResponse({'success': True, 'html': html, 'list_row_html': list_row_html})
 
 @login_required
 @require_POST

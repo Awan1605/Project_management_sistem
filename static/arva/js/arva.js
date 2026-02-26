@@ -1415,6 +1415,12 @@ $(function() {
             const card = $(`.task-card[data-task-id='${taskId}']`);
             card.replaceWith(resp.html);
           }
+          if (resp.list_row_html) {
+            const row = $(`.task-list-row[data-task-id='${taskId}']`);
+            if (row.length) {
+              row.replaceWith(resp.list_row_html);
+            }
+          }
           if (typeof onSuccess === 'function') onSuccess();
         }
       },
