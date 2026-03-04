@@ -1,0 +1,194 @@
+﻿{% extends "arva/base.html" %}
+{% load static %}
+{% block title %}Website Settings{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'arva/css/pages/website_settings.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+
+  <div class="page-hero mb-4">
+    <div>
+      <div class="hero-badge mb-2">
+        <i class="bi bi-gear"></i>
+        Configuration
+      </div>
+      <h3 class="hero-title">
+        <i class="bi bi-gear me-2 text-primary"></i> Website Settings
+      </h3>
+      <p class="hero-subtitle">Manage brand, theme, and system preferences in one place.</p>
+    </div>
+  </div>
+
+  <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="card setting-card mb-3">
+      <div class="card-body">
+        <div class="section-title">General</div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Site Name</label>
+            {{ form.site_name }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Support Email</label>
+            {{ form.support_email }}
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label">Footer Text</label>
+            {{ form.footer_text }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-lg-6">
+        <div class="card setting-card h-100">
+          <div class="card-body">
+            <div class="section-title">Branding</div>
+
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label">Logo</label>
+
+                {% if settings.logo %}
+                <div class="preview-box mb-2 text-center p-3">
+                  <img src="{{ settings.logo_url }}" height="60">
+                </div>
+                {% endif %}
+
+                {{ form.logo }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Favicon</label>
+
+                {% if settings.favicon %}
+                <div class="preview-box mb-2 text-center p-3">
+                  <img src="{{ settings.favicon_url }}" width="40">
+                </div>
+                {% endif %}
+
+                {{ form.favicon }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card setting-card h-100">
+          <div class="card-body">
+            <div class="section-title">Theme</div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Theme Mode</label>
+                {{ form.theme_mode }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Primary Color</label>
+                {{ form.primary_color }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Text Color</label>
+                {{ form.text_color }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Navbar Background</label>
+                {{ form.navbar_bg }}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Body Background</label>
+                {{ form.body_bg }}
+              </div>
+
+              <div class="col-md-12 mt-2">
+                <div class="form-check">
+                  {{ form.maintenance_mode }}
+                  <label class="form-check-label">Enable Maintenance Mode</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="card setting-card mb-3">
+      <div class="card-body">
+        <div class="section-title">Custom CSS</div>
+
+        <small class="text-muted d-block mb-2">
+          Add custom CSS without modifying static files. Example: <code>.btn { border-radius: 50px; }</code>
+        </small>
+
+        {{ form.custom_css }}
+      </div>
+    </div>
+
+    <div class="col-12 text-end">
+      <button class="btn btn-primary cta-btn">
+        <i class="bi bi-save"></i>
+        Save Settings
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function() {
+    const root = document.documentElement;
+    const inputs = {
+      theme: document.querySelector('[name="theme_mode"]'),
+      primary: document.querySelector('[name="primary_color"]'),
+      text: document.querySelector('[name="text_color"]'),
+      navbar: document.querySelector('[name="navbar_bg"]'),
+      body: document.querySelector('[name="body_bg"]')
+    };
+
+    function setVar(name, value) {
+      if (!value) return;
+      root.style.setProperty(name, value);
+    }
+
+    function bindLive(input, cssVar) {
+      if (!input) return;
+      const handler = () => setVar(cssVar, input.value);
+      input.addEventListener('input', handler);
+      input.addEventListener('change', handler);
+      handler();
+    }
+
+    bindLive(inputs.primary, '--primary-color');
+    bindLive(inputs.text, '--text-color');
+    bindLive(inputs.navbar, '--navbar-bg');
+    bindLive(inputs.body, '--body-bg');
+
+    if (inputs.theme) {
+      const applyTheme = () => {
+        const value = inputs.theme.value || 'light';
+        root.setAttribute('data-theme', value);
+      };
+      inputs.theme.addEventListener('change', applyTheme);
+      applyTheme();
+    }
+  })();
+</script>
+{% endblock extra_js %}
+
+

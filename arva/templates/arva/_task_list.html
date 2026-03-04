@@ -1,0 +1,45 @@
+<div class="board-list" data-list-id="{{ task_list.id }}">
+  <div class="list-header d-flex justify-content-between align-items-center">
+
+    <span class="list-title">
+      {{ task_list.name }}
+      {% comment %} {% if task_scope == 'all' and task_list.sub_project %}
+        <span class="badge bg-light text-dark border ms-1">{{ task_list.sub_project.name }}</span>
+      {% endif %} {% endcomment %}
+    </span>
+    {% if user_role == 'admin' %}
+      <div class="d-flex">
+        <button class="list-action-btn btn-list-archive" title="Archive list">
+          <i class="bi bi-archive"></i>
+        </button>
+
+        <button class="list-action-btn btn-list-delete" title="Delete list">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="task-column" data-list-id="{{ task_list.id }}">
+    {% for task in task_list.filtered_tasks %}
+      {% include "arva/_task_card.html" with task=task project=project user_role=user_role %}
+    {% empty %}
+      <div class="empty-card-state text-center">
+        <i class="bi bi-inboxes me-1"></i> No task yet.
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if user_role == 'admin' or user_role == 'member' %}
+  <form class="add-card-form mt-2" data-list-id="{{ task_list.id }}" data-project-id="{{ task_list.project.id }}">
+    {% csrf_token %}
+    {% if selected_subproject %}
+    <input type="hidden" name="sub_project_id" value="{{ selected_subproject.id }}">
+    {% endif %}
+    <textarea name="title" class="form-control form-control-sm mb-2" rows="2" placeholder="➕ Add a task..." required></textarea>
+    <button class="btn btn-sm btn-primary w-100" type="submit">
+      Add Card
+    </button>
+  </form>
+  {% endif %}
+</div>

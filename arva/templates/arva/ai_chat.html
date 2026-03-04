@@ -1,0 +1,581 @@
+{% extends 'arva/base.html' %}
+
+{% load arva_tags %}
+
+
+
+{% block title %}AI Assistant - Arva{% endblock %}
+
+
+
+{% block content %}
+
+<div class="container-fluid py-4">
+
+    <div class="row">
+
+        <div class="col-12">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+
+                <div>
+
+                    <h2 class="mb-1">
+
+                        <i class="fas fa-robot text-primary me-2"></i>AI Assistant
+
+                    </h2>
+
+                    <p class="text-muted mb-0">Asisten pintar untuk membantu mengelola tugas Anda</p>
+
+                </div>
+
+                <div class="d-flex gap-2">
+
+                    <button class="btn btn-outline-success" onclick="askTodayWork()">
+
+                        <i class="fas fa-calendar-day me-1"></i> Apa yang harus dikerjakan hari ini?
+
+                    </button>
+
+                    <button class="btn btn-outline-danger" onclick="clearChat()">
+
+                        <i class="fas fa-trash me-1"></i> Hapus Percakapan
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Chat Container -->
+
+            <div class="card">
+
+                <div class="card-header bg-primary text-white">
+
+                    <h5 class="mb-0">
+
+                        <i class="fas fa-comments me-2"></i>Chat dengan AI
+
+                    </h5>
+
+                </div>
+
+                <div class="card-body p-0">
+
+                    <!-- Chat Messages -->
+
+                    <div id="chat-messages" class="chat-messages p-3" style="height: 500px; overflow-y: auto;">
+
+                        {% if chat_messages %}
+
+                            {% for msg in chat_messages %}
+
+                            <div class="chat-message {% if msg.role == 'user' %}chat-user{% else %}chat-ai{% endif %} mb-3">
+
+                                <div class="d-flex {% if msg.role == 'user' %}justify-content-end{% else %}justify-content-start{% endif %}">
+
+                                    <div class="chat-bubble {% if msg.role == 'user' %}bg-primary text-white{% else %}bg-light border{% endif %} p-3 rounded" style="max-width: 70%;">
+
+                                        <div class="chat-header small mb-1 {% if msg.role == 'user' %}text-white-50{% else %}text-muted{% endif %}">
+
+                                            {% if msg.role == 'user' %}
+
+                                                <i class="fas fa-user me-1"></i>Anda
+
+                                            {% else %}
+
+                                                <i class="fas fa-robot me-1"></i>AI Assistant
+
+                                            {% endif %}
+
+                                            <span class="ms-2">{{ msg.created_at|date:"H:i" }}</span>
+
+                                        </div>
+
+                                        <div class="chat-content">{{ msg.content|linebreaksbr }}</div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            {% endfor %}
+
+                        {% else %}
+
+                            <!-- Welcome Message -->
+
+                            <div class="text-center py-5" id="welcome-message">
+
+                                <i class="fas fa-robot fa-4x text-primary mb-3"></i>
+
+                                <h4>Selamat datang di AI Assistant!</h4>
+
+                                <p class="text-muted">Saya bisa membantu Anda:</p>
+
+                                <div class="row justify-content-center">
+
+                                    <div class="col-md-6">
+
+                                        <ul class="list-group list-group-flush text-start">
+
+                                            <li class="list-group-item"><i class="fas fa-check text-success me-2"></i>Menganalisis prioritas tugas Anda</li>
+
+                                            <li class="list-group-item"><i class="fas fa-check text-success me-2"></i>Memberikan rekomendasi pekerjaan hari ini</li>
+
+                                            <li class="list-group-item"><i class="fas fa-check text-success me-2"></i>Membantu breakdown tugas kompleks</li>
+
+                                            <li class="list-group-item"><i class="fas fa-check text-success me-2"></i>Mengingatkan tugas yang mendekati deadline</li>
+
+                                        </ul>
+
+                                    </div>
+
+                                </div>
+
+                                <p class="text-muted mt-3">Mulai chat di bawah atau klik "Apa yang harus dikerjakan hari ini?"</p>
+
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+
+
+                    <!-- Typing Indicator -->
+
+                    <div id="typing-indicator" class="px-3 py-2 d-none">
+
+                        <div class="d-flex align-items-center text-muted">
+
+                            <i class="fas fa-robot me-2"></i>
+
+                            <span>AI sedang mengetik</span>
+
+                            <span class="typing-dots ms-1">
+
+                                <span>.</span><span>.</span><span>.</span>
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Chat Input -->
+
+                    <div class="chat-input p-3 border-top bg-light">
+
+                        <form id="chat-form" onsubmit="sendMessage(event)">
+
+                            {% csrf_token %}
+
+                            <div class="input-group">
+
+                                <input type="text" id="chat-input" class="form-control" placeholder="Tanyakan apa saja tentang tugas Anda..." autocomplete="off">
+
+                                <button type="submit" class="btn btn-primary">
+
+                                    <i class="fas fa-paper-plane"></i> Kirim
+
+                                </button>
+
+                            </div>
+
+                        </form>
+
+                        <small class="text-muted mt-1 d-block">
+
+                            <i class="fas fa-lock me-1"></i>Percakapan ini bersifat pribadi - hanya Anda yang dapat melihatnya
+
+                        </small>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<style>
+
+.chat-messages {
+
+    background: #f8f9fa;
+
+}
+
+.chat-bubble {
+
+    position: relative;
+
+    word-wrap: break-word;
+
+}
+
+.chat-user .chat-bubble {
+
+    border-bottom-right-radius: 0;
+
+}
+
+.chat-ai .chat-bubble {
+
+    border-bottom-left-radius: 0;
+
+}
+
+.typing-dots span {
+
+    animation: typing 1.4s infinite;
+
+    opacity: 0;
+
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+
+    0%, 100% { opacity: 0; }
+
+    50% { opacity: 1; }
+
+}
+
+</style>
+
+
+
+<script>
+
+// Get CSRF token from cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Scroll to bottom of chat
+function scrollToBottom() {
+
+    const chatMessages = document.getElementById('chat-messages');
+
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+}
+
+
+
+// Show typing indicator
+
+function showTyping() {
+
+    document.getElementById('typing-indicator').classList.remove('d-none');
+
+    scrollToBottom();
+
+}
+
+
+
+// Hide typing indicator
+
+function hideTyping() {
+
+    document.getElementById('typing-indicator').classList.add('d-none');
+
+}
+
+
+
+// Add message to chat
+
+function addMessage(role, content, time) {
+
+    const chatMessages = document.getElementById('chat-messages');
+
+    const welcomeMsg = document.getElementById('welcome-message');
+
+    
+
+    // Remove welcome message if exists
+
+    if (welcomeMsg) {
+
+        welcomeMsg.remove();
+
+    }
+
+    
+
+    const isUser = role === 'user';
+
+    const messageHtml = `
+
+        <div class="chat-message ${isUser ? 'chat-user' : 'chat-ai'} mb-3">
+
+            <div class="d-flex ${isUser ? 'justify-content-end' : 'justify-content-start'}">
+
+                <div class="chat-bubble ${isUser ? 'bg-primary text-white' : 'bg-light border'} p-3 rounded" style="max-width: 70%;">
+
+                    <div class="chat-header small mb-1 ${isUser ? 'text-white-50' : 'text-muted'}">
+
+                        ${isUser ? '<i class="fas fa-user me-1"></i>Anda' : '<i class="fas fa-robot me-1"></i>AI Assistant'}
+
+                        <span class="ms-2">${time}</span>
+
+                    </div>
+
+                    <div class="chat-content">${content.replace(/\n/g, '<br>')}</div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    `;
+
+    
+
+    chatMessages.insertAdjacentHTML('beforeend', messageHtml);
+
+    scrollToBottom();
+
+}
+
+
+
+// Send message
+
+async function sendMessage(event) {
+
+    event.preventDefault();
+
+    
+
+    const input = document.getElementById('chat-input');
+
+    const message = input.value.trim();
+
+    
+
+    if (!message) return;
+
+    
+
+    // Clear input
+
+    input.value = '';
+
+    
+
+    // Add user message
+
+    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+    addMessage('user', message, now);
+
+    
+
+    // Show typing indicator
+
+    showTyping();
+
+    
+
+    try {
+
+        const response = await fetch('/ai/chat/send/', {
+
+            method: 'POST',
+
+            headers: {
+
+                'Content-Type': 'application/x-www-form-urlencoded',
+
+                'X-CSRFToken': getCookie('csrftoken')
+
+            },
+
+            body: 'message=' + encodeURIComponent(message)
+
+        });
+
+        
+
+        const data = await response.json();
+
+        
+
+        hideTyping();
+
+        
+
+        if (data.success) {
+
+            addMessage('assistant', data.ai_message.content, data.ai_message.created_at);
+
+        } else {
+
+            addMessage('assistant', 'Maaf, terjadi kesalahan: ' + (data.error || 'Unknown error'), now);
+
+        }
+
+    } catch (error) {
+
+        hideTyping();
+
+        addMessage('assistant', 'Maaf, terjadi kesalahan koneksi. Silakan coba lagi.', now);
+
+    }
+
+}
+
+
+
+// Ask today's work recommendation
+
+async function askTodayWork() {
+
+    const input = document.getElementById('chat-input');
+
+    input.value = 'Apa yang harus saya kerjakan hari ini?';
+
+    
+
+    // Add user message
+
+    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+    addMessage('user', 'Apa yang harus saya kerjakan hari ini?', now);
+
+    
+
+    showTyping();
+
+    
+
+    try {
+
+        const response = await fetch('/ai/chat/today-work/');
+
+        const data = await response.json();
+
+        
+
+        hideTyping();
+
+        
+
+        if (data.success) {
+
+            addMessage('assistant', data.message.content, data.message.created_at);
+
+        } else {
+
+            addMessage('assistant', 'Maaf, terjadi kesalahan: ' + (data.error || 'Unknown error'), now);
+
+        }
+
+    } catch (error) {
+
+        hideTyping();
+
+        addMessage('assistant', 'Maaf, terjadi kesalahan koneksi. Silakan coba lagi.', now);
+
+    }
+
+}
+
+
+
+// Clear chat
+
+async function clearChat() {
+
+    if (!confirm('Apakah Anda yakin ingin menghapus semua percakapan?')) return;
+
+    
+
+    try {
+
+        const response = await fetch('/ai/chat/clear/', {
+
+            method: 'POST',
+
+            headers: {
+
+                'X-CSRFToken': getCookie('csrftoken')
+
+            }
+
+        });
+
+        
+
+        const data = await response.json();
+
+        
+
+        if (data.success) {
+
+            location.reload();
+
+        }
+
+    } catch (error) {
+
+        alert('Gagal menghapus percakapan');
+
+    }
+
+}
+
+
+
+// Scroll to bottom on load
+
+document.addEventListener('DOMContentLoaded', scrollToBottom);
+
+
+
+// Focus input on load
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.getElementById('chat-input').focus();
+
+});
+
+</script>
+
+{% endblock %}
+

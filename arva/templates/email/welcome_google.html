@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome to Arva</title>
+    <style>
+        body {
+            background: #f7f7f7;
+            font-family: Arial, Helvetica, sans-serif;
+            padding: 0;
+            margin: 0;
+        }
+        .email-container {
+            max-width: 600px;
+            background: #ffffff;
+            margin: 30px auto;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #e5e5e5;
+        }
+        .header {
+            background: #09affe;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 26px;
+        }
+        .content {
+            padding: 25px;
+            color: #444;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 22px;
+            background: #09affe;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 12px;
+        }
+        .footer a {
+            color: #09affe;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="email-container">
+    <div class="header">
+        <h1>Welcome to Arva!</h1>
+    </div>
+
+    <div class="content">
+        <p>Hi <strong>{{ username }}</strong>,</p>
+        <p>Your account has been successfully created using your Google account.</p>
+        <p>
+            You can now start managing your projects, collaborating with your team,
+            and tracking your tasks more efficiently using <strong>Arviga Project Management</strong>.
+        </p>
+        <p>
+            Click the button below to explore your dashboard:
+        </p>
+        <p>
+            <a href="{{ dashboard_url }}" class="btn">Go to Dashboard</a>
+        </p>
+        <p>If you did not create this account, please ignore this message.</p>
+        <p>Regards,<br><strong>Arviga Team</strong></p>
+    </div>
+    <div class="footer">
+        © {{ year }} Arviga Project Management<br>
+        <a href="https://arviga.co.id">Visit Website</a>
+    </div>
+</div>
+
+</body>
+</html>

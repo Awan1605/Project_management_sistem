@@ -1,0 +1,123 @@
+{% load i18n %}
+{% load arva_tags %}
+<div class="col-md-4 col-sm-6 project-card-item" id="project-{{ project.id }}"
+     data-name="{{ project.name|lower }}"
+     data-owner="{{ project.owner.username|default:project.owner|lower }}"
+     data-description="{{ project.description|default:''|lower }}"
+     data-created="{{ project.created_at|date:'Y-m-d' }}"
+     data-progress="{{ project.progress.percent }}">
+  <div class="card shadow-sm h-100 project-card position-relative card-shell-rounded">
+
+    {% comment %} <button type="button" class="btn btn-outline-danger btn-sm btn-delete-project position-absolute" data-id="{{ project.id }}" title="Delete Project">
+      <i class="bi bi-x-lg"></i>
+    </button> {% endcomment %}
+
+    <div class="card-body d-flex flex-column">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="text-uppercase text-muted text-overline-compact">
+            Project
+          </div>
+          <h5 class="card-title fw-semibold d-flex align-items-center mb-1">
+            <i class="bi bi-folder-fill text-primary me-2"></i>
+            {{ project.name }}
+          </h5>
+          <div class="small">
+            {% if project.is_private %}
+              <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-lock-fill me-1"></i>Private</span>
+            {% else %}
+              <span class="badge bg-info-subtle text-dark border"><i class="bi bi-globe2 me-1"></i>Shared</span>
+            {% endif %}
+          </div>
+        </div>
+        <span class="badge bg-light text-dark border">{{ project.progress.percent }}%</span>
+      </div>
+
+      <p class="text-muted flex-grow-1 mb-3 text-clamp-2 font-size-90">
+        {{ project.description|default:"There is no description." }}
+      </p>
+
+      <div class="mb-3">
+        {% if project.progress.total > 0 %}
+          <div class="progress progress-compact">
+            <div class="progress-bar bg-success" role="progressbar" style="width: {{ project.progress.percent }}%;"></div>
+          </div>
+          <small class="text-muted fw-semibold">
+            {{ project.progress.done }} / {{ project.progress.total }} task ({{ project.progress.percent }}%)
+          </small>
+        {% else %}
+          <small class="text-muted">No tasks yet</small>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <div class="text-muted small fw-semibold">Sub-projects</div>
+        {% with subprojects=project.subprojects.all %}
+          {% if subprojects %}
+            <div class="small text-muted">
+              {{ project.subprojects.count }} sub-projects
+            </div>
+          {% else %}
+            <div class="small text-muted">No sub-projects yet</div>
+          {% endif %}
+        {% endwith %}
+      </div>
+      <div class="mb-2">
+        <div class="small text-muted">
+          {% if project.is_private %}
+            Access: Owner + {{ project.shared_user_count }} shared user{{ project.shared_user_count|pluralize }}
+            {% if project.memberships.all %}
+              <span class="d-block mt-1">Users:
+                {% for membership in project.memberships.all|slice:":3" %}
+                  {{ membership.user.username }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+                {% if project.shared_user_count > 3 %} +{{ project.shared_user_count|add:"-3" }} more{% endif %}
+              </span>
+            {% endif %}
+          {% else %}
+            Access: All users (transparent)
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-flex flex-wrap gap-3 text-muted font-size-85">
+        <div class="d-flex align-items-center">
+          <i class="bi bi-calendar-event me-1"></i>
+          {{ project.created_at|date:"d M Y" }}
+        </div>
+        <div class="d-flex align-items-center">
+          <i class="bi bi-person-circle me-1"></i>
+          {{ project.owner }}
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-auto pt-3">
+        <div class="d-flex gap-2">
+          {% comment %} <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="btn btn-outline-primary btn-sm" title="Open Project">
+            <i class="bi bi-box-arrow-in-right"></i> Open
+          </a> {% endcomment %}
+          <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="btn btn-outline-primary btn-sm table-action">
+            <i class="bi bi-eye"></i>
+          </a>
+          <a href="{% url 'subproject_list' project.id %}" class="btn btn-outline-secondary btn-sm rounded-btn-10 btn-pad-6-12" title="Sub-projects">
+            <i class="bi bi-diagram-3"></i>
+          </a>
+          {% if project_role == 'admin' or project_roles|get_item:project.id == 'admin' %}
+          <button type="button" class="btn btn-outline-warning btn-sm btn-convert-subproject rounded-btn-10 btn-pad-6-12" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="Convert to sub-project">
+            <i class="bi bi-arrow-left-right"></i>
+          </button>
+          {% endif %}
+        </div>
+        {% if project.last_task_activity %}
+          {% language 'en' %}
+            <span class="text-muted font-size-78">
+              Last update: {{ project.last_task_activity|timesince }} ago
+            </span>
+          {% endlanguage %}
+        {% else %}
+          <span class="text-muted font-size-78">No activity yet</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>

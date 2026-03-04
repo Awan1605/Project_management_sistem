@@ -1,0 +1,38 @@
+{% for c in comments %}
+<div class="comment-item mb-3" data-id="{{ c.id }}">
+
+    <div class="border-bottom pb-2">
+        <strong>
+            <img src="{{ c.user.userprofile.avatar_url }}" class="rounded-circle me-2" width="24" height="24">
+            {{ c.user.username }}
+        </strong>
+        <small class="text-muted">{{ c.created_at|date:"d M Y H:i" }}</small>
+        <div>{{ c.content|linebreaks }}</div>
+
+        <div class="mt-1">
+            {% if user_role == 'admin' or user == c.user %}
+                <button class="btn btn-link p-0 small text-danger btn-delete-comment" data-id="{{ c.id }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+                    Delete
+                </button>
+            {% endif %}
+
+            {% if user_role == 'admin' or user in c.task.assignees.all %}
+                <button class="btn btn-link p-0 small text-primary btn-reply-comment" data-id="{{ c.id }}" {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+                    Reply
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="reply-form mt-2 reply-form-hidden"></div>
+
+    {% if c.replies.all %}
+        <div class="ms-4 mt-3">
+            {% include "arva/_comment_list.html" with comments=c.replies.all %}
+        </div>
+    {% endif %}
+
+</div>
+{% empty %}
+<small class="text-muted">There are no comments yet.</small>
+{% endfor %}

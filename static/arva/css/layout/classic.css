@@ -1,0 +1,23 @@
+.layout-classic .navbar-modern {
+  backdrop-filter: blur(var(--blur));
+  background-color: var(--navbar-bg) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow);
+}
+
+.layout-classic .navbar-modern .nav-link {
+  color: var(--text-color);
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  transition: 0.2s ease-in-out;
+}
+
+.layout-classic .navbar-modern .nav-link:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.layout-classic .navbar-modern .nav-link.active {
+  background-color: var(--primary-color);
+  color: #fff !important;
+}

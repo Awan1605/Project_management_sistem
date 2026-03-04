@@ -1,0 +1,14 @@
+.layout-sidebar .app-content .container,
+.layout-sidebar .app-content .container-fluid {
+  max-width: 100%;
+}
+
+.layout-sidebar .app-content .container {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+
+.layout-sidebar .app-content .container-fluid {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}

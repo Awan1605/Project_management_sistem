@@ -1,0 +1,226 @@
+{% extends 'arva/base.html' %}
+{% load arva_tags %}
+
+{% block title %}AI Priority Queue - Arva{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-robot text-primary me-2"></i>AI Priority Queue
+                    </h2>
+                    <p class="text-muted mb-0">Smart task prioritization powered by AI</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" onclick="refreshAnalysis()">
+                        <i class="fas fa-sync-alt me-1"></i> Refresh Analysis
+                    </button>
+                </div>
+            </div>
+
+            {% if error %}
+            <div class="alert alert-warning" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <!-- Priority Stats -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Critical Priority</h6>
+                                    <h3 class="mb-0" id="critical-count">0</h3>
+                                </div>
+                                <i class="fas fa-fire fa-2x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">High Priority</h6>
+                                    <h3 class="mb-0" id="high-count">0</h3>
+                                </div>
+                                <i class="fas fa-arrow-up fa-2x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Medium Priority</h6>
+                                    <h3 class="mb-0" id="medium-count">0</h3>
+                                </div>
+                                <i class="fas fa-minus fa-2x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Low Priority</h6>
+                                    <h3 class="mb-0" id="low-count">0</h3>
+                                </div>
+                                <i class="fas fa-arrow-down fa-2x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Priority Queue Table -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-ol me-2"></i>Prioritized Tasks
+                        <span class="badge bg-light text-dark ms-2">{{ total_tasks }}</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if priorities %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="priority-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 80px;">Rank</th>
+                                    <th style="width: 100px;">Score</th>
+                                    <th>Task</th>
+                                    <th>Project</th>
+                                    <th style="width: 120px;">Complexity</th>
+                                    <th style="width: 100px;">Est. Hours</th>
+                                    <th style="width: 120px;">Due Date</th>
+                                    <th style="width: 100px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in priorities %}
+                                <tr class="priority-row" data-priority="{{ item.priority_level|lower }}">
+                                    <td>
+                                        <span class="badge bg-secondary">#{{ forloop.counter }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if item.priority_score >= 80 %}bg-danger
+                                            {% elif item.priority_score >= 60 %}bg-warning text-dark
+                                            {% elif item.priority_score >= 40 %}bg-info
+                                            {% else %}bg-success{% endif %}
+                                            fs-6">
+                                            {{ item.priority_score }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-link text-decoration-none fw-bold p-0 text-start task-link" data-task-id="{{ item.task_id }}">
+                                            {{ item.task_title }}
+                                        </button>
+                                        <div class="small text-muted mt-1">
+                                            <i class="fas fa-robot me-1"></i>{{ item.reasoning|truncatechars:100 }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            {{ item.project_name }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if item.complexity == 'High' %}bg-danger
+                                            {% elif item.complexity == 'Medium' %}bg-warning text-dark
+                                            {% else %}bg-success{% endif %}">
+                                            {{ item.complexity|default:"Unknown" }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if item.estimated_hours %}
+                                            <i class="fas fa-clock me-1 text-muted"></i>{{ item.estimated_hours }}h
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.due_date %}
+                                            <span class="{% if item.priority_score >= 80 %}text-danger fw-bold{% endif %}">
+                                                {{ item.due_date }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">No due date</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ item.task_list }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <h5>No tasks to prioritize</h5>
+                        <p class="text-muted">All your tasks are either completed or no tasks are assigned to you.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshAnalysis() {
+    const btn = document.querySelector('button[onclick="refreshAnalysis()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Analyzing...';
+    btn.disabled = true;
+    
+    // Reload page to get fresh analysis
+    window.location.reload();
+}
+
+// Handle task link clicks
+document.querySelectorAll('.task-link').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const taskId = this.dataset.taskId;
+        if (typeof viewTask === 'function') {
+            viewTask(taskId);
+        } else {
+            window.location.href = '/task/' + taskId + '/view/';
+        }
+    });
+});
+
+// Update counts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('.priority-row');
+    let counts = { critical: 0, high: 0, medium: 0, low: 0 };
+    
+    rows.forEach(row => {
+        const priority = row.dataset.priority;
+        if (counts.hasOwnProperty(priority)) {
+            counts[priority]++;
+        }
+    });
+    
+    document.getElementById('critical-count').textContent = counts.critical;
+    document.getElementById('high-count').textContent = counts.high;
+    document.getElementById('medium-count').textContent = counts.medium;
+    document.getElementById('low-count').textContent = counts.low;
+});
+</script>
+{% endblock %}

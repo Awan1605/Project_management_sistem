@@ -1,0 +1,225 @@
+﻿{% extends "arva/base.html" %}
+{% load static %}
+{% block title %}Settings{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'arva/css/pages/user_settings.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <div class="page-hero mb-4">
+    <div>
+      <h3 class="hero-title mb-1">
+        <i class="bi bi-sliders me-2 text-primary"></i>Settings
+      </h3>
+      <p class="text-muted mb-0">Customize how your workspace looks and behaves.</p>
+    </div>
+  </div>
+
+  <div class="card setting-card mb-3">
+    <div class="card-body">
+      <h5 class="mb-3">Layout</h5>
+      <p class="text-muted small mb-3">Choose your preferred navigation style.</p>
+      <input type="hidden" id="layout-csrf" value="{{ csrf_token }}">
+      <div class="d-grid gap-2">
+        <label class="form-check border rounded-3 p-3">
+          <input class="form-check-input me-2" type="radio" name="layout" value="sidebar" {% if layout_preference == 'sidebar' %}checked{% endif %}>
+          <span class="fw-semibold">Sidebar Layout (Primary / Default)</span>
+          <small class="text-muted d-block">Navigation on side and top bar.</small>
+        </label>
+        <label class="form-check border rounded-3 p-3">
+          <input class="form-check-input me-2" type="radio" name="layout" value="classic" {% if layout_preference == 'classic' %}checked{% endif %}>
+          <span class="fw-semibold">Classic Layout</span>
+          <small class="text-muted d-block">Original top navigation layout.</small>
+        </label>
+      </div>
+      <div class="mt-3 d-flex gap-2">
+        <button id="save-layout-pref" class="btn btn-primary">Save Layout</button>
+        <span id="layout-pref-msg" class="small text-muted align-self-center"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card setting-card mb-3">
+    <div class="card-body">
+      <h5 class="mb-3">Theme</h5>
+      <p class="text-muted small mb-3">This keeps your existing theme preference feature.</p>
+      <select id="theme-pref" class="form-select theme-pref-select">
+        <option value="inherit" {% if theme_preference == 'inherit' %}selected{% endif %}>Follow Website</option>
+        <option value="light" {% if theme_preference == 'light' %}selected{% endif %}>Light</option>
+        <option value="dark" {% if theme_preference == 'dark' %}selected{% endif %}>Dark</option>
+        <option value="auto" {% if theme_preference == 'auto' %}selected{% endif %}>Auto</option>
+      </select>
+      <div class="mt-3 d-flex gap-2">
+        <button id="save-theme-pref" class="btn btn-outline-primary">Save Theme</button>
+        <span id="theme-pref-msg" class="small text-muted align-self-center"></span>
+      </div>
+    </div>
+  </div>
+
+  {% if layout_is_classic and user.is_superuser and website_form %}
+    <div class="card setting-card mb-3">
+      <div class="card-body">
+        <h5 class="mb-3"><i class="bi bi-gear me-2 text-primary"></i>Website Configuration</h5>
+        <p class="text-muted small mb-3">Unified settings for Classic Layout.</p>
+
+        <form method="POST" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="settings_scope" value="website">
+          {% if website_form.errors %}
+            <div class="alert alert-danger py-2">
+              Please fix the highlighted website settings fields.
+            </div>
+          {% endif %}
+
+          <div class="section-title">General</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Site Name</label>
+              {{ website_form.site_name }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Support Email</label>
+              {{ website_form.support_email }}
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Footer Text</label>
+              {{ website_form.footer_text }}
+            </div>
+          </div>
+
+          <div class="section-title">Branding</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Logo</label>
+              {% if settings.logo %}
+                <div class="preview-box mb-2 text-center p-2">
+                  <img src="{{ settings.logo_url }}" height="48" alt="Logo preview">
+                </div>
+              {% endif %}
+              {{ website_form.logo }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Favicon</label>
+              {% if settings.favicon %}
+                <div class="preview-box mb-2 text-center p-2">
+                  <img src="{{ settings.favicon_url }}" width="32" alt="Favicon preview">
+                </div>
+              {% endif %}
+              {{ website_form.favicon }}
+            </div>
+          </div>
+
+          <div class="section-title">Theme</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Theme Mode</label>
+              {{ website_form.theme_mode }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Primary Color</label>
+              {{ website_form.primary_color }}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Text Color</label>
+              {{ website_form.text_color }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Navbar Background</label>
+              {{ website_form.navbar_bg }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Body Background</label>
+              {{ website_form.body_bg }}
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                {{ website_form.maintenance_mode }}
+                <label class="form-check-label">Enable Maintenance Mode</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-title">Custom CSS</div>
+          <div class="mb-3">
+            {{ website_form.custom_css }}
+          </div>
+
+          <div class="text-end">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>Save Website Settings
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if user.is_superuser and not layout_is_classic %}
+    <div class="text-end">
+      <a href="{% url 'website_settings' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-gear me-1"></i>Open Website Settings
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const csrfToken = document.getElementById('layout-csrf')?.value || '';
+
+    const layoutBtn = document.getElementById('save-layout-pref');
+    const layoutMsg = document.getElementById('layout-pref-msg');
+    layoutBtn?.addEventListener('click', function () {
+      const selected = document.querySelector('input[name="layout"]:checked');
+      if (!selected) return;
+
+      fetch("{% url 'update_user_layout' %}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": csrfToken
+        },
+        body: new URLSearchParams({ layout: selected.value })
+      }).then(function (res) {
+        if (!res.ok) throw new Error("Failed");
+        return res.json();
+      }).then(function (data) {
+        localStorage.setItem('arva_layout_preference', data.layout || selected.value);
+        layoutMsg.textContent = "Saved. Reloading...";
+        setTimeout(function () { window.location.reload(); }, 250);
+      }).catch(function () {
+        layoutMsg.textContent = "Failed to save layout.";
+      });
+    });
+
+    const themeBtn = document.getElementById('save-theme-pref');
+    const themeSelect = document.getElementById('theme-pref');
+    const themeMsg = document.getElementById('theme-pref-msg');
+    themeBtn?.addEventListener('click', function () {
+      const theme = themeSelect?.value || "inherit";
+      fetch("{% url 'update_user_theme' %}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": csrfToken
+        },
+        body: new URLSearchParams({ theme: theme })
+      }).then(function (res) {
+        if (!res.ok) throw new Error("Failed");
+        return res.json();
+      }).then(function () {
+        themeMsg.textContent = "Saved. Reloading...";
+        setTimeout(function () { window.location.reload(); }, 250);
+      }).catch(function () {
+        themeMsg.textContent = "Failed to save theme.";
+      });
+    });
+  })();
+</script>
+{% endblock %}
+
+
