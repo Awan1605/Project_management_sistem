@@ -30,18 +30,10 @@
       <span>
         {% with primary_assignee=task.assignees.first %}
           {% if primary_assignee %}
-            {% if primary_assignee.userprofile.avatar or primary_assignee.userprofile.avatar_icon %}
-              <img src="{{ primary_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ primary_assignee.username }}">
-            {% else %}
-              <span class="assignee-avatar-fallback me-1">{{ primary_assignee.username|first|upper }}</span>
-            {% endif %}
+            <img src="{{ primary_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ primary_assignee.username }}">
             {{ primary_assignee.username }}
           {% elif task.project.pm_assignee %}
-            {% if task.project.pm_assignee.userprofile.avatar or task.project.pm_assignee.userprofile.avatar_icon %}
-              <img src="{{ task.project.pm_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ task.project.pm_assignee.username }}">
-            {% else %}
-              <span class="assignee-avatar-fallback me-1">{{ task.project.pm_assignee.username|first|upper }}</span>
-            {% endif %}
+            <img src="{{ task.project.pm_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ task.project.pm_assignee.username }}">
             PM: {{ task.project.pm_assignee.username }}
           {% else %}
             <i class="bi bi-person me-1"></i>
@@ -70,11 +62,7 @@
     <div class="task-row-meta">
       <div class="d-flex align-items-center gap-1 flex-wrap justify-content-end">
         {% for assignee in task.assignees.all|slice:":3" %}
-          {% if assignee.userprofile.avatar or assignee.userprofile.avatar_icon %}
-            <img src="{{ assignee.userprofile.avatar_url }}" class="assignee-avatar" title="{{ assignee.username }}" alt="{{ assignee.username }}">
-          {% else %}
-            <span class="assignee-avatar-fallback" title="{{ assignee.username }}">{{ assignee.username|first|upper }}</span>
-          {% endif %}
+          <img src="{{ assignee.userprofile.avatar_url }}" class="assignee-avatar" title="{{ assignee.username }}" alt="{{ assignee.username }}">
         {% empty %}
           <span class="text-muted small">No members</span>
         {% endfor %}

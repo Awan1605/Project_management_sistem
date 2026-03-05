@@ -45,18 +45,10 @@
         <div class="task-structured-meta-item">
           {% with primary_assignee=task.assignees.first %}
             {% if primary_assignee %}
-              {% if primary_assignee.userprofile.avatar or primary_assignee.userprofile.avatar_icon %}
-                <img src="{{ primary_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ primary_assignee.username }}">
-              {% else %}
-                <span class="assignee-avatar-fallback me-1">{{ primary_assignee.username|first|upper }}</span>
-              {% endif %}
+              <img src="{{ primary_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ primary_assignee.username }}">
               {{ primary_assignee.username }}
             {% elif project.pm_assignee %}
-              {% if project.pm_assignee.userprofile.avatar or project.pm_assignee.userprofile.avatar_icon %}
-                <img src="{{ project.pm_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ project.pm_assignee.username }}">
-              {% else %}
-                <span class="assignee-avatar-fallback me-1">{{ project.pm_assignee.username|first|upper }}</span>
-              {% endif %}
+              <img src="{{ project.pm_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ project.pm_assignee.username }}">
               PM: {{ project.pm_assignee.username }}
             {% else %}
               <i class="bi bi-person me-1"></i>
@@ -120,11 +112,7 @@
         {% if task.assignees.exists %}
         {% for u in task.assignees.all %}
         <span class="assignee-chip me-1 mb-1">
-          {% if u.userprofile.avatar or u.userprofile.avatar_icon %}
-            <img src="{{ u.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ u.username }}">
-          {% else %}
-            <span class="assignee-avatar-fallback me-1">{{ u.username|first|upper }}</span>
-          {% endif %}
+          <img src="{{ u.userprofile.avatar_url }}" class="assignee-avatar me-1">
           {{ u.username }}
         </span>
         {% endfor %}
