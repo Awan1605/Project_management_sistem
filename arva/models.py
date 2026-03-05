@@ -305,6 +305,13 @@ class Task(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # AI Priority Analysis Fields
+    ai_priority_score = models.IntegerField(null=True, blank=True, help_text="AI-calculated priority score (1-100)")
+    ai_priority_reason = models.TextField(blank=True, help_text="AI reasoning for priority recommendation")
+    ai_complexity = models.CharField(max_length=10, blank=True, help_text="AI-estimated complexity")
+    ai_estimated_hours = models.IntegerField(null=True, blank=True, help_text="AI-estimated hours to complete")
+    ai_analyzed_at = models.DateTimeField(null=True, blank=True, help_text="Last AI analysis timestamp")
+
     class Meta:
         ordering = ['order', '-created_at']
 
@@ -424,3 +431,19 @@ class UserActivity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Activity"
+
+class AIChatMessage(models.Model):
+    """Model untuk menyimpan percakapan AI Chat (private per user)"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ai_chat_messages')
+    role = models.CharField(max_length=10, choices=[('user', 'User'), ('assistant', 'AI Assistant')])
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Context yang disimpan saat chat dibuat
+    context_tasks = models.JSONField(default=list, blank=True, help_text="Task IDs yang direferensikan")
+    
+    class Meta:
+        ordering = ['created_at']
+        
+    def __str__(self):
+        return f"{self.user.username} - {self.role} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"

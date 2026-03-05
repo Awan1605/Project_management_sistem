@@ -92,7 +92,7 @@
     <div class="task-row-progress">
       <div class="small text-muted">{{ task.checklist_done }}/{{ task.checklist_total }}</div>
       <div class="progress progress-compact progress-min-84">
-        <div class="progress-bar bg-info checklist-progress-bar" data-percent="{{ task.checklist_percent }}"></div>
+        <div class="progress-bar bg-info" style="width: {{ task.checklist_percent }}%;"></div>
       </div>
     </div>
   {% endif %}

@@ -14,11 +14,12 @@ from django.contrib import messages
 from django.utils.html import strip_tags
 from django.utils.timezone import now
 from .utils import EmailThread
+from .ai_services import get_ai_service, GeminiService, get_ai_chat_service, AIChatService
 
 from .models import (
     Project, ProjectMember, SubProject, Task, Comment, Attachment,
     ActivityLog, TaskList, ChecklistItem, Label,
-    UserProfile, UserActivity, WebsiteSettings
+    UserProfile, UserActivity, WebsiteSettings, AIChatMessage
 )
 from .forms import (
     RegisterForm, ProjectForm, SubProjectForm, TaskForm,
@@ -1864,3 +1865,307 @@ def checklist_delete(request, item_id):
     item.delete()
 
     return JsonResponse({"success": True})
+
+# AI Priority Analysis Views
+@login_required
+def ai_analyze_task(request, task_id):
+    """Analyze a single task using AI and return priority recommendations."""
+    task = get_object_or_404(Task, id=task_id)
+    project = get_user_project_or_404(request.user, task.project.id)
+    role = get_role(request.user, project)
+    
+    if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
+        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    
+    try:
+        ai_service = get_ai_service()
+        analysis = ai_service.analyze_task(task)
+        
+        if 'error' in analysis:
+            return JsonResponse({'success': False, 'error': analysis['error']}, status=500)
+        
+        # Save analysis results to task
+        task.ai_priority_score = analysis.get('priority_score')
+        task.ai_priority_reason = analysis.get('reasoning', '')
+        task.ai_complexity = analysis.get('complexity', '')
+        task.ai_estimated_hours = analysis.get('estimated_hours')
+        task.ai_analyzed_at = now()
+        task.save(update_fields=[
+            'ai_priority_score', 'ai_priority_reason', 'ai_complexity',
+            'ai_estimated_hours', 'ai_analyzed_at'
+        ])
+        
+        return JsonResponse({
+            'success': True,
+            'analysis': analysis
+        })
+        
+    except ValueError as e:
+        return JsonResponse({
+            'success': False, 
+            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
+        }, status=503)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    
+@login_required
+def ai_analyze_project(request, pk):
+    """Analyze all tasks in a project using AI."""
+    project = get_user_project_or_404(request.user, pk)
+    role = get_role(request.user, project)
+    
+    if role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]:
+        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    
+    try:
+        ai_service = get_ai_service()
+        
+        # Get all non-archived, non-done tasks
+        tasks = Task.objects.filter(
+            project=project,
+            is_archived=False
+        ).exclude(
+            task_list__name__iexact='Done'
+        ).select_related(
+            'task_list'
+        ).prefetch_related(
+            'assignees', 'labels', 'checklist_items'
+        )
+        
+        results = []
+        for task in tasks:
+            analysis = ai_service.analyze_task(task)
+            if 'error' not in analysis:
+                # Save to task
+                task.ai_priority_score = analysis.get('priority_score')
+                task.ai_priority_reason = analysis.get('reasoning', '')
+                task.ai_complexity = analysis.get('complexity', '')
+                task.ai_estimated_hours = analysis.get('estimated_hours')
+                task.ai_analyzed_at = now()
+                task.save(update_fields=[
+                    'ai_priority_score', 'ai_priority_reason', 'ai_complexity',
+                    'ai_estimated_hours', 'ai_analyzed_at'
+                ])
+                results.append(analysis)
+        
+        # Sort by priority score
+        results.sort(key=lambda x: x.get('priority_score', 0), reverse=True)
+        
+        return JsonResponse({
+            'success': True,
+            'analyzed_count': len(results),
+            'priorities': results
+        })
+        
+    except ValueError as e:
+        return JsonResponse({
+            'success': False, 
+            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
+        }, status=503)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    
+@login_required
+def ai_priority_queue(request):
+    """Display AI-prioritized task queue for the user."""
+    try:
+        ai_service = get_ai_service()
+        
+        # Get tasks for user
+        tasks = Task.objects.filter(
+            is_archived=False
+        ).filter(
+            Q(assignees=request.user) | Q(project__owner=request.user)
+        ).exclude(
+            task_list__name__iexact='Done'
+        ).select_related(
+            'project', 'task_list'
+        ).prefetch_related(
+            'assignees', 'labels', 'checklist_items'
+        )[:50]
+        
+        # Analyze tasks that haven't been analyzed recently
+        priorities = []
+        for task in tasks:
+            # Use cached analysis if recent (less than 1 hour old)
+            if task.ai_analyzed_at and (now() - task.ai_analyzed_at).seconds < 3600:
+                priorities.append({
+                    'task_id': task.id,
+                    'task_title': task.title,
+                    'project_name': task.project.name,
+                    'priority_score': task.ai_priority_score,
+                    'priority_level': _get_priority_level(task.ai_priority_score),
+                    'complexity': task.ai_complexity,
+                    'estimated_hours': task.ai_estimated_hours,
+                    'reasoning': task.ai_priority_reason,
+                    'due_date': task.due_date.strftime('%d %b %Y') if task.due_date else None,
+                    'task_list': task.task_list.name if task.task_list else None,
+                })
+            else:
+                # Analyze fresh
+                analysis = ai_service.analyze_task(task)
+                if 'error' not in analysis:
+                    task.ai_priority_score = analysis.get('priority_score')
+                    task.ai_priority_reason = analysis.get('reasoning', '')
+                    task.ai_complexity = analysis.get('complexity', '')
+                    task.ai_estimated_hours = analysis.get('estimated_hours')
+                    task.ai_analyzed_at = now()
+                    task.save(update_fields=[
+                        'ai_priority_score', 'ai_priority_reason', 'ai_complexity',
+                        'ai_estimated_hours', 'ai_analyzed_at'
+                    ])
+                    priorities.append({
+                        'task_id': task.id,
+                        'task_title': task.title,
+                        'project_name': task.project.name,
+                        'priority_score': analysis.get('priority_score'),
+                        'priority_level': analysis.get('priority_level'),
+                        'complexity': analysis.get('complexity'),
+                        'estimated_hours': analysis.get('estimated_hours'),
+                        'reasoning': analysis.get('reasoning'),
+                        'due_date': task.due_date.strftime('%d %b %Y') if task.due_date else None,
+                        'task_list': task.task_list.name if task.task_list else None,
+                    })
+        
+        # Sort by priority score
+        priorities.sort(key=lambda x: x.get('priority_score', 0) or 0, reverse=True)
+        
+        return render(request, 'arva/ai_priority_queue.html', {
+            'priorities': priorities,
+            'total_tasks': len(priorities)
+        })
+        
+    except ValueError as e:
+        messages.error(request, 'AI service not configured. Please set GEMINI_API_KEY in settings.')
+        return render(request, 'arva/ai_priority_queue.html', {
+            'priorities': [],
+            'total_tasks': 0,
+            'error': 'AI service not configured'
+        })
+    except Exception as e:
+        messages.error(request, f'Error loading priority queue: {str(e)}')
+        return render(request, 'arva/ai_priority_queue.html', {
+            'priorities': [],
+            'total_tasks': 0,
+            'error': str(e)
+        })
+    
+def _get_priority_level(score):
+    """Helper to convert score to priority level."""
+    if score is None:
+        return 'Unknown'
+    if score >= 80:
+        return 'Critical'
+    elif score >= 60:
+        return 'High'
+    elif score >= 40:
+        return 'Medium'
+    else:
+        return 'Low'
+    
+# AI Chat Assistant Views
+@login_required
+def ai_chat(request):
+    """Display AI Chat interface with conversation history."""
+    # Get chat history for this user (private)
+    chat_messages = AIChatMessage.objects.filter(
+        user=request.user
+    ).order_by('created_at')[:50]
+    
+    return render(request, 'arva/ai_chat.html', {
+        'chat_messages': chat_messages,
+    })
+
+@login_required
+@require_POST
+def ai_chat_send(request):
+    """Send message to AI and get response."""
+    message = request.POST.get('message', '').strip()
+    
+    if not message:
+        return JsonResponse({'success': False, 'error': 'Message is empty'})
+    
+    try:
+        # Save user message
+        user_msg = AIChatMessage.objects.create(
+            user=request.user,
+            role='user',
+            content=message
+        )
+        
+        # Get chat history for context
+        chat_history = list(AIChatMessage.objects.filter(
+            user=request.user
+        ).order_by('-created_at')[:10].values('role', 'content'))
+        chat_history.reverse()
+        
+        # Get AI response
+        ai_service = get_ai_chat_service()
+        ai_response = ai_service.chat(request.user, message, chat_history)
+        
+        # Save AI response
+        ai_msg = AIChatMessage.objects.create(
+            user=request.user,
+            role='assistant',
+            content=ai_response
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'user_message': {
+                'id': user_msg.id,
+                'content': user_msg.content,
+                'created_at': user_msg.created_at.strftime('%H:%M')
+            },
+            'ai_message': {
+                'id': ai_msg.id,
+                'content': ai_msg.content,
+                'created_at': ai_msg.created_at.strftime('%H:%M')
+            }
+        })
+        
+    except ValueError as e:
+        return JsonResponse({
+            'success': False, 
+            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+    
+@login_required
+@require_POST
+def ai_chat_clear(request):
+    """Clear chat history for current user."""
+    AIChatMessage.objects.filter(user=request.user).delete()
+    return JsonResponse({'success': True})
+
+@login_required
+def ai_chat_today_work(request):
+    """Get AI recommendation for today's work."""
+    try:
+        ai_service = get_ai_chat_service()
+        recommendation = ai_service.get_work_recommendation(request.user)
+        
+        # Save as AI message
+        ai_msg = AIChatMessage.objects.create(
+            user=request.user,
+            role='assistant',
+            content=recommendation
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': {
+                'id': ai_msg.id,
+                'content': ai_msg.content,
+                'created_at': ai_msg.created_at.strftime('%H:%M')
+            }
+        })
+        
+    except ValueError as e:
+        return JsonResponse({
+            'success': False, 
+            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
