@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container my-4">
+<div class="container my-4" data-user-settings-root data-layout-url="{% url 'update_user_layout' %}" data-theme-url="{% url 'update_user_theme' %}">
   <div class="page-hero mb-4">
     <div>
       <h3 class="hero-title mb-1">
@@ -166,60 +166,5 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-  (function () {
-    const csrfToken = document.getElementById('layout-csrf')?.value || '';
-
-    const layoutBtn = document.getElementById('save-layout-pref');
-    const layoutMsg = document.getElementById('layout-pref-msg');
-    layoutBtn?.addEventListener('click', function () {
-      const selected = document.querySelector('input[name="layout"]:checked');
-      if (!selected) return;
-
-      fetch("{% url 'update_user_layout' %}", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "X-CSRFToken": csrfToken
-        },
-        body: new URLSearchParams({ layout: selected.value })
-      }).then(function (res) {
-        if (!res.ok) throw new Error("Failed");
-        return res.json();
-      }).then(function (data) {
-        localStorage.setItem('arva_layout_preference', data.layout || selected.value);
-        layoutMsg.textContent = "Saved. Reloading...";
-        setTimeout(function () { window.location.reload(); }, 250);
-      }).catch(function () {
-        layoutMsg.textContent = "Failed to save layout.";
-      });
-    });
-
-    const themeBtn = document.getElementById('save-theme-pref');
-    const themeSelect = document.getElementById('theme-pref');
-    const themeMsg = document.getElementById('theme-pref-msg');
-    themeBtn?.addEventListener('click', function () {
-      const theme = themeSelect?.value || "inherit";
-      fetch("{% url 'update_user_theme' %}", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "X-CSRFToken": csrfToken
-        },
-        body: new URLSearchParams({ theme: theme })
-      }).then(function (res) {
-        if (!res.ok) throw new Error("Failed");
-        return res.json();
-      }).then(function () {
-        themeMsg.textContent = "Saved. Reloading...";
-        setTimeout(function () { window.location.reload(); }, 250);
-      }).catch(function () {
-        themeMsg.textContent = "Failed to save theme.";
-      });
-    });
-  })();
-</script>
-{% endblock %}
 
 

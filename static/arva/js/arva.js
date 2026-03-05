@@ -192,6 +192,857 @@ $(function() {
 
   initTaskUserSearchWidgets();
 
+  function initSidebarToggleDesktop() {
+    const toggleBtn = document.getElementById('sidebarToggleDesktop');
+    if (!toggleBtn) return;
+    if (toggleBtn.dataset.initialized === '1') return;
+    toggleBtn.dataset.initialized = '1';
+
+    const stateKey = 'arva_sidebar_collapsed';
+    const desktopQuery = window.matchMedia('(min-width: 992px)');
+    const icon = toggleBtn.querySelector('i');
+
+    function setCollapsed(collapsed) {
+      document.body.classList.toggle('sidebar-collapsed', collapsed);
+      toggleBtn.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+      toggleBtn.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      toggleBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      if (icon) {
+        icon.classList.toggle('bi-list', !collapsed);
+        icon.classList.toggle('bi-layout-sidebar-inset', collapsed);
+      }
+    }
+
+    if (desktopQuery.matches && localStorage.getItem(stateKey) === '1') {
+      setCollapsed(true);
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      if (!desktopQuery.matches) return;
+      const collapsed = !document.body.classList.contains('sidebar-collapsed');
+      setCollapsed(collapsed);
+      localStorage.setItem(stateKey, collapsed ? '1' : '0');
+    });
+
+    const handleViewportChange = function(event) {
+      if (!event.matches) {
+        document.body.classList.remove('sidebar-collapsed');
+      } else if (localStorage.getItem(stateKey) === '1') {
+        document.body.classList.add('sidebar-collapsed');
+      }
+    };
+
+    if (desktopQuery.addEventListener) {
+      desktopQuery.addEventListener('change', handleViewportChange);
+    } else if (desktopQuery.addListener) {
+      desktopQuery.addListener(handleViewportChange);
+    }
+  }
+
+  function initDualViewCollection(config) {
+    const root = document.querySelector(config.rootSelector);
+    if (!root) return;
+    if (root.dataset.initialized === '1') return;
+    root.dataset.initialized = '1';
+
+    const state = { page: 1, perPage: 10 };
+    const findEl = (selector) => root.querySelector(selector) || document.querySelector(selector);
+    const searchInput = config.searchInputSelector ? findEl(config.searchInputSelector) : null;
+    const perPageSelect = config.perPageSelector ? findEl(config.perPageSelector) : null;
+    const prevButton = config.prevButtonSelector ? findEl(config.prevButtonSelector) : null;
+    const nextButton = config.nextButtonSelector ? findEl(config.nextButtonSelector) : null;
+    const countLabel = config.countLabelSelector ? findEl(config.countLabelSelector) : null;
+    const summaryLabel = config.summarySelector ? findEl(config.summarySelector) : null;
+    const paginationControls = config.paginationControlsSelector ? findEl(config.paginationControlsSelector) : null;
+    const tableBody = config.tableBodySelector ? findEl(config.tableBodySelector) : null;
+    const emptyTableRow = config.emptyTableRowSelector ? findEl(config.emptyTableRowSelector) : null;
+    const cardItems = config.cardSelector ? Array.from(root.querySelectorAll(config.cardSelector)) : [];
+    const extraFilters = (config.extraFilterSelectors || []).map((selector) => findEl(selector)).filter(Boolean);
+
+    function getTableRows() {
+      if (!tableBody) return [];
+      return Array.from(tableBody.querySelectorAll(config.tableRowSelector));
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(config.storageKey);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const parsedPage = parseInt(parsed.page, 10);
+        const parsedPerPage = parseInt(parsed.perPage, 10);
+        if (Number.isInteger(parsedPage) && parsedPage > 0) state.page = parsedPage;
+        if ([10, 25, 50, 100].includes(parsedPerPage)) state.perPage = parsedPerPage;
+      } catch (e) {
+        state.page = 1;
+        state.perPage = 10;
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(config.storageKey, JSON.stringify(state));
+    }
+
+    function getFilterValues() {
+      return {
+        query: (searchInput?.value || '').trim().toLowerCase(),
+        extras: extraFilters.map((control) => control.value || '')
+      };
+    }
+
+    function apply() {
+      const filterValues = getFilterValues();
+      const filteredCards = cardItems.filter((item) => config.matchesFilters(item, filterValues));
+      const filteredRows = getTableRows().filter((item) => config.matchesFilters(item, filterValues));
+      const totalItems = filteredCards.length || filteredRows.length;
+      const totalPages = Math.max(1, Math.ceil(totalItems / state.perPage));
+      state.page = Math.max(1, Math.min(state.page, totalPages));
+
+      const start = (state.page - 1) * state.perPage;
+      const end = start + state.perPage;
+      const visibleCards = filteredCards.slice(start, end);
+      const visibleRows = filteredRows.slice(start, end);
+
+      cardItems.forEach((item) => { item.style.display = 'none'; });
+      visibleCards.forEach((item) => { item.style.display = ''; });
+
+      getTableRows().forEach((item) => { item.style.display = 'none'; });
+      visibleRows.forEach((item) => { item.style.display = ''; });
+
+      if (countLabel) {
+        countLabel.textContent = config.countText(totalItems);
+      }
+      if (summaryLabel) {
+        summaryLabel.textContent = totalItems ? `Showing ${start + 1}-${Math.min(end, totalItems)} of ${totalItems}` : 'Showing 0 of 0';
+      }
+      if (prevButton) prevButton.disabled = state.page <= 1;
+      if (nextButton) nextButton.disabled = state.page >= totalPages || totalItems === 0;
+      if (paginationControls) paginationControls.classList.toggle('d-none', totalItems === 0);
+      if (emptyTableRow) emptyTableRow.style.display = getTableRows().length ? 'none' : '';
+
+      if (perPageSelect && String(state.perPage) !== perPageSelect.value) {
+        perPageSelect.value = String(state.perPage);
+      }
+      saveState();
+    }
+
+    function sortTable(key, direction) {
+      if (!tableBody || !config.getSortValue) return;
+      const sorted = getTableRows().slice().sort((a, b) => {
+        const aVal = config.getSortValue(a, key);
+        const bVal = config.getSortValue(b, key);
+        if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+      sorted.forEach((row) => tableBody.appendChild(row));
+    }
+
+    root.querySelectorAll(config.sortButtonSelector || '.sort-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.sortKey;
+        const current = btn.dataset.sortDir || 'desc';
+        const nextDir = current === 'asc' ? 'desc' : 'asc';
+
+        root.querySelectorAll(config.sortButtonSelector || '.sort-btn').forEach((other) => {
+          other.dataset.sortDir = '';
+          other.classList.remove('active');
+        });
+
+        btn.dataset.sortDir = nextDir;
+        btn.classList.add('active');
+        sortTable(key, nextDir);
+        apply();
+      });
+    });
+
+    [searchInput, ...extraFilters].forEach((control) => {
+      if (!control) return;
+      const handler = () => {
+        state.page = 1;
+        apply();
+      };
+      control.addEventListener('input', handler);
+      control.addEventListener('change', handler);
+    });
+
+    if (perPageSelect) {
+      perPageSelect.addEventListener('change', () => {
+        const next = parseInt(perPageSelect.value, 10);
+        if (![10, 25, 50, 100].includes(next)) return;
+        state.perPage = next;
+        state.page = 1;
+        apply();
+      });
+    }
+
+    if (prevButton) {
+      prevButton.addEventListener('click', () => {
+        if (state.page <= 1) return;
+        state.page -= 1;
+        apply();
+      });
+    }
+    if (nextButton) {
+      nextButton.addEventListener('click', () => {
+        state.page += 1;
+        apply();
+      });
+    }
+
+    loadState();
+    apply();
+  }
+
+  function initProjectListPage() {
+    initDualViewCollection({
+      rootSelector: '#projectViewContent',
+      storageKey: 'arva_project_list_paging',
+      searchInputSelector: '#project-search',
+      perPageSelector: '#project-per-page',
+      prevButtonSelector: '#project-page-prev',
+      nextButtonSelector: '#project-page-next',
+      countLabelSelector: '#project-count',
+      summarySelector: '#project-page-summary',
+      paginationControlsSelector: '#project-pagination-controls',
+      cardSelector: '.project-card-item',
+      tableBodySelector: '#project-table tbody',
+      tableRowSelector: 'tr[data-name]',
+      emptyTableRowSelector: '#project-table tbody tr:not([data-name])',
+      sortButtonSelector: '.sort-btn',
+      matchesFilters: (el, filters) => {
+        const text = `${el.dataset.name || ''} ${el.dataset.owner || ''} ${el.dataset.description || ''}`;
+        return !filters.query || text.includes(filters.query);
+      },
+      countText: (totalItems) => `${totalItems} project${totalItems === 1 ? '' : 's'} found`,
+      getSortValue: (row, key) => {
+        if (key === 'summary') return `${row.dataset.name || ''} ${row.dataset.description || ''}`;
+        if (key === 'owner') return row.dataset.owner || '';
+        if (key === 'created') return row.dataset.created || '';
+        if (key === 'progress') return parseInt(row.dataset.progress || '0', 10);
+        return '';
+      }
+    });
+
+    const privateToggle = document.getElementById('id_is_private');
+    const sharingFields = document.getElementById('project-create-sharing-fields');
+    const isProjectToggle = document.getElementById('id_is_project');
+    const advancedFields = document.querySelectorAll('.project-advanced-fields');
+    const startDateInput = document.getElementById('id_start_date');
+    const startDateTbdInput = document.getElementById('id_start_date_tbd');
+    const etdInput = document.getElementById('id_etd');
+    if (privateToggle && sharingFields) {
+      const sync = () => sharingFields.classList.toggle('d-none', !privateToggle.checked);
+      privateToggle.addEventListener('change', sync);
+      sync();
+    }
+    if (isProjectToggle) {
+      const syncProjectFields = () => {
+        const enabled = !!isProjectToggle.checked;
+        advancedFields.forEach((el) => el.classList.toggle('d-none', !enabled));
+      };
+      isProjectToggle.addEventListener('change', syncProjectFields);
+      syncProjectFields();
+    }
+    if (startDateInput && startDateTbdInput) {
+      const syncStartDateTbd = () => {
+        if (startDateTbdInput.checked) {
+          startDateInput.value = '';
+        }
+        startDateInput.disabled = startDateTbdInput.checked;
+      };
+      startDateTbdInput.addEventListener('change', syncStartDateTbd);
+      startDateInput.addEventListener('change', function() {
+        if (startDateInput.value) startDateTbdInput.checked = false;
+        syncStartDateTbd();
+      });
+      etdInput?.addEventListener('change', function() {
+        if (startDateInput.value && etdInput.value && etdInput.value < startDateInput.value) {
+          showError('ETD cannot be earlier than Start Date.');
+          etdInput.value = '';
+        }
+      });
+      syncStartDateTbd();
+    }
+  }
+
+  function initSubprojectListPage() {
+    initDualViewCollection({
+      rootSelector: '#subprojectViewContent',
+      storageKey: 'arva_subproject_list_paging',
+      searchInputSelector: '#subproject-search',
+      perPageSelector: '#subproject-per-page',
+      prevButtonSelector: '#subproject-page-prev',
+      nextButtonSelector: '#subproject-page-next',
+      countLabelSelector: '#subproject-count',
+      summarySelector: '#subproject-page-summary',
+      paginationControlsSelector: '#subproject-pagination-controls',
+      cardSelector: '.subproject-card-item',
+      tableBodySelector: '#subproject-table tbody',
+      tableRowSelector: 'tr[data-name]',
+      emptyTableRowSelector: '#subproject-table tbody tr:not([data-name])',
+      sortButtonSelector: '.sort-btn',
+      matchesFilters: (el, filters) => {
+        const text = `${el.dataset.name || ''} ${el.dataset.description || ''}`;
+        return !filters.query || text.includes(filters.query);
+      },
+      countText: (totalItems) => `${totalItems} sub-project${totalItems === 1 ? '' : 's'} found`,
+      getSortValue: (row, key) => {
+        if (key === 'summary') return `${row.dataset.name || ''} ${row.dataset.description || ''}`;
+        if (key === 'created') return row.dataset.created || '';
+        if (key === 'progress') return parseInt(row.dataset.progress || '0', 10);
+        return '';
+      }
+    });
+  }
+
+  function initMyCardsPage() {
+    function getPriorityRank(value) {
+      switch (value) {
+        case 'critical': return 4;
+        case 'high': return 3;
+        case 'medium': return 2;
+        case 'low': return 1;
+        default: return 0;
+      }
+    }
+    initDualViewCollection({
+      rootSelector: '#myCardsViewContent',
+      storageKey: 'arva_my_cards_paging',
+      searchInputSelector: '#mycards-search',
+      extraFilterSelectors: ['#mycards-priority', '#mycards-due'],
+      perPageSelector: '#mycards-per-page',
+      prevButtonSelector: '#mycards-page-prev',
+      nextButtonSelector: '#mycards-page-next',
+      countLabelSelector: '#mycards-count',
+      summarySelector: '#mycards-page-summary',
+      paginationControlsSelector: '#mycards-pagination-controls',
+      cardSelector: '.mycard-card',
+      tableBodySelector: '#mycards-table tbody',
+      tableRowSelector: 'tr[data-task-id]',
+      emptyTableRowSelector: '#mycards-table tbody tr:not([data-task-id])',
+      sortButtonSelector: '.sort-btn',
+      matchesFilters: (el, filters) => {
+        const text = `${el.dataset.title || ''} ${el.dataset.project || ''} ${el.dataset.list || ''}`;
+        const priority = filters.extras[0] || '';
+        const due = filters.extras[1] || '';
+        const matchesQuery = !filters.query || text.includes(filters.query);
+        const matchesPriority = !priority || el.dataset.priority === priority;
+        const matchesDue = !due || el.dataset.dueStatus === due;
+        return matchesQuery && matchesPriority && matchesDue;
+      },
+      countText: (totalItems) => `${totalItems} task${totalItems === 1 ? '' : 's'} found`,
+      getSortValue: (row, key) => {
+        if (key === 'summary') return `${row.dataset.project || ''} ${row.dataset.list || ''} ${row.dataset.title || ''}`;
+        if (key === 'priority') return getPriorityRank(row.dataset.priority || '');
+        if (key === 'due') return row.dataset.dueDate || '';
+        return row.dataset.title || '';
+      }
+    });
+  }
+
+  function initProjectArchivePage() {
+    const input = document.getElementById('archive-user-search');
+    const items = Array.from(document.querySelectorAll('.archived-task-item'));
+    if (!input || !items.length) return;
+    if (input.dataset.initialized === '1') return;
+    input.dataset.initialized = '1';
+
+    const applyArchiveFilter = () => {
+      const q = (input.value || '').trim().toLowerCase();
+      items.forEach((item) => {
+        const text = `${item.dataset.title || ''} ${item.dataset.assignees || ''}`;
+        item.style.display = !q || text.includes(q) ? '' : 'none';
+      });
+    };
+    input.addEventListener('input', applyArchiveFilter);
+    applyArchiveFilter();
+  }
+
+  function initUserListPage() {
+    const table = document.getElementById('user-table');
+    if (!table) return;
+    if (table.dataset.initialized === '1') return;
+    table.dataset.initialized = '1';
+
+    const searchInput = document.getElementById('user-search');
+    const activeSelect = document.getElementById('user-active');
+    const staffSelect = document.getElementById('user-staff');
+    const countLabel = document.getElementById('user-count');
+    const rows = Array.from(document.querySelectorAll('#user-table tbody tr'));
+    const cards = Array.from(document.querySelectorAll('.user-card'));
+    const tableBody = document.querySelector('#user-table tbody');
+
+    function matchesFilters(row, query, active, staff) {
+      const text = `${row.dataset.username || ''} ${row.dataset.email || ''}`;
+      const matchesQuery = !query || text.includes(query);
+      const matchesActive = !active || row.dataset.active === active;
+      const matchesStaff = !staff || row.dataset.staff === staff;
+      return matchesQuery && matchesActive && matchesStaff;
+    }
+
+    function applyFilters() {
+      const query = (searchInput?.value || '').trim().toLowerCase();
+      const active = activeSelect?.value || '';
+      const staff = staffSelect?.value || '';
+      let visibleCount = 0;
+
+      rows.forEach((row) => {
+        const show = matchesFilters(row, query, active, staff);
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount += 1;
+      });
+      cards.forEach((card) => {
+        const show = matchesFilters(card, query, active, staff);
+        card.style.display = show ? '' : 'none';
+      });
+      if (countLabel) {
+        countLabel.textContent = `${visibleCount} user${visibleCount === 1 ? '' : 's'} shown`;
+      }
+    }
+
+    function getBoolRank(value) {
+      return value === 'active' || value === 'staff' ? 1 : 0;
+    }
+    function getStatusRank(value) {
+      if (value === 'online') return 3;
+      if (value === 'offline') return 2;
+      if (value === 'never') return 1;
+      return 0;
+    }
+
+    function sortTable(key, direction) {
+      if (!tableBody) return;
+      const sorted = rows.slice().sort((a, b) => {
+        let aVal = '';
+        let bVal = '';
+        if (key === 'user') { aVal = a.dataset.username || ''; bVal = b.dataset.username || ''; }
+        else if (key === 'email') { aVal = a.dataset.email || ''; bVal = b.dataset.email || ''; }
+        else if (key === 'active') { aVal = getBoolRank(a.dataset.active); bVal = getBoolRank(b.dataset.active); }
+        else if (key === 'staff') { aVal = getBoolRank(a.dataset.staff); bVal = getBoolRank(b.dataset.staff); }
+        else if (key === 'status') { aVal = getStatusRank(a.dataset.status); bVal = getStatusRank(b.dataset.status); }
+        else if (key === 'joined') { aVal = a.dataset.joined || ''; bVal = b.dataset.joined || ''; }
+        else if (key === 'last_activity') { aVal = a.dataset.lastActivity || ''; bVal = b.dataset.lastActivity || ''; }
+        else if (key === 'last_login') { aVal = a.dataset.lastLogin || ''; bVal = b.dataset.lastLogin || ''; }
+        if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+      sorted.forEach((row) => tableBody.appendChild(row));
+    }
+
+    [searchInput, activeSelect, staffSelect].forEach((control) => {
+      if (!control) return;
+      control.addEventListener('input', applyFilters);
+      control.addEventListener('change', applyFilters);
+    });
+
+    document.querySelectorAll('.sort-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.sortKey;
+        const current = btn.dataset.sortDir || 'desc';
+        const nextDir = current === 'asc' ? 'desc' : 'asc';
+        document.querySelectorAll('.sort-btn').forEach((other) => {
+          other.dataset.sortDir = '';
+          other.classList.remove('active');
+        });
+        btn.dataset.sortDir = nextDir;
+        btn.classList.add('active');
+        sortTable(key, nextDir);
+      });
+    });
+    applyFilters();
+  }
+
+  function initUserSettingsPage() {
+    const layoutBtn = document.getElementById('save-layout-pref');
+    const themeBtn = document.getElementById('save-theme-pref');
+    if (!layoutBtn && !themeBtn) return;
+
+    const csrfToken = document.getElementById('layout-csrf')?.value || '';
+    const layoutMsg = document.getElementById('layout-pref-msg');
+    const themeMsg = document.getElementById('theme-pref-msg');
+    const themeSelect = document.getElementById('theme-pref');
+    const settingsRoot = document.querySelector('[data-user-settings-root]');
+    const layoutUrl = settingsRoot?.dataset.layoutUrl || '/profile/layout/update/';
+    const themeUrl = settingsRoot?.dataset.themeUrl || '/profile/theme/update/';
+
+    layoutBtn?.addEventListener('click', function() {
+      const selected = document.querySelector('input[name="layout"]:checked');
+      if (!selected) return;
+      fetch(layoutUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': csrfToken
+        },
+        body: new URLSearchParams({ layout: selected.value })
+      }).then((res) => {
+        if (!res.ok) throw new Error('Failed');
+        return res.json();
+      }).then((data) => {
+        localStorage.setItem('arva_layout_preference', data.layout || selected.value);
+        if (layoutMsg) layoutMsg.textContent = 'Saved. Reloading...';
+        setTimeout(() => window.location.reload(), 250);
+      }).catch(() => {
+        if (layoutMsg) layoutMsg.textContent = 'Failed to save layout.';
+      });
+    });
+
+    themeBtn?.addEventListener('click', function() {
+      const theme = themeSelect?.value || 'inherit';
+      fetch(themeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': csrfToken
+        },
+        body: new URLSearchParams({ theme: theme })
+      }).then((res) => {
+        if (!res.ok) throw new Error('Failed');
+        return res.json();
+      }).then(() => {
+        if (themeMsg) themeMsg.textContent = 'Saved. Reloading...';
+        setTimeout(() => window.location.reload(), 250);
+      }).catch(() => {
+        if (themeMsg) themeMsg.textContent = 'Failed to save theme.';
+      });
+    });
+  }
+
+  function initWebsiteSettingsPage() {
+    const themeInput = document.querySelector('[name="theme_mode"]');
+    const primaryInput = document.querySelector('[name="primary_color"]');
+    const textInput = document.querySelector('[name="text_color"]');
+    const navbarInput = document.querySelector('[name="navbar_bg"]');
+    const bodyInput = document.querySelector('[name="body_bg"]');
+    if (!themeInput && !primaryInput) return;
+
+    const root = document.documentElement;
+    const setVar = (name, value) => { if (value) root.style.setProperty(name, value); };
+    const bindLive = (input, cssVar) => {
+      if (!input) return;
+      const handler = () => setVar(cssVar, input.value);
+      input.addEventListener('input', handler);
+      input.addEventListener('change', handler);
+      handler();
+    };
+
+    bindLive(primaryInput, '--primary-color');
+    bindLive(textInput, '--text-color');
+    bindLive(navbarInput, '--navbar-bg');
+    bindLive(bodyInput, '--body-bg');
+
+    if (themeInput) {
+      const applyTheme = () => root.setAttribute('data-theme', themeInput.value || 'light');
+      themeInput.addEventListener('change', applyTheme);
+      applyTheme();
+    }
+  }
+
+  function initProjectDetailPage() {
+    const boardRoot = document.getElementById('task-board');
+    if (!boardRoot) return;
+    if (boardRoot.dataset.projectDetailInitialized === '1') return;
+    boardRoot.dataset.projectDetailInitialized = '1';
+
+    const storageKey = 'arva_project_detail_view_mode';
+    const sortState = { key: '', dir: 'asc' };
+
+    function getBoardRoot() {
+      return document.getElementById('task-board');
+    }
+
+    function syncListEmpty() {
+      const root = getBoardRoot();
+      if (!root) return;
+      const rows = root.querySelectorAll('.task-list-row');
+      const empty = root.querySelector('.task-list-empty');
+      if (!empty) return;
+      empty.classList.toggle('d-none', rows.length > 0);
+    }
+
+    function applyMode(mode) {
+      const root = getBoardRoot();
+      const cardPanel = root?.querySelector('.board-view-card');
+      const listPanel = root?.querySelector('.board-view-list');
+      if (!cardPanel || !listPanel) return;
+      const isList = mode === 'list';
+      cardPanel.classList.toggle('d-none', isList);
+      listPanel.classList.toggle('d-none', !isList);
+      document.querySelectorAll('[data-view-mode]').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.viewMode === mode);
+      });
+      localStorage.setItem(storageKey, mode);
+      syncListEmpty();
+    }
+
+    function collectVisibleListOptions() {
+      const root = getBoardRoot();
+      if (!root) return [];
+      return Array.from(root.querySelectorAll('.board-view-card .board-list[data-list-id]')).map((el) => {
+        const listId = el.getAttribute('data-list-id');
+        const titleEl = el.querySelector('.list-title');
+        const name = (titleEl?.textContent || '').trim();
+        return { id: listId, name: name || `List ${listId}` };
+      });
+    }
+
+    function openListTaskCreateModal() {
+      const root = getBoardRoot();
+      const isStructuredProject = (root?.dataset.isProject || '0') === '1';
+      const structuredOnlyFields = document.querySelectorAll('#listTaskCreateModal .task-structured-only');
+      const statusSelect = document.getElementById('list-task-status');
+      const form = document.getElementById('list-view-task-create-form');
+      const assigneeSelect = document.getElementById('list-task-assignees');
+      const startDateInput = document.getElementById('list-task-start-date');
+      const startDateTbdInput = document.getElementById('list-task-start-date-tbd');
+      const endDateInput = document.getElementById('list-task-end-date');
+      const prioritySelect = document.getElementById('list-task-priority');
+      const workStatusSelect = document.getElementById('list-task-work-status');
+      const projectEtd = (root?.dataset.projectEtd || '').trim();
+      if (!statusSelect || !form) return;
+      form.reset();
+      structuredOnlyFields.forEach((el) => el.classList.toggle('d-none', !isStructuredProject));
+      statusSelect.innerHTML = '';
+      if (startDateInput && startDateTbdInput) {
+        startDateInput.disabled = false;
+        startDateInput.required = false;
+        startDateTbdInput.checked = false;
+      }
+      if (endDateInput) {
+        endDateInput.required = false;
+        endDateInput.removeAttribute('max');
+      }
+      if (prioritySelect) prioritySelect.required = false;
+      if (workStatusSelect) workStatusSelect.required = false;
+      if (assigneeSelect) {
+        assigneeSelect.required = false;
+        assigneeSelect.multiple = true;
+        assigneeSelect.size = 4;
+      }
+      const options = collectVisibleListOptions();
+      if (!options.length) {
+        showError('No status/column available. Create a list first.');
+        return;
+      }
+      options.forEach((opt) => {
+        const option = document.createElement('option');
+        option.value = opt.id;
+        option.textContent = opt.name;
+        statusSelect.appendChild(option);
+      });
+      const defaultListId = window.currentStructuredDefaultListId || '';
+      if (defaultListId) {
+        statusSelect.value = defaultListId;
+        window.currentStructuredDefaultListId = '';
+      }
+
+      if (isStructuredProject) {
+        if (startDateInput) startDateInput.required = true;
+        if (endDateInput) {
+          endDateInput.required = true;
+          if (projectEtd) endDateInput.max = projectEtd;
+        }
+        if (prioritySelect) prioritySelect.required = true;
+        if (workStatusSelect) workStatusSelect.required = true;
+        if (assigneeSelect) {
+          assigneeSelect.required = true;
+          assigneeSelect.multiple = false;
+          assigneeSelect.size = 1;
+        }
+      }
+      const modalEl = document.getElementById('listTaskCreateModal');
+      if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+
+    function getSortValue(row, key) {
+      const value = row.dataset[key] || '';
+      if (key === 'due') return value || '9999-12-31';
+      return value;
+    }
+
+    function sortListRows(key) {
+      const root = getBoardRoot();
+      const body = root?.querySelector('#task-list-body');
+      if (!body) return;
+      const rows = Array.from(body.querySelectorAll('.task-list-row'));
+      const nextDir = sortState.key === key && sortState.dir === 'asc' ? 'desc' : 'asc';
+      sortState.key = key;
+      sortState.dir = nextDir;
+      rows.sort((a, b) => {
+        const av = getSortValue(a, key);
+        const bv = getSortValue(b, key);
+        if (av < bv) return nextDir === 'asc' ? -1 : 1;
+        if (av > bv) return nextDir === 'asc' ? 1 : -1;
+        return 0;
+      }).forEach((row) => body.appendChild(row));
+      document.querySelectorAll('.task-list-sort').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.sortKey === key);
+      });
+    }
+
+    window.applyProjectBoardViewMode = function() {
+      const saved = localStorage.getItem(storageKey) || 'card';
+      applyMode(saved);
+    };
+    window.applyProjectBoardViewMode();
+
+    const projectPrivateInput = document.getElementById('project-edit-private');
+    const projectSharingFields = document.querySelectorAll('.project-edit-sharing-fields');
+    const projectIsProjectInput = document.getElementById('project-edit-is-project');
+    const projectAdvancedFields = document.querySelectorAll('.project-edit-advanced-fields');
+    const projectStartDateInput = document.getElementById('project-edit-start-date');
+    const projectStartDateTbdInput = document.getElementById('project-edit-start-date-tbd');
+    const projectEtdInput = document.getElementById('project-edit-etd');
+    const syncProjectEditSharingVisibility = () => {
+      if (!projectPrivateInput || !projectSharingFields.length) return;
+      const show = projectPrivateInput.checked;
+      projectSharingFields.forEach((el) => el.classList.toggle('d-none', !show));
+    };
+    if (projectPrivateInput) {
+      projectPrivateInput.addEventListener('change', syncProjectEditSharingVisibility);
+      syncProjectEditSharingVisibility();
+    }
+    if (projectIsProjectInput) {
+      const syncEditProjectFields = () => {
+        const enabled = !!projectIsProjectInput.checked;
+        projectAdvancedFields.forEach((el) => el.classList.toggle('d-none', !enabled));
+      };
+      projectIsProjectInput.addEventListener('change', syncEditProjectFields);
+      syncEditProjectFields();
+    }
+    if (projectStartDateInput && projectStartDateTbdInput) {
+      const syncEditStartDateTbd = () => {
+        if (projectStartDateTbdInput.checked) {
+          projectStartDateInput.value = '';
+        }
+        projectStartDateInput.disabled = projectStartDateTbdInput.checked;
+      };
+      projectStartDateTbdInput.addEventListener('change', syncEditStartDateTbd);
+      projectStartDateInput.addEventListener('change', function() {
+        if (projectStartDateInput.value) projectStartDateTbdInput.checked = false;
+        syncEditStartDateTbd();
+      });
+      projectEtdInput?.addEventListener('change', function() {
+        if (projectStartDateInput.value && projectEtdInput.value && projectEtdInput.value < projectStartDateInput.value) {
+          showError('ETD cannot be earlier than Start Date.');
+          projectEtdInput.value = '';
+        }
+      });
+      syncEditStartDateTbd();
+    }
+
+    document.addEventListener('click', function(e) {
+      const modeBtn = e.target.closest('[data-view-mode]');
+      if (modeBtn) applyMode(modeBtn.dataset.viewMode || 'card');
+
+      const sortBtn = e.target.closest('.task-list-sort');
+      if (sortBtn) sortListRows(sortBtn.dataset.sortKey || 'title');
+
+      const listAddBtn = e.target.closest('.btn-list-add-task');
+      if (listAddBtn) {
+        window.currentStructuredDefaultListId = listAddBtn.dataset.defaultListId || '';
+        openListTaskCreateModal();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      const row = e.target.closest('.task-list-row');
+      if (!row) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        row.click();
+      }
+    });
+
+    const createForm = document.getElementById('list-view-task-create-form');
+    const listStartDateInput = document.getElementById('list-task-start-date');
+    const listStartDateTbdInput = document.getElementById('list-task-start-date-tbd');
+    const listEndDateInput = document.getElementById('list-task-end-date');
+    if (listStartDateInput && listStartDateTbdInput) {
+      const syncListStartDateTbd = () => {
+        if (listStartDateTbdInput.checked) {
+          listStartDateInput.value = '';
+        }
+        listStartDateInput.disabled = listStartDateTbdInput.checked;
+        listStartDateInput.required = !listStartDateTbdInput.checked && ((getBoardRoot()?.dataset.isProject || '0') === '1');
+      };
+      listStartDateTbdInput.addEventListener('change', syncListStartDateTbd);
+      listStartDateInput.addEventListener('change', function() {
+        if (listStartDateInput.value) listStartDateTbdInput.checked = false;
+        syncListStartDateTbd();
+      });
+      syncListStartDateTbd();
+    }
+    createForm?.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const root = getBoardRoot();
+      const projectId = root?.dataset.projectId;
+      const isStructuredProject = (root?.dataset.isProject || '0') === '1';
+      const projectEtd = (root?.dataset.projectEtd || '').trim();
+      if (!projectId) return;
+
+      const fd = new FormData(createForm);
+      const title = (fd.get('title') || '').toString().trim();
+      const listId = (fd.get('task_list_id') || '').toString();
+      if (!title) return showError('Task title is required.');
+      if (!listId) return showError('Please select a status/column.');
+      const assignees = fd.getAll('assignees');
+      const startDate = (fd.get('start_date') || '').toString();
+      const startDateTbd = !!fd.get('start_date_tbd');
+      const endDate = (fd.get('due_date') || '').toString();
+      if (isStructuredProject) {
+        if (!assignees.length) return showError('Assignee is required.');
+        if (assignees.length > 1) return showError('Only one assignee is allowed.');
+        if (!startDate && !startDateTbd) return showError('Start Date is required or mark it as TBD.');
+        if (!endDate) return showError('End Date is required.');
+        if (startDate && endDate && endDate < startDate) return showError('End Date cannot be earlier than Start Date.');
+        if (projectEtd && endDate > projectEtd) return showError('End Date must not exceed project ETD.');
+      }
+
+      fetch(`/project/${projectId}/task/create/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': (document.querySelector('#list-view-task-create-form [name=csrfmiddlewaretoken]')?.value || ''),
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: fd
+      }).then((resp) => resp.json()).then((resp) => {
+        if (!resp.success) {
+          const firstError = resp?.errors ? Object.values(resp.errors)[0] : null;
+          showError(firstError ? String(firstError).replace(/[\[\]']/g, '') : 'Failed to create task.');
+          return;
+        }
+        const searchInput = document.querySelector('#task-filter-form input[name="q"]');
+        if (window.$ && searchInput) {
+          window.$(searchInput).trigger('keyup');
+        } else {
+          if (resp.html) {
+            const col = document.querySelector(`.task-column[data-list-id="${resp.task_list_id}"]`);
+            if (col) col.insertAdjacentHTML('beforeend', resp.html);
+          }
+          if (resp.list_row_html) {
+            const body = document.getElementById('task-list-body');
+            if (body) body.insertAdjacentHTML('beforeend', resp.list_row_html);
+          }
+        }
+        const modalEl = document.getElementById('listTaskCreateModal');
+        bootstrap.Modal.getInstance(modalEl)?.hide();
+      }).catch(() => showError('Failed to create task.'));
+    });
+  }
+
+  initSidebarToggleDesktop();
+  initProjectListPage();
+  initSubprojectListPage();
+  initMyCardsPage();
+  initProjectArchivePage();
+  initUserListPage();
+  initUserSettingsPage();
+  initWebsiteSettingsPage();
+  initProjectDetailPage();
+
   $(document).on('click', '.theme-select', function() {
     const theme = $(this).data('theme');
 
@@ -226,6 +1077,9 @@ $(function() {
           $('#project-list').prepend(resp.html);
           $('#projectModal').modal('hide');
           $form[0].reset();
+          $('#id_is_private').trigger('change');
+          $('#id_is_project').trigger('change');
+          $('#id_start_date_tbd').trigger('change');
           const $convertSelect = $('#project-convert-target');
           if ($convertSelect.length && resp.project_id && resp.project_name) {
             $convertSelect.append(
@@ -561,6 +1415,12 @@ $(function() {
             const card = $(`.task-card[data-task-id='${taskId}']`);
             card.replaceWith(resp.html);
           }
+          if (resp.list_row_html) {
+            const row = $(`.task-list-row[data-task-id='${taskId}']`);
+            if (row.length) {
+              row.replaceWith(resp.list_row_html);
+            }
+          }
           if (typeof onSuccess === 'function') onSuccess();
         }
       },
@@ -623,9 +1483,31 @@ $(function() {
     });
   });
 
+  $(document).on('change', '#task-view-status', function() {
+    const taskId = $('#taskViewModal').data('task-id');
+    inlineUpdate(taskId, 'status', $(this).val(), function() {
+      loadTaskView(taskId);
+    });
+  });
+
+  $(document).on('change', '#task-view-start-date', function() {
+    const taskId = $('#taskViewModal').data('task-id');
+    inlineUpdate(taskId, 'start_date', $(this).val(), function() {
+      loadTaskView(taskId);
+    });
+  });
+
+  $(document).on('change', '#task-view-start-date-tbd', function() {
+    const taskId = $('#taskViewModal').data('task-id');
+    inlineUpdate(taskId, 'start_date_tbd', this.checked ? '1' : '0', function() {
+      loadTaskView(taskId);
+    });
+  });
+
   $(document).on('change', '#task-view-assignees', function() {
     const taskId = $('#taskViewModal').data('task-id');
-    const values = $(this).val() ? $(this).val().join(',') : '';
+    const raw = $(this).val();
+    const values = Array.isArray(raw) ? raw.join(',') : (raw || '');
     inlineUpdate(taskId, 'assignees', values, function() {
       loadTaskView(taskId);
     });
@@ -1244,13 +2126,23 @@ $(function() {
           $('#createUserModal').modal('hide');
           if ($('#user-table').length) {
             $('#user-table tbody').append(`
-                        <tr data-user-id="${resp.user.id}">
+                        <tr data-user-id="${resp.user.id}"
+                            data-username="${(resp.user.username || '').toLowerCase()}"
+                            data-email="${(resp.user.email || '').toLowerCase()}"
+                            data-active="active"
+                            data-staff="non-staff"
+                            data-last-activity=""
+                            data-last-login=""
+                            data-joined=""
+                            data-status="never">
                           <td>${resp.user.username}</td>
                           <td>${resp.user.email}</td>
                           <td><span class="badge bg-success">Yes</span></td>
-                          <td>No</td>
+                          <td><span class="badge bg-secondary">No</span></td>
+                          <td>-</td>
                           <td></td>
                           <td></td>
+                          <td><span class="status-pill status-never">Never</span></td>
                           <td>
                             <a href="/users/${resp.user.id}/edit/" class="btn btn-sm btn-outline-secondary">Edit</a>
                             <button class="btn btn-sm btn-outline-info btn-reset-password">Reset Password</button>
@@ -1442,20 +2334,31 @@ $(document).on("click", "#btn-save-member", function () {
     });
   });
 
-  $('#task-filter-form input, #task-filter-form select').on('change keyup', function() {
+  function reloadProjectDetailBoard(resetPage = false) {
     const projectId = $('#task-board').data('project-id');
+    if (!projectId || !$('#task-filter-form').length) return;
+
     const subProjectId = $('#task-board').data('subproject-id');
     const taskScope = $('#task-board').data('task-scope');
-    let query = $('#task-filter-form').serialize();
+    if (resetPage) {
+      $('#task-filter-page').val('1');
+    }
+
+    const params = new URLSearchParams($('#task-filter-form').serialize());
+    const pageValue = ($('#task-filter-page').val() || '1').toString();
+    const perPageValue = ($('#task-filter-per-page').val() || '25').toString();
+    params.set('page', pageValue);
+    params.set('per_page', perPageValue);
+
     if (taskScope === 'all') {
-      query += `&sub=all`;
+      params.set('sub', 'all');
     } else if (subProjectId) {
-      query += `&sub=${subProjectId}`;
+      params.set('sub', subProjectId);
     }
 
     $.get({
       url: `/project/${projectId}/`,
-      data: query,
+      data: params.toString(),
       headers: {
         'X-Requested-With': 'XMLHttpRequest'
       },
@@ -1470,6 +2373,28 @@ $(document).on("click", "#btn-save-member", function () {
         showError('Failed to apply filter');
       }
     });
+  }
+
+  $(document).on('change', '#task-filter-form select, #task-filter-form input[type="date"]', function() {
+    reloadProjectDetailBoard(true);
+  });
+
+  $(document).on('keyup', '#task-filter-form input[type="text"]', function() {
+    reloadProjectDetailBoard(true);
+  });
+
+  $(document).on('click', '.task-list-page-link', function() {
+    const page = $(this).data('page');
+    if (!page) return;
+    $('#task-filter-page').val(page);
+    reloadProjectDetailBoard(false);
+  });
+
+  $(document).on('change', '#task-list-per-page', function() {
+    const perPage = ($(this).val() || '25').toString();
+    $('#task-filter-per-page').val(perPage);
+    $('#task-filter-page').val('1');
+    reloadProjectDetailBoard(false);
   });
 
   $(document).on('click', '.btn-convert-subproject', function() {

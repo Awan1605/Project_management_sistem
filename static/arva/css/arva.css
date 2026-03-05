@@ -475,6 +475,21 @@
   border: 1px solid white;
 }
 
+.assignee-avatar-fallback {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  line-height: 1;
+}
+
 .assignee-chip {
   background: #f3f4f6;
   border-radius: 20px;
@@ -857,24 +872,51 @@
 }
 
 /* Task view modal */
-.task-view-modal .modal-content {
+.task-view-modal:not(.task-view-modal--drawer) .modal-content {
   border-radius: 18px;
   box-shadow: 0 18px 50px rgba(15, 23, 42, 0.25);
   border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
-.task-view-modal .modal-dialog {
+.task-view-modal:not(.task-view-modal--drawer) .modal-dialog {
   transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
-.task-view-modal.fade .modal-dialog {
+.task-view-modal:not(.task-view-modal--drawer).fade .modal-dialog {
   transform: translateY(12px) scale(0.98);
   opacity: 0;
 }
 
-.task-view-modal.show .modal-dialog {
+.task-view-modal:not(.task-view-modal--drawer).show .modal-dialog {
   transform: translateY(0) scale(1);
   opacity: 1;
+}
+
+.task-view-modal--drawer .modal-dialog {
+  margin: 0 0 0 auto;
+  width: min(820px, 92vw);
+  max-width: min(820px, 92vw);
+  height: 100dvh;
+  min-height: 100dvh;
+  transform: translateX(100%);
+  transition: transform 0.22s ease;
+}
+
+.task-view-modal--drawer.show .modal-dialog {
+  transform: translateX(0);
+}
+
+.task-view-modal--drawer .modal-content {
+  height: 100dvh;
+  min-height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  border-left: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: -18px 0 42px rgba(15, 23, 42, 0.24);
+}
+
+.task-view-modal--drawer .modal-body {
+  overflow-y: auto;
 }
 
 .task-view-header {
@@ -909,6 +951,13 @@
 .task-view-modal .modal-footer {
   border-top: 1px solid rgba(15, 23, 42, 0.06);
   padding: 14px 20px;
+}
+
+@media (max-width: 575.98px) {
+  .task-view-modal--drawer .modal-dialog {
+    width: 100vw;
+    max-width: 100vw;
+  }
 }
 
 .text-overline-compact {

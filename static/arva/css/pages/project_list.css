@@ -156,17 +156,66 @@
       padding: 0.8rem !important;
     }
 
-    .project-card {
-      border: 1px solid rgba(15, 23, 42, 0.12);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      background: #fff;
-    }
+.project-card {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: #fff;
+}
 
-    .project-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
-    }
+.project-type-badge {
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  color: #1d4ed8;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.project-card--project {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.06), #fff 48%);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
+}
+
+.project-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.6rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.project-meta-grid .label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.project-meta-grid .value {
+  display: block;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.project-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+}
+
+.project-table-row--project {
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.project-table-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
 
     .online-users {
       display: flex;
@@ -216,5 +265,51 @@
 
 .project-modal-btn {
   border-radius: 10px;
+}
+
+.project-modal-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.project-modal-section {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+}
+
+.project-modal-section--toggle {
+  display: grid;
+  gap: 0.2rem;
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.project-modal-section--advanced {
+  background: linear-gradient(180deg, rgba(9, 175, 255, 0.08), rgba(9, 175, 255, 0.02));
+}
+
+.project-modal-section--sharing {
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.project-modal-advanced-head {
+  margin-bottom: 0.45rem;
+}
+
+.project-modal-inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+@media (max-width: 575.98px) {
+  .project-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .project-modal-section {
+    padding: 0.6rem;
+  }
 }
 

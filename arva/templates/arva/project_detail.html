@@ -29,6 +29,21 @@
 
         <p class="project-description">{{ project.description|default:"There is no description." }}</p>
 
+        {% if project.is_project %}
+        <div class="project-info-panel mt-2">
+          <div class="project-info-head">
+            <span class="badge project-type-badge"><i class="bi bi-briefcase-fill me-1"></i>PROJECT</span>
+            <span class="small text-muted">Structured project metadata</span>
+          </div>
+          <div class="project-info-grid">
+            <div><span class="k">Priority</span><span class="v">{{ project.get_priority_display }}</span></div>
+            <div><span class="k">PM / Assignee</span><span class="v">{{ project.pm_assignee.username|default:"-" }}</span></div>
+            <div><span class="k">Start Date</span><span class="v">{% if project.start_date_tbd %}TBD{% elif project.start_date %}{{ project.start_date|date:"d M Y" }}{% else %}-{% endif %}</span></div>
+            <div><span class="k">ETD</span><span class="v">{{ project.etd|date:"d M Y"|default:"-" }}</span></div>
+          </div>
+        </div>
+        {% endif %}
+
         {% comment %} <small class="text-muted d-block">
           <i class="bi bi-calendar3 me-1"></i>
           Created: {{ project.created_at|date:"d M Y" }}
@@ -145,35 +160,64 @@
 <div class="card shadow-sm border-0 h-100 mb-3">
   <div class="card-body">
     <form id="task-filter-form" class="row g-3">
+      <input type="hidden" name="page" id="task-filter-page" value="{{ filter_values.page|default:'1' }}">
+      <input type="hidden" name="per_page" id="task-filter-per-page" value="{{ filter_values.per_page|default:'25' }}">
 
       <div class="col-lg-3 col-md-6">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search for task title...">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search for task title..." value="{{ filter_values.q }}">
       </div>
 
       <div class="col-lg-2 col-md-6">
         <select name="assignee" class="form-select form-select-sm">
           <option value="">Assignee</option>
           {% for u in users %}
-          <option value="{{ u.id }}">{{ u.username }}</option>
+          <option value="{{ u.id }}" {% if filter_values.assignee == u.id|stringformat:'s' %}selected{% endif %}>{{ u.username }}</option>
           {% endfor %}
         </select>
       </div>
 
       <div class="col-lg-3 col-md-6">
-        <input type="text" name="assignee_q" class="form-control form-control-sm" placeholder="Search assignee (username/email)">
+        <input type="text" name="assignee_q" class="form-control form-control-sm" placeholder="Search assignee (username/email)" value="{{ filter_values.assignee_q }}">
       </div>
 
       <div class="col-lg-2 col-md-6">
-        <select name="label" class="form-select form-select-sm">
-          <option value="">Label</option>
-          {% for label in task_form.fields.labels.queryset %}
-          <option value="{{ label.id }}">{{ label.name }}</option>
-          {% endfor %}
+        <select name="status" class="form-select form-select-sm">
+          {% if project.is_project %}
+            <option value="">Task Status</option>
+            {% for status_value, status_label in structured_status_options %}
+            <option value="{{ status_value }}" {% if filter_values.status == status_value %}selected{% endif %}>{{ status_label }}</option>
+            {% endfor %}
+          {% else %}
+            <option value="">Status</option>
+            {% for status_list in available_status_lists %}
+            <option value="{{ status_list.id }}" {% if filter_values.status == status_list.id|stringformat:'s' %}selected{% endif %}>{{ status_list.name }}</option>
+            {% endfor %}
+          {% endif %}
         </select>
       </div>
 
-      <div class="col-lg-2 col-md-6">
-        <input type="date" name="due" class="form-control form-control-sm">
+      {% if project.is_project %}
+      <div class="col-lg-1 col-md-6">
+        <select name="priority" class="form-select form-select-sm">
+          <option value="">Priority</option>
+          {% for priority_value, priority_label in structured_priority_options %}
+          <option value="{{ priority_value }}" {% if filter_values.priority == priority_value %}selected{% endif %}>{{ priority_label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% else %}
+      <div class="col-lg-1 col-md-6">
+        <select name="label" class="form-select form-select-sm">
+          <option value="">Label</option>
+          {% for label in task_form.fields.labels.queryset %}
+          <option value="{{ label.id }}" {% if filter_values.label == label.id|stringformat:'s' %}selected{% endif %}>{{ label.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="col-lg-1 col-md-6">
+        <input type="date" name="due" class="form-control form-control-sm" value="{{ filter_values.due }}">
       </div>
 
     </form>
@@ -184,8 +228,8 @@
   {% include "arva/_task_board.html" with project=project task_lists=task_lists task_form=task_form user_role=user_role %}
 </div>
 
-<div class="modal fade task-view-modal" id="taskViewModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
+<div class="modal fade task-view-modal {% if project.is_project %}task-view-modal--drawer{% endif %}" id="taskViewModal" tabindex="-1">
+  <div class="modal-dialog {% if project.is_project %}modal-dialog-scrollable{% else %}modal-xl modal-dialog-centered{% endif %}">
     <div class="modal-content">
       <div class="modal-header task-view-header">
         <div class="d-flex align-items-center gap-2">
@@ -253,34 +297,86 @@
 </div>
 
 <div class="modal fade" id="projectEditModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <form id="project-edit-form" class="modal-content">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <form id="project-edit-form" class="modal-content project-edit-modal">
 
       <div class="modal-header">
         <h5 class="modal-title fw-semibold"><i class="bi bi-pencil text-primary me-2"></i>Edit Project</h5>
         <button class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <div class="modal-body">
+      <div class="modal-body project-edit-modal-body">
         {% csrf_token %}
+        <div class="project-edit-form-grid">
 
-        <div class="mb-3">
+        <div class="project-modal-section">
           <label class="form-label fw-semibold">Project Name</label>
           <input class="form-control rounded-btn-10" name="name" value="{{ project.name }}">
         </div>
 
-        <div class="mb-3">
+        <div class="project-modal-section">
           <label class="form-label fw-semibold">Description</label>
           <textarea class="form-control rounded-btn-10" name="description" rows="3">{{ project.description }}</textarea>
         </div>
 
-        <div class="mb-3 form-check">
-          <input class="form-check-input" type="checkbox" name="is_private" id="project-edit-private" {% if project.is_private %}checked{% endif %}>
-          <label class="form-check-label fw-semibold" for="project-edit-private">Private Project</label>
+        <div class="project-modal-section project-modal-section--toggle">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" name="is_project" id="project-edit-is-project" {% if project.is_project %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="project-edit-is-project">Is Project</label>
+          </div>
+          <div class="small text-muted">Enable this to configure planning fields and delivery target.</div>
+        </div>
+
+        <div class="project-modal-section project-modal-section--advanced project-edit-advanced-fields {% if not project.is_project %}d-none{% endif %}">
+          <div class="project-modal-advanced-head">
+            <h6 class="mb-1 fw-semibold">Project Planning</h6>
+            <small class="text-muted">Set priority, ownership, and schedule details.</small>
+          </div>
+          <div class="row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Priority</label>
+              <select class="form-select" name="priority" id="project-edit-priority">
+                <option value="p0" {% if project.priority == 'p0' %}selected{% endif %}>P0 - Urgent</option>
+                <option value="p1" {% if project.priority == 'p1' %}selected{% endif %}>P1 - High</option>
+                <option value="p2" {% if project.priority == 'p2' %}selected{% endif %}>P2 - Medium</option>
+                <option value="p3" {% if project.priority == 'p3' %}selected{% endif %}>P3 - Low</option>
+                <option value="p4" {% if project.priority == 'p4' %}selected{% endif %}>P4 - Very Low</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">PM / Assignee</label>
+              <select class="form-select" name="pm_assignee" id="project-edit-pm-assignee">
+                <option value="">Select user</option>
+                {% for u in all_users %}
+                  <option value="{{ u.id }}" {% if project.pm_assignee_id == u.id %}selected{% endif %}>{{ u.username }}</option>
+                {% endfor %}
+                <option value="{{ request.user.id }}" {% if project.pm_assignee_id == request.user.id %}selected{% endif %}>{{ request.user.username }}</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">Start Date</label>
+              <input class="form-control" type="date" name="start_date" id="project-edit-start-date" value="{{ project.start_date|date:'Y-m-d' }}">
+              <div class="form-check mt-1 project-modal-inline-check">
+                <input class="form-check-input" type="checkbox" name="start_date_tbd" id="project-edit-start-date-tbd" {% if project.start_date_tbd %}checked{% endif %}>
+                <label class="form-check-label" for="project-edit-start-date-tbd" title="To Be Determined">TBD (To Be Determined)</label>
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">ETD (Estimated Delivery Date)</label>
+              <input class="form-control" type="date" name="etd" id="project-edit-etd" value="{{ project.etd|date:'Y-m-d' }}">
+            </div>
+          </div>
+        </div>
+
+        <div class="project-modal-section project-modal-section--toggle">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" name="is_private" id="project-edit-private" {% if project.is_private %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="project-edit-private">Private Project</label>
+          </div>
           <div class="small text-muted">When enabled, only owner and selected users can access this project.</div>
         </div>
 
-        <div class="mb-3 project-edit-sharing-fields">
+        <div class="project-modal-section project-edit-sharing-fields">
           <label class="form-label fw-semibold">Share with Specific Users</label>
           <select class="form-select" name="shared_users" id="project-edit-shared-users" multiple size="6">
             {% for u in all_users %}
@@ -289,13 +385,14 @@
           </select>
         </div>
 
-        <div class="mb-1 project-edit-sharing-fields">
+        <div class="project-modal-section project-edit-sharing-fields">
           <label class="form-label fw-semibold">Default Role for Selected Users</label>
           <select class="form-select" name="shared_role">
             <option value="viewer" {% if shared_role_default == 'viewer' %}selected{% endif %}>Viewer</option>
             <option value="member" {% if shared_role_default == 'member' %}selected{% endif %}>Member</option>
             <option value="admin" {% if shared_role_default == 'admin' %}selected{% endif %}>Admin</option>
           </select>
+        </div>
         </div>
 
       </div>
@@ -399,18 +496,46 @@
             <label class="form-label">Status / Column</label>
             <select name="task_list_id" id="list-task-status" class="form-select form-select-sm" required></select>
           </div>
-          <div>
-            <label class="form-label">Due Date</label>
-            <input type="date" name="due_date" class="form-control form-control-sm">
+          <div class="task-structured-only">
+            <label class="form-label">Task Status</label>
+            <select name="status" id="list-task-work-status" class="form-select form-select-sm">
+              <option value="-">-</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+              <option value="infeasible">Infeasible</option>
+            </select>
+          </div>
+          <div class="task-structured-only">
+            <label class="form-label">Priority</label>
+            <select name="priority" id="list-task-priority" class="form-select form-select-sm">
+              <option value="p0">P0 - Urgent</option>
+              <option value="p1">P1 - High</option>
+              <option value="p2" selected>P2 - Medium</option>
+              <option value="p3">P3 - Low</option>
+              <option value="p4">P4 - Very Low</option>
+            </select>
           </div>
           <div>
-            <label class="form-label">Assigned Members</label>
-            <select name="assignees" class="form-select form-select-sm" multiple size="4">
+            <label class="form-label">Assignee</label>
+            <select name="assignees" id="list-task-assignees" class="form-select form-select-sm" multiple size="4">
               {% for u in users %}
                 <option value="{{ u.id }}">{{ u.username }}</option>
               {% endfor %}
             </select>
           </div>
+          <div class="task-structured-only">
+            <label class="form-label">Start Date</label>
+            <input type="date" name="start_date" id="list-task-start-date" class="form-control form-control-sm">
+            <div class="form-check mt-1">
+              <input class="form-check-input" type="checkbox" name="start_date_tbd" id="list-task-start-date-tbd">
+              <label class="form-check-label" for="list-task-start-date-tbd" title="To Be Determined">TBD (To Be Determined)</label>
+            </div>
+          </div>
+          <div class="task-structured-only">
+            <label class="form-label">End Date</label>
+            <input type="date" name="due_date" id="list-task-end-date" class="form-control form-control-sm">
+          </div>
+          {% if not project.is_project %}
           <div>
             <label class="form-label">Labels</label>
             <select name="labels" class="form-select form-select-sm" multiple size="4">
@@ -419,6 +544,15 @@
               {% endfor %}
             </select>
           </div>
+          <div class="full">
+            <label class="form-label">Initial Comment</label>
+            <textarea name="initial_comment" rows="2" class="form-control form-control-sm" placeholder="Optional comment..."></textarea>
+          </div>
+          <div class="full">
+            <label class="form-label">Upload documents as comment</label>
+            <input type="file" name="comment_files" class="form-control form-control-sm" multiple>
+          </div>
+          {% endif %}
         </div>
       </div>
       <div class="modal-footer">
@@ -432,215 +566,5 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-  (function() {
-    const storageKey = 'arva_project_detail_view_mode';
-    const sortState = { key: '', dir: 'asc' };
-
-    function getBoardRoot() {
-      return document.getElementById('task-board');
-    }
-
-    function syncListEmpty() {
-      const root = getBoardRoot();
-      if (!root) return;
-      const rows = root.querySelectorAll('.task-list-row');
-      const empty = root.querySelector('.task-list-empty');
-      if (!empty) return;
-      empty.classList.toggle('d-none', rows.length > 0);
-    }
-
-    function applyMode(mode) {
-      const root = getBoardRoot();
-      const cardPanel = root?.querySelector('.board-view-card');
-      const listPanel = root?.querySelector('.board-view-list');
-      if (!cardPanel || !listPanel) return;
-
-      const isList = mode === 'list';
-      cardPanel.classList.toggle('d-none', isList);
-      listPanel.classList.toggle('d-none', !isList);
-
-      document.querySelectorAll('[data-view-mode]').forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.viewMode === mode);
-      });
-      localStorage.setItem(storageKey, mode);
-      syncListEmpty();
-    }
-
-    function collectVisibleListOptions() {
-      const root = getBoardRoot();
-      if (!root) return [];
-      return Array.from(root.querySelectorAll('.board-view-card .board-list[data-list-id]')).map((el) => {
-        const listId = el.getAttribute('data-list-id');
-        const titleEl = el.querySelector('.list-title');
-        const name = (titleEl?.textContent || '').trim();
-        return { id: listId, name: name || `List ${listId}` };
-      });
-    }
-
-    function openListTaskCreateModal() {
-      const statusSelect = document.getElementById('list-task-status');
-      const form = document.getElementById('list-view-task-create-form');
-      if (!statusSelect || !form) return;
-
-      form.reset();
-      statusSelect.innerHTML = '';
-      const options = collectVisibleListOptions();
-      if (!options.length) {
-        showError('No status/column available. Create a list first.');
-        return;
-      }
-      options.forEach((opt) => {
-        const option = document.createElement('option');
-        option.value = opt.id;
-        option.textContent = opt.name;
-        statusSelect.appendChild(option);
-      });
-
-      const modalEl = document.getElementById('listTaskCreateModal');
-      if (modalEl) {
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.show();
-      }
-    }
-
-    function getSortValue(row, key) {
-      const value = row.dataset[key] || '';
-      if (key === 'due') return value || '9999-12-31';
-      return value;
-    }
-
-    function sortListRows(key) {
-      const root = getBoardRoot();
-      const body = root?.querySelector('#task-list-body');
-      if (!body) return;
-      const rows = Array.from(body.querySelectorAll('.task-list-row'));
-      if (!rows.length) return;
-
-      const nextDir = sortState.key === key && sortState.dir === 'asc' ? 'desc' : 'asc';
-      sortState.key = key;
-      sortState.dir = nextDir;
-
-      rows.sort((a, b) => {
-        const av = getSortValue(a, key);
-        const bv = getSortValue(b, key);
-        if (av < bv) return nextDir === 'asc' ? -1 : 1;
-        if (av > bv) return nextDir === 'asc' ? 1 : -1;
-        return 0;
-      }).forEach((row) => body.appendChild(row));
-
-      document.querySelectorAll('.task-list-sort').forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.sortKey === key);
-      });
-    }
-
-    window.applyProjectBoardViewMode = function() {
-      const saved = localStorage.getItem(storageKey) || 'card';
-      applyMode(saved);
-    };
-
-    document.addEventListener('click', function(e) {
-      const modeBtn = e.target.closest('[data-view-mode]');
-      if (modeBtn) {
-        applyMode(modeBtn.dataset.viewMode || 'card');
-      }
-
-      const sortBtn = e.target.closest('.task-list-sort');
-      if (sortBtn) {
-        sortListRows(sortBtn.dataset.sortKey || 'title');
-      }
-
-      const addBtn = e.target.closest('.btn-list-add-task');
-      if (addBtn) {
-        openListTaskCreateModal();
-      }
-    });
-
-    document.addEventListener('keydown', function(e) {
-      const row = e.target.closest('.task-list-row');
-      if (!row) return;
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        row.click();
-      }
-    });
-
-    window.applyProjectBoardViewMode();
-
-    const projectPrivateInput = document.getElementById('project-edit-private');
-    const projectSharingFields = document.querySelectorAll('.project-edit-sharing-fields');
-    function syncProjectEditSharingVisibility() {
-      if (!projectPrivateInput || !projectSharingFields.length) return;
-      const show = projectPrivateInput.checked;
-      projectSharingFields.forEach((el) => el.classList.toggle('d-none', !show));
-    }
-    if (projectPrivateInput) {
-      projectPrivateInput.addEventListener('change', syncProjectEditSharingVisibility);
-      syncProjectEditSharingVisibility();
-    }
-
-    const createForm = document.getElementById('list-view-task-create-form');
-    createForm?.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const root = getBoardRoot();
-      const projectId = root?.dataset.projectId;
-      if (!projectId) return;
-
-      const fd = new FormData(createForm);
-      const title = (fd.get('title') || '').toString().trim();
-      const listId = (fd.get('task_list_id') || '').toString();
-      if (!title) {
-        showError('Task title is required.');
-        return;
-      }
-      if (!listId) {
-        showError('Please select a status/column.');
-        return;
-      }
-
-      const payload = new URLSearchParams();
-      fd.forEach((value, key) => {
-        if (value !== null && value !== '') payload.append(key, value.toString());
-      });
-
-      fetch(`/project/${projectId}/task/create/`, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': (document.querySelector('#list-view-task-create-form [name=csrfmiddlewaretoken]')?.value || ''),
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: payload.toString()
-      }).then((resp) => resp.json()).then((resp) => {
-        if (!resp.success) {
-          const firstError = resp?.errors ? Object.values(resp.errors)[0] : null;
-          showError(firstError ? String(firstError).replace(/[\[\]']/g, '') : 'Failed to create task.');
-          return;
-        }
-
-        const firstFilter = document.querySelector('#task-filter-form input, #task-filter-form select');
-        if (window.$ && firstFilter) {
-          window.$(firstFilter).trigger('change');
-        } else {
-          if (resp.html) {
-            const col = document.querySelector(`.task-column[data-list-id="${resp.task_list_id}"]`);
-            if (col) col.insertAdjacentHTML('beforeend', resp.html);
-          }
-          if (resp.list_row_html) {
-            const body = document.getElementById('task-list-body');
-            if (body) body.insertAdjacentHTML('beforeend', resp.list_row_html);
-          }
-        }
-
-        const modalEl = document.getElementById('listTaskCreateModal');
-        bootstrap.Modal.getInstance(modalEl)?.hide();
-      }).catch(() => {
-        showError('Failed to create task.');
-      });
-    });
-  })();
-</script>
-{% endblock %}
 
 

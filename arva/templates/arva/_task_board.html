@@ -1,4 +1,4 @@
-<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}">
+<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}" data-is-project="{{ project.is_project|yesno:'1,0' }}" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}">
   <div class="board-view-panel board-view-card">
     {% if task_scope == 'all' %}
     <div class="card shadow-sm border-0 mb-3">
@@ -115,45 +115,61 @@
 
   <div class="board-view-panel board-view-list d-none">
     <div class="task-list-shell">
+      <div class="page-pagination-bar" id="task-list-pagination-controls">
+        <div class="page-pagination-left">
+          <label for="task-list-per-page" class="small text-muted mb-0">Rows</label>
+          <select id="task-list-per-page" class="form-select form-select-sm">
+            {% for opt in per_page_options %}
+              <option value="{{ opt }}" {% if per_page == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="page-pagination-right">
+          <span id="task-list-page-summary" class="small text-muted">
+            {% if list_page_obj.paginator.count %}
+              Showing {{ list_page_obj.start_index }}-{{ list_page_obj.end_index }} of {{ list_page_obj.paginator.count }}
+            {% else %}
+              Showing 0-0 of 0
+            {% endif %}
+          </span>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Task list pagination controls">
+            <button class="btn btn-outline-secondary task-list-page-link" type="button" data-page="{% if list_page_obj.has_previous %}{{ list_page_obj.previous_page_number }}{% else %}1{% endif %}" {% if not list_page_obj.has_previous %}disabled{% endif %}>
+              <i class="bi bi-chevron-left"></i>
+            </button>
+            <button class="btn btn-outline-secondary task-list-page-link" type="button" data-page="{% if list_page_obj.has_next %}{{ list_page_obj.next_page_number }}{% else %}{{ list_page_obj.number }}{% endif %}" {% if not list_page_obj.has_next %}disabled{% endif %}>
+              <i class="bi bi-chevron-right"></i>
+            </button>
+          </div>
+          {% if user_role == 'admin' or user_role == 'member' %}
+            <button type="button" class="btn btn-primary btn-sm compact-add-btn btn-list-add-task">
+              <i class="bi bi-plus-lg me-1"></i>Add Task
+            </button>
+          {% endif %}
+        </div>
+      </div>
       <div class="task-list-head">
-        <button type="button" class="task-list-sort" data-sort-key="title">Task</button>
-        <button type="button" class="task-list-sort" data-sort-key="status">Status</button>
-        <button type="button" class="task-list-sort" data-sort-key="due">Due</button>
-        <button type="button" class="task-list-sort" data-sort-key="updated">Recent Activity</button>
-        {% if user_role == 'admin' or user_role == 'member' %}
-          <button type="button" class="btn btn-primary btn-sm compact-add-btn ms-auto btn-list-add-task">
-            <i class="bi bi-plus-lg me-1"></i>Add Task
-          </button>
+        {% if project.is_project %}
+          <button type="button" class="task-list-sort" data-sort-key="title">Task</button>
+          <button type="button" class="task-list-sort" data-sort-key="status">Priority / Status</button>
+          <button type="button" class="task-list-sort" data-sort-key="due">Ownership / Dates</button>
+          <button type="button" class="task-list-sort" data-sort-key="updated">Recent Activity</button>
+        {% else %}
+          <button type="button" class="task-list-sort" data-sort-key="title">Task</button>
+          <button type="button" class="task-list-sort" data-sort-key="status">Status</button>
+          <button type="button" class="task-list-sort" data-sort-key="due">Due</button>
+          <button type="button" class="task-list-sort" data-sort-key="updated">Recent Activity</button>
+          <span class="small text-muted text-end">Actions</span>
         {% endif %}
       </div>
       <div class="task-list-body" id="task-list-body">
-        {% if task_scope == 'all' %}
-          {% for group in grouped_task_lists %}
-            {% for task_list in group.task_lists %}
-              {% for task in task_list.filtered_tasks %}
-                {% include "arva/_task_list_row.html" with task=task %}
-              {% endfor %}
-            {% endfor %}
-          {% endfor %}
-        {% else %}
-          {% for task_list in task_lists %}
-            {% for task in task_list.filtered_tasks %}
-              {% include "arva/_task_list_row.html" with task=task %}
-            {% endfor %}
-          {% endfor %}
-        {% endif %}
+        {% for task in list_page_obj.object_list %}
+          {% include "arva/_task_list_row.html" with task=task %}
+        {% endfor %}
         <div class="task-list-empty text-muted text-center py-4 d-none">
           <i class="bi bi-inboxes fs-4 d-block mb-2"></i>
           No tasks found for current filters.
         </div>
       </div>
-      {% if user_role == 'admin' or user_role == 'member' %}
-        <div class="task-list-footer p-2 border-top bg-light-subtle">
-          <button type="button" class="btn btn-primary btn-sm compact-add-btn btn-list-add-task">
-            <i class="bi bi-plus-lg me-1"></i>Add Task
-          </button>
-        </div>
-      {% endif %}
     </div>
   </div>
 </div>

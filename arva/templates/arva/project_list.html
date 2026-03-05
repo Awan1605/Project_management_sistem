@@ -127,6 +127,7 @@
               <tbody>
                 {% for project in projects %}
                 <tr
+                  class="{% if project.is_project %}project-table-row--project{% endif %}"
                   data-name="{{ project.name|lower }}"
                   data-owner="{{ project.owner.username|default:project.owner|lower }}"
                   data-description="{{ project.description|default:''|lower }}"
@@ -145,12 +146,23 @@
                         {{ project.progress.percent }}% complete
                       </div>
                       <div class="small">
+                        {% if project.is_project %}
+                          <span class="badge project-type-badge"><i class="bi bi-briefcase-fill me-1"></i>PROJECT</span>
+                        {% endif %}
                         {% if project.is_private %}
                           <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-lock-fill me-1"></i>Private</span>
                         {% else %}
                           <span class="badge bg-info-subtle text-dark border"><i class="bi bi-globe2 me-1"></i>Shared</span>
                         {% endif %}
                       </div>
+                      {% if project.is_project %}
+                        <div class="project-table-meta small text-muted mt-1">
+                          <span><strong>Priority:</strong> {{ project.get_priority_display }}</span>
+                          <span><strong>PM:</strong> {{ project.pm_assignee.username|default:"-" }}</span>
+                          <span><strong>Start:</strong> {% if project.start_date_tbd %}TBD{% elif project.start_date %}{{ project.start_date|date:"d M Y" }}{% else %}-{% endif %}</span>
+                          <span><strong>ETD:</strong> {{ project.etd|date:"d M Y"|default:"-" }}</span>
+                        </div>
+                      {% endif %}
                       {% with subprojects=project.subprojects.all %}
                         <div class="small text-muted">
                           {% if subprojects %}
@@ -228,7 +240,7 @@
 </div>
 
 <div class="modal fade" id="projectModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
     <form id="project-create-form" class="modal-content border-0 shadow-lg project-create-modal">
       <div class="modal-header border-0">
         <h5 class="modal-title fw-semibold">
@@ -239,21 +251,58 @@
 
       <div class="modal-body">
         {% csrf_token %}
-        <div class="p-2">
-          <div class="mb-2">
+        <div class="p-2 project-modal-form">
+          <div class="project-modal-section">
             <label class="form-label fw-semibold mb-1" for="id_name">Project Name</label>
             {{ project_form.name }}
           </div>
-          <div class="mb-2">
+          <div class="project-modal-section">
             <label class="form-label fw-semibold mb-1" for="id_description">Description</label>
             {{ project_form.description }}
           </div>
-          <div class="mb-2 form-check">
-            {{ project_form.is_private }}
-            <label class="form-check-label fw-semibold" for="id_is_private">Private Project</label>
+          <div class="project-modal-section project-modal-section--toggle">
+            <div class="form-check mb-0">
+              {{ project_form.is_project }}
+              <label class="form-check-label fw-semibold" for="id_is_project">Is Project</label>
+            </div>
+            <div class="small text-muted">Enable this to configure planning fields and delivery target.</div>
+          </div>
+          <div class="project-modal-section project-modal-section--advanced project-advanced-fields d-none">
+            <div class="project-modal-advanced-head">
+              <h6 class="mb-1 fw-semibold">Project Planning</h6>
+              <small class="text-muted">Set priority, ownership, and schedule details.</small>
+            </div>
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold mb-1" for="id_priority">Priority</label>
+                {{ project_form.priority }}
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold mb-1" for="id_pm_assignee">PM / Assignee</label>
+                {{ project_form.pm_assignee }}
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold mb-1" for="id_start_date">Start Date</label>
+                {{ project_form.start_date }}
+                <div class="form-check mt-1 project-modal-inline-check">
+                  {{ project_form.start_date_tbd }}
+                  <label class="form-check-label" for="id_start_date_tbd" title="To Be Determined">TBD (To Be Determined)</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold mb-1" for="id_etd">ETD (Estimated Delivery Date)</label>
+                {{ project_form.etd }}
+              </div>
+            </div>
+          </div>
+          <div class="project-modal-section project-modal-section--toggle">
+            <div class="form-check mb-0">
+              {{ project_form.is_private }}
+              <label class="form-check-label fw-semibold" for="id_is_private">Private Project</label>
+            </div>
             <div class="small text-muted">Off = shared with all users. On = only owner and selected users.</div>
           </div>
-          <div id="project-create-sharing-fields" class="border rounded p-2">
+          <div id="project-create-sharing-fields" class="project-modal-section project-modal-section--sharing">
             <div class="mb-2">
               <label class="form-label fw-semibold mb-1" for="id_shared_users">Share with Specific Users</label>
               {{ project_form.shared_users }}
@@ -306,205 +355,4 @@
   </div>
 </div>
 
-{% endblock %}
-
-{% block extra_js %}
-  <script>
-    (function() {
-      const pagingStorageKey = 'arva_project_list_paging';
-      const searchInput = document.getElementById('project-search');
-      const countLabel = document.getElementById('project-count');
-      const perPageSelect = document.getElementById('project-per-page');
-      const pageSummary = document.getElementById('project-page-summary');
-      const prevButton = document.getElementById('project-page-prev');
-      const nextButton = document.getElementById('project-page-next');
-      const controls = document.getElementById('project-pagination-controls');
-      const cardItems = Array.from(document.querySelectorAll('.project-card-item'));
-      const tableBody = document.querySelector('#project-table tbody');
-      const emptyTableRow = document.querySelector('#project-table tbody tr:not([data-name])');
-
-      const state = {
-        page: 1,
-        perPage: 10,
-      };
-
-      function loadState() {
-        try {
-          const raw = localStorage.getItem(pagingStorageKey);
-          if (!raw) return;
-          const parsed = JSON.parse(raw);
-          const parsedPage = parseInt(parsed.page, 10);
-          const parsedPerPage = parseInt(parsed.perPage, 10);
-          if (Number.isInteger(parsedPage) && parsedPage > 0) state.page = parsedPage;
-          if ([10, 25, 50, 100].includes(parsedPerPage)) state.perPage = parsedPerPage;
-        } catch (e) {
-          state.page = 1;
-          state.perPage = 10;
-        }
-      }
-
-      function saveState() {
-        localStorage.setItem(pagingStorageKey, JSON.stringify(state));
-      }
-
-      function getTableRows() {
-        if (!tableBody) return [];
-        return Array.from(tableBody.querySelectorAll('tr[data-name]'));
-      }
-
-      function matchesFilters(el, query) {
-        const text = `${el.dataset.name || ''} ${el.dataset.owner || ''} ${el.dataset.description || ''}`;
-        return !query || text.includes(query);
-      }
-
-      function applyFiltersAndPagination() {
-        const query = (searchInput?.value || '').trim().toLowerCase();
-        const filteredCards = cardItems.filter((card) => matchesFilters(card, query));
-        const filteredRows = getTableRows().filter((row) => matchesFilters(row, query));
-        const totalItems = filteredCards.length || filteredRows.length;
-        const totalPages = Math.max(1, Math.ceil(totalItems / state.perPage));
-        state.page = Math.min(state.page, totalPages);
-        state.page = Math.max(1, state.page);
-
-        const start = (state.page - 1) * state.perPage;
-        const end = start + state.perPage;
-        const visibleCards = filteredCards.slice(start, end);
-        const visibleRows = filteredRows.slice(start, end);
-
-        cardItems.forEach((card) => {
-          card.style.display = 'none';
-        });
-        visibleCards.forEach((card) => {
-          card.style.display = '';
-        });
-
-        getTableRows().forEach((row) => {
-          row.style.display = 'none';
-        });
-        visibleRows.forEach((row) => {
-          row.style.display = '';
-        });
-
-        if (countLabel) {
-          countLabel.textContent = `${totalItems} project${totalItems === 1 ? '' : 's'} found`;
-        }
-        if (pageSummary) {
-          if (totalItems) {
-            pageSummary.textContent = `Showing ${start + 1}-${Math.min(end, totalItems)} of ${totalItems}`;
-          } else {
-            pageSummary.textContent = 'Showing 0 of 0';
-          }
-        }
-        if (prevButton) prevButton.disabled = state.page <= 1;
-        if (nextButton) nextButton.disabled = state.page >= totalPages || totalItems === 0;
-        if (controls) controls.classList.toggle('d-none', totalItems === 0);
-        if (emptyTableRow) {
-          emptyTableRow.style.display = getTableRows().length ? 'none' : '';
-        }
-
-        if (perPageSelect && String(state.perPage) !== perPageSelect.value) {
-          perPageSelect.value = String(state.perPage);
-        }
-        saveState();
-      }
-
-      function sortTable(key, direction) {
-        if (!tableBody) return;
-        const sorted = getTableRows().slice().sort((a, b) => {
-          let aVal = '';
-          let bVal = '';
-
-          if (key === 'summary') {
-            aVal = `${a.dataset.name || ''} ${a.dataset.description || ''}`;
-            bVal = `${b.dataset.name || ''} ${b.dataset.description || ''}`;
-          } else if (key === 'owner') {
-            aVal = a.dataset.owner || '';
-            bVal = b.dataset.owner || '';
-          } else if (key === 'created') {
-            aVal = a.dataset.created || '';
-            bVal = b.dataset.created || '';
-          } else if (key === 'progress') {
-            aVal = parseInt(a.dataset.progress || '0', 10);
-            bVal = parseInt(b.dataset.progress || '0', 10);
-          }
-
-          if (aVal < bVal) return direction === 'asc' ? -1 : 1;
-          if (aVal > bVal) return direction === 'asc' ? 1 : -1;
-          return 0;
-        });
-
-        sorted.forEach((row) => tableBody.appendChild(row));
-      }
-
-      function bindSortButtons() {
-        const sortButtons = document.querySelectorAll('.sort-btn');
-        sortButtons.forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const key = btn.dataset.sortKey;
-            const current = btn.dataset.sortDir || 'desc';
-            const nextDir = current === 'asc' ? 'desc' : 'asc';
-
-            sortButtons.forEach((other) => {
-              other.dataset.sortDir = '';
-              other.classList.remove('active');
-            });
-
-            btn.dataset.sortDir = nextDir;
-            btn.classList.add('active');
-            sortTable(key, nextDir);
-            applyFiltersAndPagination();
-          });
-        });
-      }
-
-      if (searchInput) {
-        searchInput.addEventListener('input', () => {
-          state.page = 1;
-          applyFiltersAndPagination();
-        });
-      }
-
-      if (perPageSelect) {
-        perPageSelect.addEventListener('change', () => {
-          const nextPerPage = parseInt(perPageSelect.value, 10);
-          if (![10, 25, 50, 100].includes(nextPerPage)) return;
-          state.perPage = nextPerPage;
-          state.page = 1;
-          applyFiltersAndPagination();
-        });
-      }
-
-      if (prevButton) {
-        prevButton.addEventListener('click', () => {
-          if (state.page <= 1) return;
-          state.page -= 1;
-          applyFiltersAndPagination();
-        });
-      }
-
-      if (nextButton) {
-        nextButton.addEventListener('click', () => {
-          state.page += 1;
-          applyFiltersAndPagination();
-        });
-      }
-
-      loadState();
-      bindSortButtons();
-      applyFiltersAndPagination();
-
-      const privateToggle = document.getElementById('id_is_private');
-      const sharingFields = document.getElementById('project-create-sharing-fields');
-      const syncSharingFields = () => {
-        if (!privateToggle || !sharingFields) return;
-        const visible = privateToggle.checked;
-        sharingFields.classList.toggle('d-none', !visible);
-      };
-      if (privateToggle) {
-        privateToggle.addEventListener('change', syncSharingFields);
-        syncSharingFields();
-      }
-
-    })();
-  </script>
 {% endblock %}
