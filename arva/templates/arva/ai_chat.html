@@ -1,272 +1,789 @@
 {% extends 'arva/base.html' %}
-
 {% load arva_tags %}
-
-
-
 {% block title %}AI Assistant - Arva{% endblock %}
 
-
-
 {% block content %}
+<style>
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
 
-<div class="container-fluid py-4">
+:root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-soft: #dbeafe;
+    --bg-main: #f4f5f7;
+    --bg-card: #ffffff;
+    --bg-chat: #f8fafc;
+    --bg-input: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --border-light: #e2e8f0;
+    --border-soft: #e9eef2;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.02);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.03);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.04);
+}
 
-    <div class="row">
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-        <div class="col-12">
+body {
+    background: var(--bg-main);
+}
 
-            <div class="d-flex justify-content-between align-items-center mb-4">
+/* Main Container */
+.ai-dashboard {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+    min-height: calc(100vh - 60px);
+}
 
-                <div>
+/* Header Modern */
+.modern-header {
+    background: var(--bg-card);
+    border-radius: 24px;
+    padding: 20px 28px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
 
-                    <h2 class="mb-1">
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
 
-                        <i class="fas fa-robot text-primary me-2"></i>AI Assistant
+.brand-icon {
+    width: 52px;
+    height: 52px;
+    background: var(--primary);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.15);
+}
 
-                    </h2>
+.brand-icon i {
+    font-size: 26px;
+    color: white;
+}
 
-                    <p class="text-muted mb-0">Asisten pintar untuk membantu mengelola tugas Anda</p>
+.brand-text h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+}
 
-                </div>
+.brand-text p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
-                <div class="d-flex gap-2">
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #e6f7e6;
+    color: #0f6e3f;
+    padding: 4px 12px;
+    border-radius: 30px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
 
-                    <button class="btn btn-outline-success" onclick="askTodayWork()">
+.status-badge i {
+    font-size: 6px;
+    color: #10b981;
+}
 
-                        <i class="fas fa-calendar-day me-1"></i> Apa yang harus dikerjakan hari ini?
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
 
-                    </button>
+.btn-modern {
+    padding: 10px 20px;
+    border-radius: 40px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
 
-                    <button class="btn btn-outline-danger" onclick="clearChat()">
+.btn-modern-primary {
+    background: var(--primary-soft);
+    color: var(--primary);
+    border-color: var(--border-light);
+}
 
-                        <i class="fas fa-trash me-1"></i> Hapus Percakapan
+.btn-modern-primary:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
 
-                    </button>
+.btn-modern-primary:hover i {
+    color: white;
+}
 
-                </div>
+.btn-modern-danger {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fee2e2;
+    padding: 10px 18px;
+}
 
+.btn-modern-danger:hover {
+    background: #b91c1c;
+    color: white;
+    border-color: #b91c1c;
+    transform: translateY(-1px);
+}
+
+.btn-modern i {
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+/* Main Chat Card */
+.chat-container {
+    background: var(--bg-card);
+    border-radius: 24px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-light);
+    overflow: hidden;
+    height: calc(100vh - 240px);
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Chat Header */
+.chat-header-modern {
+    padding: 16px 24px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-soft);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-profile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.profile-avatar {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.profile-avatar i {
+    font-size: 22px;
+    color: white;
+}
+
+.online-indicator {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: #22c55e;
+    border: 2px solid white;
+    border-radius: 50%;
+}
+
+.profile-info h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.profile-info p {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.profile-info p i {
+    color: #22c55e;
+    font-size: 6px;
+}
+
+.chat-badge {
+    background: var(--bg-chat);
+    padding: 6px 14px;
+    border-radius: 40px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border-soft);
+}
+
+.chat-badge i {
+    color: var(--primary);
+    font-size: 0.7rem;
+}
+
+/* Messages Area */
+.messages-modern {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: var(--bg-chat);
+    scroll-behavior: smooth;
+}
+
+.messages-modern::-webkit-scrollbar {
+    width: 5px;
+}
+
+.messages-modern::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.messages-modern::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 20px;
+}
+
+/* Welcome Screen Modern */
+.welcome-modern {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    text-align: center;
+    padding: 20px;
+}
+
+.welcome-robot {
+    width: 80px;
+    height: 80px;
+    background: var(--primary-soft);
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.1);
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+}
+
+.welcome-robot i {
+    font-size: 38px;
+    color: var(--primary);
+}
+
+.welcome-modern h2 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+}
+
+.welcome-modern p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 32px;
+    max-width: 380px;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    max-width: 440px;
+    margin-bottom: 36px;
+}
+
+.feature-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 18px;
+    padding: 16px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.feature-card:hover {
+    border-color: var(--primary-soft);
+    background: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.feature-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.feature-icon.blue { background: #dbeafe; color: #2563eb; }
+.feature-icon.purple { background: #ede9fe; color: #7c3aed; }
+.feature-icon.green { background: #dcfce7; color: #16a34a; }
+.feature-icon.orange { background: #ffedd5; color: #ea580c; }
+
+.feature-text {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.start-hint {
+    background: var(--bg-card);
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-sm);
+}
+
+.start-hint i {
+    color: var(--primary);
+    font-size: 0.8rem;
+}
+
+/* Message Item */
+.message-item {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+}
+
+.message-item.user {
+    flex-direction: row-reverse;
+}
+
+.message-avatar-modern {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.message-avatar-modern.ai {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
+.message-avatar-modern.user {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-soft);
+}
+
+.message-wrapper {
+    max-width: 68%;
+}
+
+.message-meta-modern {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    padding-left: 4px;
+}
+
+.message-item.user .message-meta-modern {
+    justify-content: flex-end;
+    padding-left: 0;
+    padding-right: 4px;
+}
+
+.sender-name {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+}
+
+.message-time {
+    font-size: 0.65rem;
+}
+
+.message-bubble-modern {
+    padding: 12px 18px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.message-bubble-modern.ai {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-soft);
+    border-bottom-left-radius: 6px;
+}
+
+.message-bubble-modern.user {
+    background: var(--primary);
+    color: white;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
+/* Typing Modern */
+.typing-modern {
+    padding: 8px 24px;
+    background: var(--bg-chat);
+}
+
+.typing-item {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.typing-bubble-modern {
+    background: var(--bg-card);
+    padding: 14px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--border-soft);
+    border-bottom-left-radius: 6px;
+    box-shadow: var(--shadow-sm);
+}
+
+.typing-animation {
+    display: flex;
+    gap: 4px;
+}
+
+.typing-animation span {
+    width: 6px;
+    height: 6px;
+    background: var(--primary);
+    border-radius: 50%;
+    animation: typingBounce 1.4s infinite ease-in-out;
+    opacity: 0.3;
+}
+
+.typing-animation span:nth-child(1) { animation-delay: 0s; }
+.typing-animation span:nth-child(2) { animation-delay: 0.2s; }
+.typing-animation span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+    30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Input Area Modern */
+.input-modern {
+    padding: 16px 24px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-soft);
+}
+
+.input-modern form {
+    display: flex;
+    gap: 12px;
+}
+
+.input-field-modern {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-soft);
+    border-radius: 40px;
+    padding: 4px 4px 4px 20px;
+    transition: all 0.2s ease;
+}
+
+.input-field-modern:focus-within {
+    background: white;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.input-field-modern input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    padding: 8px 0;
+}
+
+.input-field-modern input::placeholder {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.btn-send-modern {
+    width: 42px;
+    height: 42px;
+    background: var(--primary);
+    border: none;
+    border-radius: 30px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.btn-send-modern:hover {
+    background: var(--primary-dark);
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+}
+
+.privacy-modern {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 12px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.privacy-modern i {
+    color: var(--primary);
+    font-size: 0.6rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ai-dashboard { padding: 16px; }
+    .modern-header { padding: 16px 20px; }
+    .brand-icon { width: 44px; height: 44px; }
+    .brand-icon i { font-size: 22px; }
+    .brand-text h1 { font-size: 1.3rem; }
+    .header-actions { width: 100%; }
+    .btn-modern { flex: 1; justify-content: center; padding: 8px 12px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .message-wrapper { max-width: 80%; }
+    .chat-badge { display: none; }
+    .input-modern { padding: 12px 16px; }
+}
+</style>
+
+<div class="ai-dashboard">
+    
+    <!-- Modern Header -->
+    <div class="modern-header">
+        <div class="header-brand">
+            <div class="brand-icon">
+                <i class="fas fa-robot"></i>
             </div>
+            <div class="brand-text">
+                <h1>AI Assistant</h1>
+                <p>
+                    <span class="status-badge">
+                        <i class="fas fa-circle"></i>
+                        Online
+                    </span>
+                    <span>Asisten cerdas untuk tugas Anda</span>
+                </p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-modern btn-modern-primary" onclick="askTodayWork()">
+                <i class="fas fa-calendar-check"></i>
+                Tugas Hari Ini
+            </button>
+            <button class="btn-modern btn-modern-danger" onclick="clearChat()" title="Hapus percakapan">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+    </div>
 
-
-
-            <!-- Chat Container -->
-
-            <div class="card">
-
-                <div class="card-header bg-primary text-white">
-
-                    <h5 class="mb-0">
-
-                        <i class="fas fa-comments me-2"></i>Chat dengan AI
-
-                    </h5>
-
+    <!-- Main Chat Container -->
+    <div class="chat-container">
+        
+        <!-- Chat Header -->
+        <div class="chat-header-modern">
+            <div class="chat-profile">
+                <div class="profile-avatar">
+                    <i class="fas fa-robot"></i>
+                    <span class="online-indicator"></span>
                 </div>
+                <div class="profile-info">
+                    <h3>Arva AI</h3>
+                    <p>
+                        <i class="fas fa-circle"></i>
+                        Online • Siap membantu
+                    </p>
+                </div>
+            </div>
+            <div class="chat-badge">
+                <i class="fas fa-shield-alt"></i>
+                Private
+            </div>
+        </div>
 
-                <div class="card-body p-0">
+        <!-- Messages Area -->
+        <div class="messages-modern" id="chat-messages">
 
-                    <!-- Chat Messages -->
-
-                    <div id="chat-messages" class="chat-messages p-3" style="height: 500px; overflow-y: auto;">
-
-                        {% if chat_messages %}
-
-                            {% for msg in chat_messages %}
-
-                            <div class="chat-message {% if msg.role == 'user' %}chat-user{% else %}chat-ai{% endif %} mb-3">
-
-                                <div class="d-flex {% if msg.role == 'user' %}justify-content-end{% else %}justify-content-start{% endif %}">
-
-                                    <div class="chat-bubble {% if msg.role == 'user' %}bg-primary text-white{% else %}bg-light border{% endif %} p-3 rounded" style="max-width: 70%;">
-
-                                        <div class="chat-header small mb-1 {% if msg.role == 'user' %}text-white-50{% else %}text-muted{% endif %}">
-
-                                            {% if msg.role == 'user' %}
-
-                                                <i class="fas fa-user me-1"></i>Anda
-
-                                            {% else %}
-
-                                                <i class="fas fa-robot me-1"></i>AI Assistant
-
-                                            {% endif %}
-
-                                            <span class="ms-2">{{ msg.created_at|date:"H:i" }}</span>
-
-                                        </div>
-
-                                        <div class="chat-content">{{ msg.content|linebreaksbr }}</div>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                            {% endfor %}
-
-                        {% else %}
-
-                            <!-- Welcome Message -->
-
-                            <div class="text-center py-5" id="welcome-message">
-
-                                <i class="fas fa-robot fa-4x text-primary mb-3"></i>
-
-                                <h4>Selamat datang di AI Assistant!</h4>
-
-                                <p class="text-muted">Saya bisa membantu Anda:</p>
-
-                                <div class="row justify-content-center">
-
-                                    <div class="col-md-6">
-
-                                        <ul class="list-group list-group-flush text-start">
-
-                                            <li class="list-group-item"><i class="fas fa-check text-success me-2"></i>Menganalisis prioritas tugas Anda</li>
-
-                                            <li class="list-group-item"><i class="fas fa-check text-success me-2"></i>Memberikan rekomendasi pekerjaan hari ini</li>
-
-                                            <li class="list-group-item"><i class="fas fa-check text-success me-2"></i>Membantu breakdown tugas kompleks</li>
-
-                                            <li class="list-group-item"><i class="fas fa-check text-success me-2"></i>Mengingatkan tugas yang mendekati deadline</li>
-
-                                        </ul>
-
-                                    </div>
-
-                                </div>
-
-                                <p class="text-muted mt-3">Mulai chat di bawah atau klik "Apa yang harus dikerjakan hari ini?"</p>
-
-                            </div>
-
-                        {% endif %}
-
+            {% if chat_messages %}
+                {% for msg in chat_messages %}
+                <div class="message-item {% if msg.role == 'user' %}user{% endif %}">
+                    <div class="message-avatar-modern {% if msg.role == 'user' %}user{% else %}ai{% endif %}">
+                        <i class="fas {% if msg.role == 'user' %}fa-user{% else %}fa-robot{% endif %}"></i>
                     </div>
-
-
-
-                    <!-- Typing Indicator -->
-
-                    <div id="typing-indicator" class="px-3 py-2 d-none">
-
-                        <div class="d-flex align-items-center text-muted">
-
-                            <i class="fas fa-robot me-2"></i>
-
-                            <span>AI sedang mengetik</span>
-
-                            <span class="typing-dots ms-1">
-
-                                <span>.</span><span>.</span><span>.</span>
-
-                            </span>
-
+                    <div class="message-wrapper">
+                        <div class="message-meta-modern">
+                            <span class="sender-name">{% if msg.role == 'user' %}Anda{% else %}Arva AI{% endif %}</span>
+                            <span class="message-time">{{ msg.created_at|date:"H:i" }}</span>
                         </div>
-
+                        <div class="message-bubble-modern {% if msg.role == 'user' %}user{% else %}ai{% endif %}">
+                            {{ msg.content|linebreaksbr }}
+                        </div>
                     </div>
-
-
-
-                    <!-- Chat Input -->
-
-                    <div class="chat-input p-3 border-top bg-light">
-
-                        <form id="chat-form" onsubmit="sendMessage(event)">
-
-                            {% csrf_token %}
-
-                            <div class="input-group">
-
-                                <input type="text" id="chat-input" class="form-control" placeholder="Tanyakan apa saja tentang tugas Anda..." autocomplete="off">
-
-                                <button type="submit" class="btn btn-primary">
-
-                                    <i class="fas fa-paper-plane"></i> Kirim
-
-                                </button>
-
-                            </div>
-
-                        </form>
-
-                        <small class="text-muted mt-1 d-block">
-
-                            <i class="fas fa-lock me-1"></i>Percakapan ini bersifat pribadi - hanya Anda yang dapat melihatnya
-
-                        </small>
-
-                    </div>
-
                 </div>
+                {% endfor %}
+            {% else %}
+                <!-- Modern Welcome Screen -->
+                <div class="welcome-modern" id="welcome-message">
+                    <div class="welcome-robot">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h2>Halo! Saya Arva AI</h2>
+                    <p>Asisten pintar yang siap membantu mengelola tugas Anda</p>
+                    
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon blue">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <span class="feature-text">Analisis Prioritas</span>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon purple">
+                                <i class="fas fa-calendar-alt"></i>
+                            </div>
+                            <span class="feature-text">Rekomendasi Harian</span>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon green">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <span class="feature-text">Pengingat Deadline</span>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon orange">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <span class="feature-text">Saran Pekerjaan</span>
+                        </div>
+                    </div>
 
-            </div>
+                    <div class="start-hint">
+                        <i class="fas fa-arrow-down"></i>
+                        Ketik pertanyaan di bawah untuk memulai
+                    </div>
+                </div>
+            {% endif %}
 
         </div>
 
-    </div>
+        <!-- Typing Indicator -->
+        <div id="typing-indicator" class="typing-modern d-none">
+            <div class="typing-item">
+                <div class="message-avatar-modern ai">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="typing-bubble-modern">
+                    <div class="typing-animation">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <!-- Input Area -->
+        <div class="input-modern">
+            <form id="chat-form" onsubmit="sendMessage(event)">
+                {% csrf_token %}
+                <div class="input-field-modern">
+                    <input type="text" id="chat-input" 
+                           placeholder="Tanyakan sesuatu tentang tugas Anda..." 
+                           autocomplete="off">
+                    <button type="submit" class="btn-send-modern">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+            <div class="privacy-modern">
+                <i class="fas fa-lock"></i>
+                <span>Percakapan pribadi • Hanya Anda yang dapat melihat</span>
+            </div>
+        </div>
+    </div>
 </div>
 
-
-
-<style>
-
-.chat-messages {
-
-    background: #f8f9fa;
-
-}
-
-.chat-bubble {
-
-    position: relative;
-
-    word-wrap: break-word;
-
-}
-
-.chat-user .chat-bubble {
-
-    border-bottom-right-radius: 0;
-
-}
-
-.chat-ai .chat-bubble {
-
-    border-bottom-left-radius: 0;
-
-}
-
-.typing-dots span {
-
-    animation: typing 1.4s infinite;
-
-    opacity: 0;
-
-}
-
-.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-
-.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes typing {
-
-    0%, 100% { opacity: 0; }
-
-    50% { opacity: 1; }
-
-}
-
-</style>
-
-
-
 <script>
-
-// Get CSRF token from cookie
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -282,300 +799,114 @@ function getCookie(name) {
     return cookieValue;
 }
 
-// Scroll to bottom of chat
 function scrollToBottom() {
-
-    const chatMessages = document.getElementById('chat-messages');
-
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-
+    const el = document.getElementById('chat-messages');
+    el.scrollTop = el.scrollHeight;
 }
-
-
-
-// Show typing indicator
 
 function showTyping() {
-
     document.getElementById('typing-indicator').classList.remove('d-none');
-
     scrollToBottom();
-
 }
-
-
-
-// Hide typing indicator
 
 function hideTyping() {
-
     document.getElementById('typing-indicator').classList.add('d-none');
-
 }
-
-
-
-// Add message to chat
 
 function addMessage(role, content, time) {
-
-    const chatMessages = document.getElementById('chat-messages');
-
-    const welcomeMsg = document.getElementById('welcome-message');
-
-    
-
-    // Remove welcome message if exists
-
-    if (welcomeMsg) {
-
-        welcomeMsg.remove();
-
-    }
-
-    
+    const area = document.getElementById('chat-messages');
+    const welcome = document.getElementById('welcome-message');
+    if (welcome) welcome.remove();
 
     const isUser = role === 'user';
-
-    const messageHtml = `
-
-        <div class="chat-message ${isUser ? 'chat-user' : 'chat-ai'} mb-3">
-
-            <div class="d-flex ${isUser ? 'justify-content-end' : 'justify-content-start'}">
-
-                <div class="chat-bubble ${isUser ? 'bg-primary text-white' : 'bg-light border'} p-3 rounded" style="max-width: 70%;">
-
-                    <div class="chat-header small mb-1 ${isUser ? 'text-white-50' : 'text-muted'}">
-
-                        ${isUser ? '<i class="fas fa-user me-1"></i>Anda' : '<i class="fas fa-robot me-1"></i>AI Assistant'}
-
-                        <span class="ms-2">${time}</span>
-
-                    </div>
-
-                    <div class="chat-content">${content.replace(/\n/g, '<br>')}</div>
-
-                </div>
-
+    const html = `
+        <div class="message-item ${isUser ? 'user' : ''}">
+            <div class="message-avatar-modern ${isUser ? 'user' : 'ai'}">
+                <i class="fas ${isUser ? 'fa-user' : 'fa-robot'}"></i>
             </div>
-
+            <div class="message-wrapper">
+                <div class="message-meta-modern">
+                    <span class="sender-name">${isUser ? 'Anda' : 'Arva AI'}</span>
+                    <span class="message-time">${time}</span>
+                </div>
+                <div class="message-bubble-modern ${isUser ? 'user' : 'ai'}">
+                    ${content.replace(/\n/g, '<br>')}
+                </div>
+            </div>
         </div>
-
     `;
-
-    
-
-    chatMessages.insertAdjacentHTML('beforeend', messageHtml);
-
+    area.insertAdjacentHTML('beforeend', html);
     scrollToBottom();
-
 }
-
-
-
-// Send message
 
 async function sendMessage(event) {
-
     event.preventDefault();
-
-    
-
     const input = document.getElementById('chat-input');
-
     const message = input.value.trim();
-
-    
-
     if (!message) return;
-
-    
-
-    // Clear input
-
     input.value = '';
-
-    
-
-    // Add user message
-
     const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
     addMessage('user', message, now);
-
-    
-
-    // Show typing indicator
-
     showTyping();
-
-    
-
     try {
-
         const response = await fetch('/ai/chat/send/', {
-
             method: 'POST',
-
-            headers: {
-
-                'Content-Type': 'application/x-www-form-urlencoded',
-
-                'X-CSRFToken': getCookie('csrftoken')
-
+            headers: { 
+                'Content-Type': 'application/x-www-form-urlencoded', 
+                'X-CSRFToken': getCookie('csrftoken') 
             },
-
             body: 'message=' + encodeURIComponent(message)
-
         });
-
-        
-
         const data = await response.json();
-
-        
-
         hideTyping();
-
-        
-
         if (data.success) {
-
             addMessage('assistant', data.ai_message.content, data.ai_message.created_at);
-
         } else {
-
             addMessage('assistant', 'Maaf, terjadi kesalahan: ' + (data.error || 'Unknown error'), now);
-
         }
-
     } catch (error) {
-
         hideTyping();
-
         addMessage('assistant', 'Maaf, terjadi kesalahan koneksi. Silakan coba lagi.', now);
-
     }
-
 }
-
-
-
-// Ask today's work recommendation
 
 async function askTodayWork() {
-
-    const input = document.getElementById('chat-input');
-
-    input.value = 'Apa yang harus saya kerjakan hari ini?';
-
-    
-
-    // Add user message
-
     const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
     addMessage('user', 'Apa yang harus saya kerjakan hari ini?', now);
-
-    
-
     showTyping();
-
-    
-
     try {
-
         const response = await fetch('/ai/chat/today-work/');
-
         const data = await response.json();
-
-        
-
         hideTyping();
-
-        
-
         if (data.success) {
-
             addMessage('assistant', data.message.content, data.message.created_at);
-
         } else {
-
             addMessage('assistant', 'Maaf, terjadi kesalahan: ' + (data.error || 'Unknown error'), now);
-
         }
-
     } catch (error) {
-
         hideTyping();
-
         addMessage('assistant', 'Maaf, terjadi kesalahan koneksi. Silakan coba lagi.', now);
-
     }
-
 }
-
-
-
-// Clear chat
 
 async function clearChat() {
-
-    if (!confirm('Apakah Anda yakin ingin menghapus semua percakapan?')) return;
-
-    
-
+    if (!confirm('Hapus semua percakapan?')) return;
     try {
-
         const response = await fetch('/ai/chat/clear/', {
-
             method: 'POST',
-
-            headers: {
-
-                'X-CSRFToken': getCookie('csrftoken')
-
-            }
-
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
         });
-
-        
-
         const data = await response.json();
-
-        
-
-        if (data.success) {
-
-            location.reload();
-
-        }
-
+        if (data.success) location.reload();
     } catch (error) {
-
         alert('Gagal menghapus percakapan');
-
     }
-
 }
 
-
-
-// Scroll to bottom on load
-
-document.addEventListener('DOMContentLoaded', scrollToBottom);
-
-
-
-// Focus input on load
-
 document.addEventListener('DOMContentLoaded', () => {
-
+    scrollToBottom();
     document.getElementById('chat-input').focus();
-
 });
-
 </script>
 
 {% endblock %}
-

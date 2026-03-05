@@ -3,7 +3,7 @@ import os
 from typing import Dict, List, Optional
 from django.utils import timezone
 from datetime import timedelta
-import google.generativeai as genai
+from google import genai
 from django.conf import settings
 from django.db import models
 
@@ -15,8 +15,10 @@ class GeminiService:
         api_key = getattr(settings, 'GEMINI_API_KEY', os.environ.get('GEMINI_API_KEY'))
         if not api_key:
             raise ValueError("GEMINI_API_KEY not configured")
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-flash-latest')
+        # Initialize client with v1 API
+        self.client = genai.Client(api_key=api_key, http_options={'api_version': 'v1'})
+        # Use gemini-2.5-flash (latest available model with quota)
+        self.model_name = 'gemini-2.5-flash'
     
     def _build_task_context(self, task) -> Dict:
         """Build comprehensive context for a task."""
@@ -116,7 +118,10 @@ Respond ONLY with the JSON, no other text."""
             context = self._build_task_context(task)
             prompt = self._build_analysis_prompt(context)
             
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             response_text = response.text.strip()
             
             # Extract JSON from response (handle markdown code blocks)
@@ -195,8 +200,10 @@ class AIChatService:
         api_key = getattr(settings, 'GEMINI_API_KEY', os.environ.get('GEMINI_API_KEY'))
         if not api_key:
             raise ValueError("GEMINI_API_KEY not configured")
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-flash-latest')
+        # Initialize client with v1 API
+        self.client = genai.Client(api_key=api_key, http_options={'api_version': 'v1'})
+        # Use gemini-2.5-flash (latest available model with quota)
+        self.model_name = 'gemini-2.5-flash'
     
     def _get_user_tasks_context(self, user) -> str:
         """Get formatted context of user's tasks."""
@@ -277,27 +284,32 @@ Selalu ingat: Kamu hanya bisa melihat tugas user di atas. Jangan berikan informa
     def chat(self, user, message: str, chat_history: List[Dict] = None) -> str:
         """Process chat message and return AI response."""
         try:
-            # Build conversation
-            conversation = []
-            
-            # Add system prompt as first message
+            # Build system prompt
             system_prompt = self._build_system_prompt(user)
-            conversation.append({
-                'role': 'user',
-                'parts': [f"System: {system_prompt}\n\nUser: {message}"]
-            })
+            
+            # Build conversation content for new API
+            # New API expects either a simple string or properly structured content
+            full_prompt = f"""{system_prompt}
+
+User: {message}
+
+Assistant:"""
             
             # Add chat history if exists
             if chat_history:
                 for msg in chat_history[-10:]:  # Keep last 10 messages for context
-                    role = 'user' if msg['role'] == 'user' else 'model'
-                    conversation.append({
-                        'role': role,
-                        'parts': [msg['content']]
-                    })
+                    if msg['role'] == 'user':
+                        full_prompt += f"\nUser: {msg['content']}"
+                    else:
+                        full_prompt += f"\nAssistant: {msg['content']}"
+                
+                full_prompt += f"\nAssistant:"
             
-            # Generate response
-            response = self.model.generate_content(conversation)
+            # Generate response using new API - pass as simple string
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt
+            )
             return response.text.strip()
             
         except Exception as e:

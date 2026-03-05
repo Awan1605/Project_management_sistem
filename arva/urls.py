@@ -5,7 +5,7 @@ from . import views
 urlpatterns = [
     # Auth
     path('login/', auth_views.LoginView.as_view(template_name='arva/auth_login.html'), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('logout/', views.custom_logout, name='logout'),
     # path('register/', views.register, name='register'),
 
     # Projects & board
@@ -83,6 +83,7 @@ urlpatterns = [
 
     # AI Priority Analysis
     path('ai/priority-queue/', views.ai_priority_queue, name='ai_priority_queue'),
+    path('ai/priority-refresh/', views.ai_priority_refresh, name='ai_priority_refresh'),
     path('ai/analyze-task/<int:task_id>/', views.ai_analyze_task, name='ai_analyze_task'),
     path('ai/analyze-project/<int:pk>/', views.ai_analyze_project, name='ai_analyze_project'),
     

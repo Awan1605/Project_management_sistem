@@ -24,6 +24,36 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.checklist-progress-bar[data-percent]').forEach(function (el) {
     el.style.width = el.getAttribute('data-percent') + '%';
   });
+  
+  // Check if we need to open a task modal automatically (from AI Priority Queue or other links)
+  const urlParams = new URLSearchParams(window.location.search);
+  const openTaskId = urlParams.get('open_task');
+  if (openTaskId && typeof loadTaskView === 'function') {
+    // Show loading message
+    Swal.fire({
+      title: 'Loading Task...',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+    
+    // Load the task view
+    loadTaskView(openTaskId);
+    
+    // Open the modal
+    $('#taskViewModal').modal('show');
+    
+    // Close loading message when modal is shown
+    $('#taskViewModal').on('shown.bs.modal', function() {
+      Swal.close();
+      // Remove the URL parameter without reloading
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.delete('open_task');
+      window.history.replaceState({}, '', newUrl);
+    });
+  }
 });
 
 function showError(message, title = 'Error') {

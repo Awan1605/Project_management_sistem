@@ -67,6 +67,20 @@ def register(request):
         form = RegisterForm()
     return render(request, 'arva/auth_register.html', {'form': form})
 
+def custom_logout(request):
+    """Custom logout view that works with allauth."""
+    from django.contrib.auth import logout
+    
+    # Perform Django logout (works for both GET and POST)
+    logout(request)
+    
+    # Clear any allauth specific session data if exists
+    if 'allauth' in request.session:
+        del request.session['allauth']
+    
+    # Redirect to login page
+    return redirect('login')
+
 def get_user_project_or_404(user, pk):
     qs = get_accessible_projects_queryset(user)
     return get_object_or_404(qs, pk=pk)
@@ -1969,8 +1983,6 @@ def ai_analyze_project(request, pk):
 def ai_priority_queue(request):
     """Display AI-prioritized task queue for the user."""
     try:
-        ai_service = get_ai_service()
-        
         # Get tasks for user
         tasks = Task.objects.filter(
             is_archived=False
@@ -1984,15 +1996,17 @@ def ai_priority_queue(request):
             'assignees', 'labels', 'checklist_items'
         )[:50]
         
-        # Analyze tasks that haven't been analyzed recently
+        # Only show cached analysis - NO API calls on page load
         priorities = []
         for task in tasks:
-            # Use cached analysis if recent (less than 1 hour old)
-            if task.ai_analyzed_at and (now() - task.ai_analyzed_at).seconds < 3600:
+            # Only include tasks that have been analyzed before
+            if task.ai_priority_score is not None:
                 priorities.append({
                     'task_id': task.id,
                     'task_title': task.title,
+                    'project_id': task.project.id,
                     'project_name': task.project.name,
+                    'sub_project_name': task.sub_project.name if task.sub_project else None,
                     'priority_score': task.ai_priority_score,
                     'priority_level': _get_priority_level(task.ai_priority_score),
                     'complexity': task.ai_complexity,
@@ -2000,32 +2014,8 @@ def ai_priority_queue(request):
                     'reasoning': task.ai_priority_reason,
                     'due_date': task.due_date.strftime('%d %b %Y') if task.due_date else None,
                     'task_list': task.task_list.name if task.task_list else None,
+                    'has_analysis': task.ai_analyzed_at is not None,
                 })
-            else:
-                # Analyze fresh
-                analysis = ai_service.analyze_task(task)
-                if 'error' not in analysis:
-                    task.ai_priority_score = analysis.get('priority_score')
-                    task.ai_priority_reason = analysis.get('reasoning', '')
-                    task.ai_complexity = analysis.get('complexity', '')
-                    task.ai_estimated_hours = analysis.get('estimated_hours')
-                    task.ai_analyzed_at = now()
-                    task.save(update_fields=[
-                        'ai_priority_score', 'ai_priority_reason', 'ai_complexity',
-                        'ai_estimated_hours', 'ai_analyzed_at'
-                    ])
-                    priorities.append({
-                        'task_id': task.id,
-                        'task_title': task.title,
-                        'project_name': task.project.name,
-                        'priority_score': analysis.get('priority_score'),
-                        'priority_level': analysis.get('priority_level'),
-                        'complexity': analysis.get('complexity'),
-                        'estimated_hours': analysis.get('estimated_hours'),
-                        'reasoning': analysis.get('reasoning'),
-                        'due_date': task.due_date.strftime('%d %b %Y') if task.due_date else None,
-                        'task_list': task.task_list.name if task.task_list else None,
-                    })
         
         # Sort by priority score
         priorities.sort(key=lambda x: x.get('priority_score', 0) or 0, reverse=True)
@@ -2035,13 +2025,6 @@ def ai_priority_queue(request):
             'total_tasks': len(priorities)
         })
         
-    except ValueError as e:
-        messages.error(request, 'AI service not configured. Please set GEMINI_API_KEY in settings.')
-        return render(request, 'arva/ai_priority_queue.html', {
-            'priorities': [],
-            'total_tasks': 0,
-            'error': 'AI service not configured'
-        })
     except Exception as e:
         messages.error(request, f'Error loading priority queue: {str(e)}')
         return render(request, 'arva/ai_priority_queue.html', {
@@ -2049,6 +2032,58 @@ def ai_priority_queue(request):
             'total_tasks': 0,
             'error': str(e)
         })
+
+
+@login_required
+@require_POST
+def ai_priority_refresh(request):
+    """Refresh AI analysis for all tasks (called via AJAX)."""
+    try:
+        ai_service = get_ai_service()
+        
+        # Get tasks for user
+        tasks = Task.objects.filter(
+            is_archived=False
+        ).filter(
+            Q(assignees=request.user) | Q(project__owner=request.user)
+        ).exclude(
+            task_list__name__iexact='Done'
+        ).select_related(
+            'project', 'task_list'
+        )[:50]
+        
+        # Analyze all tasks
+        analyzed_count = 0
+        for task in tasks:
+            analysis = ai_service.analyze_task(task)
+            if 'error' not in analysis:
+                task.ai_priority_score = analysis.get('priority_score')
+                task.ai_priority_reason = analysis.get('reasoning', '')
+                task.ai_complexity = analysis.get('complexity', '')
+                task.ai_estimated_hours = analysis.get('estimated_hours')
+                task.ai_analyzed_at = now()
+                task.save(update_fields=[
+                    'ai_priority_score', 'ai_priority_reason', 'ai_complexity',
+                    'ai_estimated_hours', 'ai_analyzed_at'
+                ])
+                analyzed_count += 1
+        
+        return JsonResponse({
+            'success': True,
+            'analyzed_count': analyzed_count,
+            'message': f'Successfully analyzed {analyzed_count} tasks'
+        })
+        
+    except ValueError as e:
+        return JsonResponse({
+            'success': False,
+            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
     
 def _get_priority_level(score):
     """Helper to convert score to priority level."""
