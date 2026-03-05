@@ -80,15 +80,4 @@ urlpatterns = [
     path('settings/website/', views.website_settings, name='website_settings'),
     path('profile/theme/update/', views.update_user_theme, name='update_user_theme'),
     path('profile/layout/update/', views.update_user_layout, name='update_user_layout'),
-    
-    # AI Priority Analysis
-    path('ai/priority-queue/', views.ai_priority_queue, name='ai_priority_queue'),
-    path('ai/analyze-task/<int:task_id>/', views.ai_analyze_task, name='ai_analyze_task'),
-    path('ai/analyze-project/<int:pk>/', views.ai_analyze_project, name='ai_analyze_project'),
-    
-    # AI Chat Assistant
-    path('ai/chat/', views.ai_chat, name='ai_chat'),
-    path('ai/chat/send/', views.ai_chat_send, name='ai_chat_send'),
-    path('ai/chat/clear/', views.ai_chat_clear, name='ai_chat_clear'),
-    path('ai/chat/today-work/', views.ai_chat_today_work, name='ai_chat_today_work'),
 ]

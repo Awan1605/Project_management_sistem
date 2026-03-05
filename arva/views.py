@@ -14,12 +14,11 @@ from django.contrib import messages
 from django.utils.html import strip_tags
 from django.utils.timezone import now
 from .utils import EmailThread
-from .ai_services import get_ai_service, GeminiService, get_ai_chat_service, AIChatService
 
 from .models import (
     Project, ProjectMember, SubProject, Task, Comment, Attachment,
     ActivityLog, TaskList, ChecklistItem, Label,
-    UserProfile, UserActivity, WebsiteSettings, AIChatMessage
+    UserProfile, UserActivity, WebsiteSettings
 )
 from .forms import (
     RegisterForm, ProjectForm, SubProjectForm, TaskForm,
@@ -30,6 +29,21 @@ from .forms import (
 )
 
 User = get_user_model()
+
+
+STRUCTURED_TASK_PRIORITIES = {
+    Task.PRIORITY_P0,
+    Task.PRIORITY_P1,
+    Task.PRIORITY_P2,
+    Task.PRIORITY_P3,
+    Task.PRIORITY_P4,
+}
+STRUCTURED_TASK_STATUSES = {
+    Task.STATUS_NONE,
+    Task.STATUS_IN_PROGRESS,
+    Task.STATUS_DONE,
+    Task.STATUS_INFEASIBLE,
+}
 
 
 def get_accessible_projects_queryset(user):
@@ -60,17 +74,22 @@ def get_project_subproject_or_404(project, sub_id):
     return get_object_or_404(SubProject, id=sub_id, project=project)
 
 def get_role(user, project):
-    return project.get_user_role(user)
+    if not project.can_user_view(user):
+        return None
+    # Legacy templates/endpoints still branch on "admin".
+    # With role-based access removed, all project-access users are treated uniformly.
+    return ProjectMember.ROLE_ADMIN
 
 def require_role(user, project, allowed_roles):
-    role = get_role(user, project)
-    if role not in allowed_roles:
-        return False
-    return True
+    # Team/role gating is deprecated. Preserve owner-only control for endpoints
+    # that previously required admin, and allow project-access users otherwise.
+    normalized = set(allowed_roles or [])
+    if normalized == {ProjectMember.ROLE_ADMIN}:
+        return project.owner_id == user.id
+    return project.can_user_view(user)
 
 def sync_project_shares(project, cleaned_data):
     selected_users = cleaned_data.get('shared_users') or User.objects.none()
-    default_role = cleaned_data.get('shared_role') or ProjectMember.ROLE_VIEWER
     selected_ids = set(selected_users.values_list('id', flat=True))
 
     if project.is_private:
@@ -80,10 +99,10 @@ def sync_project_shares(project, cleaned_data):
             membership, _ = ProjectMember.objects.get_or_create(
                 project=project,
                 user=user,
-                defaults={'role': default_role},
+                defaults={'role': ProjectMember.ROLE_MEMBER},
             )
-            if membership.role != default_role:
-                membership.role = default_role
+            if membership.role != ProjectMember.ROLE_MEMBER:
+                membership.role = ProjectMember.ROLE_MEMBER
                 membership.save(update_fields=['role'])
     # Public projects remain transparent; existing memberships still define elevated roles.
 
@@ -177,12 +196,22 @@ def user_list(request):
         return redirect('project_list')
 
     q = request.GET.get('q', '').strip()
-    users = User.objects.all().order_by('username')
+    users = User.objects.select_related('userprofile', 'useractivity').annotate(
+        last_comment_at=Max('comment__created_at'),
+        last_action_at=Max('activitylog__created_at'),
+        last_presence_at=Max('useractivity__last_activity'),
+    ).order_by('username')
     if q:
         users = users.filter(
             Q(username__icontains=q) |
             Q(email__icontains=q)
         )
+
+    users = list(users)
+    for u in users:
+        candidates = [u.last_comment_at, u.last_action_at, u.last_presence_at]
+        candidates = [dt for dt in candidates if dt is not None]
+        u.last_activity_at = max(candidates) if candidates else None
 
     return render(request, 'arva/user_list.html', {
         'users': users,
@@ -219,7 +248,7 @@ def user_edit(request, user_id):
         return redirect('project_list')
 
     user_obj = get_object_or_404(User, id=user_id)
-    profile, created = UserProfile.objects.get_or_create(user=user_obj)
+    profile = user_obj.userprofile
 
     if request.method == 'POST':
         user_form = UserEditForm(request.POST, instance=user_obj)
@@ -316,13 +345,10 @@ def project_member_update_role(request, pm_id):
     pm = get_object_or_404(ProjectMember, id=pm_id)
     if not request.user.is_superuser:
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
-
-    new_role = request.POST.get('role')
-    if new_role not in ['admin', 'member', 'viewer']:
-        return JsonResponse({'success': False, 'error': 'Invalid role'}, status=400)
-
-    pm.role = new_role
-    pm.save()
+    # Role updates are deprecated; keep memberships as plain project sharing.
+    if pm.role != ProjectMember.ROLE_MEMBER:
+        pm.role = ProjectMember.ROLE_MEMBER
+        pm.save(update_fields=['role'])
 
     return JsonResponse({'success': True})
 
@@ -345,9 +371,7 @@ def project_list(request):
         'subprojects',
         'memberships__user',
     ).distinct().order_by('-created_at')
-    admin_projects = Project.objects.filter(
-        Q(owner=request.user) | Q(memberships__user=request.user, memberships__role=ProjectMember.ROLE_ADMIN)
-    ).distinct().order_by('name')
+    admin_projects = Project.objects.filter(owner=request.user).distinct().order_by('name')
     online_cutoff = now() - timedelta(minutes=1)
     online_users = User.objects.filter(useractivity__last_activity__gte=online_cutoff).order_by('username')
 
@@ -413,8 +437,9 @@ def task_search_by_user(request):
 
 @login_required
 def my_cards(request):
+    accessible_projects = get_accessible_projects_queryset(request.user)
     tasks = Task.objects.filter(
-        # assignees=request.user,
+        project__in=accessible_projects,
         is_archived=False
     ).select_related('project', 'task_list').order_by('due_date', 'project__name')
     return render(request, 'arva/my_cards.html', {'tasks': tasks})
@@ -450,9 +475,7 @@ def project_create(request):
 @require_POST
 def project_edit(request, pk):
     project = get_user_project_or_404(request.user, pk)
-    role = get_role(request.user, project)
-
-    if role != ProjectMember.ROLE_ADMIN:
+    if project.owner_id != request.user.id:
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
 
     form = ProjectForm(request.POST, instance=project, current_user=request.user)
@@ -464,6 +487,12 @@ def project_edit(request, pk):
             'name': project.name,
             'description': project.description,
             'is_private': project.is_private,
+            'is_project': project.is_project,
+            'priority': project.priority,
+            'pm_assignee_id': project.pm_assignee_id,
+            'start_date': project.start_date.isoformat() if project.start_date else '',
+            'start_date_tbd': project.start_date_tbd,
+            'etd': project.etd.isoformat() if project.etd else '',
         })
 
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
@@ -613,7 +642,7 @@ def subproject_convert_to_project(request, subproject_id):
     ProjectMember.objects.get_or_create(
         project=new_project,
         user=source_project.owner,
-        defaults={'role': ProjectMember.ROLE_ADMIN},
+        defaults={'role': ProjectMember.ROLE_MEMBER},
     )
 
     TaskList.objects.filter(sub_project=subproject).update(
@@ -668,8 +697,14 @@ def project_detail(request, pk):
     q = request.GET.get('q', '')
     assignee_id = request.GET.get('assignee', '')
     assignee_query = request.GET.get('assignee_q', '').strip()
+    status_id = request.GET.get('status', '').strip()
+    priority_code = request.GET.get('priority', '').strip()
     label_id = request.GET.get('label', '')
     due = request.GET.get('due', '')
+    page_number = request.GET.get('page', 1)
+    per_page = request.GET.get('per_page', '25').strip()
+    if per_page not in {'10', '25', '50', '100'}:
+        per_page = '25'
 
     base_tasks = Task.objects.filter(project=project, is_archived=False).select_related(
         'task_list', 'project', 'sub_project'
@@ -686,9 +721,6 @@ def project_detail(request, pk):
         else:
             base_tasks = base_tasks.filter(sub_project__isnull=True)
 
-    if role != ProjectMember.ROLE_ADMIN:
-        base_tasks = base_tasks.filter(assignees=request.user)
-
     if q:
         base_tasks = base_tasks.filter(title__icontains=q)
     if assignee_id:
@@ -698,11 +730,23 @@ def project_detail(request, pk):
             Q(assignees__username__icontains=assignee_query) |
             Q(assignees__email__icontains=assignee_query)
         )
-    if label_id:
-        base_tasks = base_tasks.filter(labels__id=label_id)
+    if project.is_project:
+        if status_id and status_id in STRUCTURED_TASK_STATUSES:
+            base_tasks = base_tasks.filter(status=status_id)
+        if priority_code and priority_code in STRUCTURED_TASK_PRIORITIES:
+            base_tasks = base_tasks.filter(priority=priority_code)
+    else:
+        if status_id:
+            base_tasks = base_tasks.filter(task_list_id=status_id)
+        if label_id:
+            base_tasks = base_tasks.filter(labels__id=label_id)
     if due:
         base_tasks = base_tasks.filter(due_date__lte=due)
     base_tasks = base_tasks.distinct()
+
+    list_tasks_qs = base_tasks.order_by('-updated_at', '-id')
+    list_paginator = Paginator(list_tasks_qs, int(per_page))
+    list_page_obj = list_paginator.get_page(page_number)
 
     if scope_all:
         grouped_task_lists = []
@@ -728,13 +772,33 @@ def project_detail(request, pk):
         ))
         grouped_task_lists = []
 
-    task_form = TaskForm()
+    status_lists_qs = project.lists.filter(is_archived=False)
+    if not scope_all:
+        status_lists_qs = status_lists_qs.filter(sub_project=selected_subproject if selected_subproject else None)
+    available_status_lists = status_lists_qs.order_by('position')
+    structured_status_options = [
+        (Task.STATUS_NONE, '-'),
+        (Task.STATUS_IN_PROGRESS, 'In Progress'),
+        (Task.STATUS_DONE, 'Done'),
+        (Task.STATUS_INFEASIBLE, 'Infeasible'),
+    ]
+    structured_priority_options = [
+        (Task.PRIORITY_P0, 'P0 - Urgent'),
+        (Task.PRIORITY_P1, 'P1 - High'),
+        (Task.PRIORITY_P2, 'P2 - Medium'),
+        (Task.PRIORITY_P3, 'P3 - Low'),
+        (Task.PRIORITY_P4, 'P4 - Very Low'),
+    ]
+
+    task_form = TaskForm(project=project)
     comment_form = CommentForm()
     attachment_form = AttachmentForm()
     checklist_form = ChecklistItemForm()
 
     shared_members = project.memberships.select_related('user', 'user__userprofile').order_by('user__username')
     shared_user_ids = set(shared_members.values_list('user_id', flat=True))
+    querystring = request.GET.copy()
+    querystring.pop('page', None)
 
     context = {
         'project': project,
@@ -752,9 +816,27 @@ def project_detail(request, pk):
         'selected_subproject': selected_subproject,
         'task_scope': 'all' if scope_all else 'sub',
         'grouped_task_lists': grouped_task_lists,
+        'list_page_obj': list_page_obj,
+        'per_page': per_page,
+        'per_page_options': ['10', '25', '50', '100'],
+        'available_status_lists': available_status_lists,
+        'structured_status_options': structured_status_options,
+        'structured_priority_options': structured_priority_options,
+        'querystring': querystring.urlencode(),
+        'filter_values': {
+            'q': q,
+            'assignee': assignee_id,
+            'assignee_q': assignee_query,
+            'status': status_id,
+            'priority': priority_code,
+            'label': label_id,
+            'due': due,
+            'page': str(list_page_obj.number),
+            'per_page': per_page,
+        },
         'shared_members': shared_members,
         'shared_user_ids': shared_user_ids,
-        'shared_role_default': shared_members.first().role if shared_members.exists() else ProjectMember.ROLE_VIEWER,
+        'shared_role_default': ProjectMember.ROLE_MEMBER,
         'all_users': User.objects.exclude(id=request.user.id).order_by('username'),
     }
 
@@ -768,7 +850,7 @@ def project_detail(request, pk):
 def project_archive(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
-    if role != ProjectMember.ROLE_ADMIN:
+    if project.owner_id != request.user.id:
         return HttpResponseForbidden("Forbidden")
 
     archived_lists = project.lists.filter(is_archived=True).order_by('position')
@@ -786,7 +868,7 @@ def project_archive(request, pk):
 def project_activity(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
-    if role != ProjectMember.ROLE_ADMIN:
+    if project.owner_id != request.user.id:
         return HttpResponseForbidden("Forbidden")
 
     activities = project.activities.select_related('user', 'task').order_by('-created_at')
@@ -859,9 +941,7 @@ def subproject_list(request, pk):
         return HttpResponseForbidden("Forbidden")
 
     subprojects = project.subprojects.all().order_by('created_at')
-    admin_projects = Project.objects.filter(
-        Q(owner=request.user) | Q(memberships__user=request.user, memberships__role=ProjectMember.ROLE_ADMIN)
-    ).distinct().order_by('name')
+    admin_projects = Project.objects.filter(owner=request.user).distinct().order_by('name')
     return render(request, 'arva/subproject_list.html', {
         'project': project,
         'subprojects': subprojects,
@@ -967,7 +1047,7 @@ def project_delete(request, pk):
 def project_members(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
-    if role != ProjectMember.ROLE_ADMIN:
+    if project.owner_id != request.user.id:
         return HttpResponseForbidden("Forbidden")
 
     members = project.memberships.select_related('user')
@@ -993,6 +1073,7 @@ def project_member_add(request, pk):
     if form.is_valid():
         member = form.save(commit=False)
         member.project = project
+        member.role = ProjectMember.ROLE_MEMBER
 
         if member.user == request.user:
             return HttpResponseForbidden("Tidak boleh menambahkan diri sendiri sebagai member.")
@@ -1022,9 +1103,6 @@ def project_member_update(request, member_id):
 
     new_role = request.POST.get("role")
 
-    if new_role not in ["admin", "member", "viewer"]:
-        return JsonResponse({"success": False, "error": "Invalid role"}, status=400)
-
     if member.user == project.owner:
         return JsonResponse({"success": False, "error": "Owner role cannot be changed."}, status=400)
 
@@ -1033,10 +1111,11 @@ def project_member_update(request, member_id):
     #     if remaining_admin == 0:
     #         return JsonResponse({"success": False, "error": "Project must have at least 1 admin."}, status=400)
 
-    member.role = new_role
-    member.save()
+    if member.role != ProjectMember.ROLE_MEMBER:
+        member.role = ProjectMember.ROLE_MEMBER
+        member.save(update_fields=["role"])
 
-    return JsonResponse({"success": True, "role": new_role})
+    return JsonResponse({"success": True, "role": ProjectMember.ROLE_MEMBER})
 
 @login_required
 @require_POST
@@ -1181,6 +1260,7 @@ def task_view(request, task_id):
     html = render_to_string('arva/_task_view.html', {
         'task': task,
         'project': project,
+        'project_is_project': project.is_project,
         'user_role': role,
         'users': users,
         'labels': labels,
@@ -1238,18 +1318,57 @@ def task_inline_update(request, task_id):
         task.description = value
         changed = True
         desc = "Description updated"
+    elif field == 'status':
+        if project.is_project and value not in STRUCTURED_TASK_STATUSES:
+            return JsonResponse({'success': False, 'error': 'Invalid status.'}, status=400)
+        task.status = value or Task.STATUS_NONE
+        changed = True
+        desc = "Status updated"
+    elif field == 'start_date':
+        parsed_start = datetime.strptime(value, "%Y-%m-%d").date() if value else None
+        if project.is_project and not parsed_start and not task.start_date_tbd:
+            return JsonResponse({'success': False, 'error': 'Start Date is required or mark it as TBD.'}, status=400)
+        task.start_date = parsed_start
+        if parsed_start:
+            task.start_date_tbd = False
+        if project.is_project and parsed_start and task.due_date and task.due_date < parsed_start:
+            return JsonResponse({'success': False, 'error': 'End Date cannot be earlier than Start Date.'}, status=400)
+        changed = True
+        desc = "Start date updated"
+    elif field == 'start_date_tbd':
+        is_tbd = str(value).lower() in {'1', 'true', 'on', 'yes'}
+        if project.is_project and not is_tbd and not task.start_date:
+            return JsonResponse({'success': False, 'error': 'Start Date is required or mark it as TBD.'}, status=400)
+        task.start_date_tbd = is_tbd
+        if is_tbd:
+            task.start_date = None
+        changed = True
+        desc = "Start date TBD updated"
     elif field == 'due_date':
-        task.due_date = datetime.strptime(value, "%Y-%m-%d").date() or None
+        parsed_due = datetime.strptime(value, "%Y-%m-%d").date() if value else None
+        if project.is_project and not parsed_due:
+            return JsonResponse({'success': False, 'error': 'End Date is required.'}, status=400)
+        if project.is_project and parsed_due and task.start_date and parsed_due < task.start_date:
+            return JsonResponse({'success': False, 'error': 'End Date cannot be earlier than Start Date.'}, status=400)
+        if project.is_project and parsed_due and project.etd and parsed_due > project.etd:
+            return JsonResponse({'success': False, 'error': 'End Date must not exceed project ETD.'}, status=400)
+        task.due_date = parsed_due
         changed = True
         desc = "Due date updated"
     elif field == 'priority':
-        task.priority = value or Task.PRIORITY_MEDIUM
+        if project.is_project and value not in STRUCTURED_TASK_PRIORITIES:
+            return JsonResponse({'success': False, 'error': 'Invalid priority for project task.'}, status=400)
+        task.priority = value or Task.PRIORITY_P2
         changed = True
         desc = "Priority updated"
     elif field == 'assignees':
         old_ids = set(task.assignees.values_list('id', flat=True))
 
         ids = [i for i in value.split(',') if i]
+        if project.is_project and len(ids) > 1:
+            return JsonResponse({'success': False, 'error': 'Only one assignee is allowed for project tasks.'}, status=400)
+        if project.is_project and len(ids) == 0:
+            return JsonResponse({'success': False, 'error': 'Assignee is required for project tasks.'}, status=400)
         new_ids = set(ids)
         task.assignees.set(ids)
         changed = True
@@ -1300,6 +1419,8 @@ def task_inline_update(request, task_id):
                     print("Email sending error:", e)
 
     elif field == 'labels':
+        if project.is_project:
+            return JsonResponse({'success': False, 'error': 'Labels are disabled for project tasks.'}, status=400)
         ids = [i for i in value.split(',') if i]
         task.labels.set(ids)
         changed = True
@@ -1316,7 +1437,8 @@ def task_inline_update(request, task_id):
     ActivityLog.objects.create(project=project, task=task, user=request.user, action='task_updated', description=desc)
 
     html = render_to_string('arva/_task_card.html', {'task': task, 'project': project, 'user_role': role}, request=request)
-    return JsonResponse({'success': True, 'html': html})
+    list_row_html = render_to_string('arva/_task_list_row.html', {'task': task, 'project': project, 'user_role': role}, request=request)
+    return JsonResponse({'success': True, 'html': html, 'list_row_html': list_row_html})
 
 @login_required
 @require_POST
@@ -1337,10 +1459,13 @@ def task_create(request, pk):
             return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
 
     data = request.POST.copy()
+    if project.is_project:
+        data.setlist('labels', [])
+        data.pop('cover_color', None)
     if 'priority' not in data or not data['priority']:
-        data['priority'] = Task.PRIORITY_MEDIUM
+        data['priority'] = Task.PRIORITY_P2
 
-    form = TaskForm(data)
+    form = TaskForm(data, project=project)
     if form.is_valid():
         task = form.save(commit=False)
         task.project = project
@@ -1351,6 +1476,13 @@ def task_create(request, pk):
         task.created_by = request.user
         task.save()
         form.save_m2m()
+
+        if not project.is_project:
+            initial_comment = request.POST.get('initial_comment', '').strip()
+            if initial_comment:
+                Comment.objects.create(task=task, user=request.user, content=initial_comment)
+            for uploaded in request.FILES.getlist('comment_files'):
+                Attachment.objects.create(task=task, uploaded_by=request.user, file=uploaded)
         ActivityLog.objects.create(
             user=request.user, project=project, task=task,
             action='task_created', description=f"Task '{task.title}' created"
@@ -1383,9 +1515,12 @@ def task_update(request, task_id):
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
     data = request.POST.copy()
+    if project.is_project:
+        data.setlist('labels', [])
+        data.pop('cover_color', None)
     if 'priority' not in data or not data['priority']:
-        data['priority'] = Task.PRIORITY_MEDIUM
-    form = TaskForm(data, instance=task)
+        data['priority'] = Task.PRIORITY_P2
+    form = TaskForm(data, instance=task, project=project)
     if form.is_valid():
         form.save()
         ActivityLog.objects.create(
@@ -1604,7 +1739,7 @@ def comment_delete(request, comment_id):
     project = get_user_project_or_404(request.user, task.project.id)
     role = get_role(request.user, project)
 
-    if not (role == ProjectMember.ROLE_ADMIN or comment.user == request.user):
+    if not (comment.user_id == request.user.id or project.owner_id == request.user.id):
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
 
     ActivityLog.objects.create(
@@ -1643,6 +1778,8 @@ def attachment_add(request, task_id):
 def checklist_add(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if project.is_project:
+        return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -1666,6 +1803,8 @@ def checklist_edit(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     task = item.task
     project = get_user_project_or_404(request.user, task.project.id)
+    if project.is_project:
+        return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
@@ -1691,6 +1830,8 @@ def checklist_edit(request, item_id):
 def checklist_toggle(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     project = get_user_project_or_404(request.user, item.task.project.id)
+    if project.is_project:
+        return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
     if role != ProjectMember.ROLE_ADMIN and request.user not in item.task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -1709,6 +1850,8 @@ def checklist_delete(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     task = item.task
     project = get_user_project_or_404(request.user, task.project.id)
+    if project.is_project:
+        return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
@@ -1721,315 +1864,3 @@ def checklist_delete(request, item_id):
     item.delete()
 
     return JsonResponse({"success": True})
-
-
-# AI Priority Analysis Views
-@login_required
-def ai_analyze_task(request, task_id):
-    """Analyze a single task using AI and return priority recommendations."""
-    task = get_object_or_404(Task, id=task_id)
-    project = get_user_project_or_404(request.user, task.project.id)
-    role = get_role(request.user, project)
-    
-    if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
-        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
-    
-    try:
-        ai_service = get_ai_service()
-        analysis = ai_service.analyze_task(task)
-        
-        if 'error' in analysis:
-            return JsonResponse({'success': False, 'error': analysis['error']}, status=500)
-        
-        # Save analysis results to task
-        task.ai_priority_score = analysis.get('priority_score')
-        task.ai_priority_reason = analysis.get('reasoning', '')
-        task.ai_complexity = analysis.get('complexity', '')
-        task.ai_estimated_hours = analysis.get('estimated_hours')
-        task.ai_analyzed_at = now()
-        task.save(update_fields=[
-            'ai_priority_score', 'ai_priority_reason', 'ai_complexity',
-            'ai_estimated_hours', 'ai_analyzed_at'
-        ])
-        
-        return JsonResponse({
-            'success': True,
-            'analysis': analysis
-        })
-        
-    except ValueError as e:
-        return JsonResponse({
-            'success': False, 
-            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
-        }, status=503)
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
-
-@login_required
-def ai_analyze_project(request, pk):
-    """Analyze all tasks in a project using AI."""
-    project = get_user_project_or_404(request.user, pk)
-    role = get_role(request.user, project)
-    
-    if role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]:
-        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
-    
-    try:
-        ai_service = get_ai_service()
-        
-        # Get all non-archived, non-done tasks
-        tasks = Task.objects.filter(
-            project=project,
-            is_archived=False
-        ).exclude(
-            task_list__name__iexact='Done'
-        ).select_related(
-            'task_list'
-        ).prefetch_related(
-            'assignees', 'labels', 'checklist_items'
-        )
-        
-        results = []
-        for task in tasks:
-            analysis = ai_service.analyze_task(task)
-            if 'error' not in analysis:
-                # Save to task
-                task.ai_priority_score = analysis.get('priority_score')
-                task.ai_priority_reason = analysis.get('reasoning', '')
-                task.ai_complexity = analysis.get('complexity', '')
-                task.ai_estimated_hours = analysis.get('estimated_hours')
-                task.ai_analyzed_at = now()
-                task.save(update_fields=[
-                    'ai_priority_score', 'ai_priority_reason', 'ai_complexity',
-                    'ai_estimated_hours', 'ai_analyzed_at'
-                ])
-                results.append(analysis)
-        
-        # Sort by priority score
-        results.sort(key=lambda x: x.get('priority_score', 0), reverse=True)
-        
-        return JsonResponse({
-            'success': True,
-            'analyzed_count': len(results),
-            'priorities': results
-        })
-        
-    except ValueError as e:
-        return JsonResponse({
-            'success': False, 
-            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
-        }, status=503)
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
-
-@login_required
-def ai_priority_queue(request):
-    """Display AI-prioritized task queue for the user."""
-    try:
-        ai_service = get_ai_service()
-        
-        # Get tasks for user
-        tasks = Task.objects.filter(
-            is_archived=False
-        ).filter(
-            Q(assignees=request.user) | Q(project__owner=request.user)
-        ).exclude(
-            task_list__name__iexact='Done'
-        ).select_related(
-            'project', 'task_list'
-        ).prefetch_related(
-            'assignees', 'labels', 'checklist_items'
-        )[:50]
-        
-        # Analyze tasks that haven't been analyzed recently
-        priorities = []
-        for task in tasks:
-            # Use cached analysis if recent (less than 1 hour old)
-            if task.ai_analyzed_at and (now() - task.ai_analyzed_at).seconds < 3600:
-                priorities.append({
-                    'task_id': task.id,
-                    'task_title': task.title,
-                    'project_name': task.project.name,
-                    'priority_score': task.ai_priority_score,
-                    'priority_level': _get_priority_level(task.ai_priority_score),
-                    'complexity': task.ai_complexity,
-                    'estimated_hours': task.ai_estimated_hours,
-                    'reasoning': task.ai_priority_reason,
-                    'due_date': task.due_date.strftime('%d %b %Y') if task.due_date else None,
-                    'task_list': task.task_list.name if task.task_list else None,
-                })
-            else:
-                # Analyze fresh
-                analysis = ai_service.analyze_task(task)
-                if 'error' not in analysis:
-                    task.ai_priority_score = analysis.get('priority_score')
-                    task.ai_priority_reason = analysis.get('reasoning', '')
-                    task.ai_complexity = analysis.get('complexity', '')
-                    task.ai_estimated_hours = analysis.get('estimated_hours')
-                    task.ai_analyzed_at = now()
-                    task.save(update_fields=[
-                        'ai_priority_score', 'ai_priority_reason', 'ai_complexity',
-                        'ai_estimated_hours', 'ai_analyzed_at'
-                    ])
-                    priorities.append({
-                        'task_id': task.id,
-                        'task_title': task.title,
-                        'project_name': task.project.name,
-                        'priority_score': analysis.get('priority_score'),
-                        'priority_level': analysis.get('priority_level'),
-                        'complexity': analysis.get('complexity'),
-                        'estimated_hours': analysis.get('estimated_hours'),
-                        'reasoning': analysis.get('reasoning'),
-                        'due_date': task.due_date.strftime('%d %b %Y') if task.due_date else None,
-                        'task_list': task.task_list.name if task.task_list else None,
-                    })
-        
-        # Sort by priority score
-        priorities.sort(key=lambda x: x.get('priority_score', 0) or 0, reverse=True)
-        
-        return render(request, 'arva/ai_priority_queue.html', {
-            'priorities': priorities,
-            'total_tasks': len(priorities)
-        })
-        
-    except ValueError as e:
-        messages.error(request, 'AI service not configured. Please set GEMINI_API_KEY in settings.')
-        return render(request, 'arva/ai_priority_queue.html', {
-            'priorities': [],
-            'total_tasks': 0,
-            'error': 'AI service not configured'
-        })
-    except Exception as e:
-        messages.error(request, f'Error loading priority queue: {str(e)}')
-        return render(request, 'arva/ai_priority_queue.html', {
-            'priorities': [],
-            'total_tasks': 0,
-            'error': str(e)
-        })
-
-
-def _get_priority_level(score):
-    """Helper to convert score to priority level."""
-    if score is None:
-        return 'Unknown'
-    if score >= 80:
-        return 'Critical'
-    elif score >= 60:
-        return 'High'
-    elif score >= 40:
-        return 'Medium'
-    else:
-        return 'Low'
-
-
-# AI Chat Assistant Views
-@login_required
-def ai_chat(request):
-    """Display AI Chat interface with conversation history."""
-    # Get chat history for this user (private)
-    chat_messages = AIChatMessage.objects.filter(
-        user=request.user
-    ).order_by('created_at')[:50]
-    
-    return render(request, 'arva/ai_chat.html', {
-        'chat_messages': chat_messages,
-    })
-
-
-@login_required
-@require_POST
-def ai_chat_send(request):
-    """Send message to AI and get response."""
-    message = request.POST.get('message', '').strip()
-    
-    if not message:
-        return JsonResponse({'success': False, 'error': 'Message is empty'})
-    
-    try:
-        # Save user message
-        user_msg = AIChatMessage.objects.create(
-            user=request.user,
-            role='user',
-            content=message
-        )
-        
-        # Get chat history for context
-        chat_history = list(AIChatMessage.objects.filter(
-            user=request.user
-        ).order_by('-created_at')[:10].values('role', 'content'))
-        chat_history.reverse()
-        
-        # Get AI response
-        ai_service = get_ai_chat_service()
-        ai_response = ai_service.chat(request.user, message, chat_history)
-        
-        # Save AI response
-        ai_msg = AIChatMessage.objects.create(
-            user=request.user,
-            role='assistant',
-            content=ai_response
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'user_message': {
-                'id': user_msg.id,
-                'content': user_msg.content,
-                'created_at': user_msg.created_at.strftime('%H:%M')
-            },
-            'ai_message': {
-                'id': ai_msg.id,
-                'content': ai_msg.content,
-                'created_at': ai_msg.created_at.strftime('%H:%M')
-            }
-        })
-        
-    except ValueError as e:
-        return JsonResponse({
-            'success': False, 
-            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
-        })
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
-
-
-@login_required
-@require_POST
-def ai_chat_clear(request):
-    """Clear chat history for current user."""
-    AIChatMessage.objects.filter(user=request.user).delete()
-    return JsonResponse({'success': True})
-
-
-@login_required
-def ai_chat_today_work(request):
-    """Get AI recommendation for today's work."""
-    try:
-        ai_service = get_ai_chat_service()
-        recommendation = ai_service.get_work_recommendation(request.user)
-        
-        # Save as AI message
-        ai_msg = AIChatMessage.objects.create(
-            user=request.user,
-            role='assistant',
-            content=recommendation
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'message': {
-                'id': ai_msg.id,
-                'content': ai_msg.content,
-                'created_at': ai_msg.created_at.strftime('%H:%M')
-            }
-        })
-        
-    except ValueError as e:
-        return JsonResponse({
-            'success': False, 
-            'error': 'AI service not configured. Please set GEMINI_API_KEY in settings.'
-        })
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
