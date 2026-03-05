@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -98,26 +99,65 @@ class UserProfile(models.Model):
         return "/static/arva/img/default-avatar.png"
 
 class Project(models.Model):
+    PRIORITY_P0 = "p0"
+    PRIORITY_P1 = "p1"
+    PRIORITY_P2 = "p2"
+    PRIORITY_P3 = "p3"
+    PRIORITY_P4 = "p4"
+    PRIORITY_CHOICES = (
+        (PRIORITY_P0, "P0 - Urgent"),
+        (PRIORITY_P1, "P1 - High"),
+        (PRIORITY_P2, "P2 - Medium"),
+        (PRIORITY_P3, "P3 - Low"),
+        (PRIORITY_P4, "P4 - Very Low"),
+    )
+
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects')
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     is_private = models.BooleanField(default=False)
+    is_project = models.BooleanField(default=False)
+    priority = models.CharField(max_length=2, choices=PRIORITY_CHOICES, default=PRIORITY_P2)
+    pm_assignee = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='managed_projects',
+    )
+    start_date = models.DateField(null=True, blank=True)
+    start_date_tbd = models.BooleanField(default=False)
+    etd = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
 
+    def clean(self):
+        errors = {}
+        if self.is_project:
+            if not self.start_date and not self.start_date_tbd:
+                errors["start_date"] = "Start Date is required or mark it as TBD."
+                errors["start_date_tbd"] = "Mark Start Date as TBD if date is unknown."
+            if not self.etd:
+                errors["etd"] = "ETD is required when Is Project is enabled."
+        if self.start_date and self.start_date_tbd:
+            errors["start_date_tbd"] = "Choose either Start Date or TBD, not both."
+        if self.start_date and self.etd and self.etd < self.start_date:
+            errors["etd"] = "ETD cannot be earlier than Start Date."
+        if errors:
+            raise ValidationError(errors)
+
     def get_user_role(self, user):
         if not user.is_authenticated:
             return None
+        # Role-based access is deprecated; keep a single legacy role token for UI.
+        if not self.is_private:
+            return ProjectMember.ROLE_ADMIN
         if self.owner == user:
             return ProjectMember.ROLE_ADMIN
-        membership = self.memberships.filter(user=user).first()
-        if membership:
-            return membership.role
-        # Transparency-first: public projects are visible to all users as viewers.
-        if not self.is_private:
-            return ProjectMember.ROLE_VIEWER
+        if self.memberships.filter(user=user).exists():
+            return ProjectMember.ROLE_ADMIN
         return None
 
     def can_user_view(self, user):
@@ -215,15 +255,35 @@ class TaskList(models.Model):
         return f"{self.project.name} - {self.name}"
 
 class Task(models.Model):
-    PRIORITY_LOW = 'low'
-    PRIORITY_MEDIUM = 'medium'
-    PRIORITY_HIGH = 'high'
-    PRIORITY_CRITICAL = 'critical'
+    PRIORITY_P0 = 'p0'
+    PRIORITY_P1 = 'p1'
+    PRIORITY_P2 = 'p2'
+    PRIORITY_P3 = 'p3'
+    PRIORITY_P4 = 'p4'
+    PRIORITY_LOW = 'low'      # legacy
+    PRIORITY_MEDIUM = 'medium'  # legacy
+    PRIORITY_HIGH = 'high'      # legacy
+    PRIORITY_CRITICAL = 'critical'  # legacy
     PRIORITY_CHOICES = (
+        (PRIORITY_P0, 'P0 - Urgent'),
+        (PRIORITY_P1, 'P1 - High'),
+        (PRIORITY_P2, 'P2 - Medium'),
+        (PRIORITY_P3, 'P3 - Low'),
+        (PRIORITY_P4, 'P4 - Very Low'),
         (PRIORITY_LOW, 'Low'),
         (PRIORITY_MEDIUM, 'Medium'),
         (PRIORITY_HIGH, 'High'),
         (PRIORITY_CRITICAL, 'Critical'),
+    )
+    STATUS_NONE = '-'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_DONE = 'done'
+    STATUS_INFEASIBLE = 'infeasible'
+    STATUS_CHOICES = (
+        (STATUS_NONE, '-'),
+        (STATUS_IN_PROGRESS, 'In Progress'),
+        (STATUS_DONE, 'Done'),
+        (STATUS_INFEASIBLE, 'Infeasible'),
     )
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks')
@@ -232,7 +292,10 @@ class Task(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     order = models.PositiveIntegerField(default=0)
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default=PRIORITY_MEDIUM)
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default=PRIORITY_P2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NONE)
+    start_date = models.DateField(null=True, blank=True)
+    start_date_tbd = models.BooleanField(default=False)
     due_date = models.DateField(null=True, blank=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_tasks')
     labels = models.ManyToManyField(Label, blank=True, related_name='tasks')
@@ -241,13 +304,6 @@ class Task(models.Model):
     is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    # AI Priority Analysis Fields
-    ai_priority_score = models.IntegerField(null=True, blank=True, help_text="AI-calculated priority score (1-100)")
-    ai_priority_reason = models.TextField(blank=True, help_text="AI reasoning for priority recommendation")
-    ai_complexity = models.CharField(max_length=10, blank=True, help_text="AI-estimated complexity")
-    ai_estimated_hours = models.IntegerField(null=True, blank=True, help_text="AI-estimated hours to complete")
-    ai_analyzed_at = models.DateTimeField(null=True, blank=True, help_text="Last AI analysis timestamp")
 
     class Meta:
         ordering = ['order', '-created_at']
@@ -368,20 +424,3 @@ class UserActivity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Activity"
-
-
-class AIChatMessage(models.Model):
-    """Model untuk menyimpan percakapan AI Chat (private per user)"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ai_chat_messages')
-    role = models.CharField(max_length=10, choices=[('user', 'User'), ('assistant', 'AI Assistant')])
-    content = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    # Context yang disimpan saat chat dibuat
-    context_tasks = models.JSONField(default=list, blank=True, help_text="Task IDs yang direferensikan")
-    
-    class Meta:
-        ordering = ['created_at']
-        
-    def __str__(self):
-        return f"{self.user.username} - {self.role} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
