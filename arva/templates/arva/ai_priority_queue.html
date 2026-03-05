@@ -1,226 +1,678 @@
-{% extends 'arva/base.html' %}
-{% load arva_tags %}
-
-{% block title %}AI Priority Queue - Arva{% endblock %}
-
-{% block content %}
-<div class="container-fluid py-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h2 class="mb-1">
-                        <i class="fas fa-robot text-primary me-2"></i>AI Priority Queue
-                    </h2>
-                    <p class="text-muted mb-0">Smart task prioritization powered by AI</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-primary" onclick="refreshAnalysis()">
-                        <i class="fas fa-sync-alt me-1"></i> Refresh Analysis
-                    </button>
-                </div>
-            </div>
-
-            {% if error %}
-            <div class="alert alert-warning" role="alert">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                {{ error }}
-            </div>
-            {% endif %}
-
-            <!-- Priority Stats -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card bg-danger text-white">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h6 class="card-title">Critical Priority</h6>
-                                    <h3 class="mb-0" id="critical-count">0</h3>
-                                </div>
-                                <i class="fas fa-fire fa-2x opacity-50"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-warning">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h6 class="card-title">High Priority</h6>
-                                    <h3 class="mb-0" id="high-count">0</h3>
-                                </div>
-                                <i class="fas fa-arrow-up fa-2x opacity-50"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-info text-white">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h6 class="card-title">Medium Priority</h6>
-                                    <h3 class="mb-0" id="medium-count">0</h3>
-                                </div>
-                                <i class="fas fa-minus fa-2x opacity-50"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-success text-white">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h6 class="card-title">Low Priority</h6>
-                                    <h3 class="mb-0" id="low-count">0</h3>
-                                </div>
-                                <i class="fas fa-arrow-down fa-2x opacity-50"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Priority Queue Table -->
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-list-ol me-2"></i>Prioritized Tasks
-                        <span class="badge bg-light text-dark ms-2">{{ total_tasks }}</span>
-                    </h5>
-                </div>
-                <div class="card-body p-0">
-                    {% if priorities %}
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0" id="priority-table">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 80px;">Rank</th>
-                                    <th style="width: 100px;">Score</th>
-                                    <th>Task</th>
-                                    <th>Project</th>
-                                    <th style="width: 120px;">Complexity</th>
-                                    <th style="width: 100px;">Est. Hours</th>
-                                    <th style="width: 120px;">Due Date</th>
-                                    <th style="width: 100px;">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in priorities %}
-                                <tr class="priority-row" data-priority="{{ item.priority_level|lower }}">
-                                    <td>
-                                        <span class="badge bg-secondary">#{{ forloop.counter }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="badge 
-                                            {% if item.priority_score >= 80 %}bg-danger
-                                            {% elif item.priority_score >= 60 %}bg-warning text-dark
-                                            {% elif item.priority_score >= 40 %}bg-info
-                                            {% else %}bg-success{% endif %}
-                                            fs-6">
-                                            {{ item.priority_score }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button type="button" class="btn btn-link text-decoration-none fw-bold p-0 text-start task-link" data-task-id="{{ item.task_id }}">
-                                            {{ item.task_title }}
-                                        </button>
-                                        <div class="small text-muted mt-1">
-                                            <i class="fas fa-robot me-1"></i>{{ item.reasoning|truncatechars:100 }}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-light text-dark border">
-                                            {{ item.project_name }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge 
-                                            {% if item.complexity == 'High' %}bg-danger
-                                            {% elif item.complexity == 'Medium' %}bg-warning text-dark
-                                            {% else %}bg-success{% endif %}">
-                                            {{ item.complexity|default:"Unknown" }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if item.estimated_hours %}
-                                            <i class="fas fa-clock me-1 text-muted"></i>{{ item.estimated_hours }}h
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if item.due_date %}
-                                            <span class="{% if item.priority_score >= 80 %}text-danger fw-bold{% endif %}">
-                                                {{ item.due_date }}
-                                            </span>
-                                        {% else %}
-                                            <span class="text-muted">No due date</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ item.task_list }}</span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                        <h5>No tasks to prioritize</h5>
-                        <p class="text-muted">All your tasks are either completed or no tasks are assigned to you.</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-function refreshAnalysis() {
-    const btn = document.querySelector('button[onclick="refreshAnalysis()"]');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Analyzing...';
-    btn.disabled = true;
-    
-    // Reload page to get fresh analysis
-    window.location.reload();
-}
-
-// Handle task link clicks
-document.querySelectorAll('.task-link').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const taskId = this.dataset.taskId;
-        if (typeof viewTask === 'function') {
-            viewTask(taskId);
-        } else {
-            window.location.href = '/task/' + taskId + '/view/';
-        }
-    });
-});
-
-// Update counts on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const rows = document.querySelectorAll('.priority-row');
-    let counts = { critical: 0, high: 0, medium: 0, low: 0 };
-    
-    rows.forEach(row => {
-        const priority = row.dataset.priority;
-        if (counts.hasOwnProperty(priority)) {
-            counts[priority]++;
-        }
-    });
-    
-    document.getElementById('critical-count').textContent = counts.critical;
-    document.getElementById('high-count').textContent = counts.high;
-    document.getElementById('medium-count').textContent = counts.medium;
-    document.getElementById('low-count').textContent = counts.low;
-});
-</script>
-{% endblock %}
+{% extends 'arva/base.html' %}
+{% load arva_tags %}
+{% block title %}AI Priority Queue - Arva{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --text: #111827;
+    --muted: #6b7280;
+    --accent: #059669;
+
+    --c-red:    #ef4444;
+    --c-amber:  #f59e0b;
+    --c-blue:   #3b82f6;
+    --c-green:  #22c55e;
+
+    --c-red-bg:   #fef2f2;
+    --c-amber-bg: #fffbeb;
+    --c-blue-bg:  #eff6ff;
+    --c-green-bg: #f0fdf4;
+}
+
+.pq-wrap {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    min-height: calc(100vh - 60px);
+    padding: 28px 24px;
+}
+
+/* ── Header ── */
+.pq-header {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* subtle grid pattern */
+.pq-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(5,150,105,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(5,150,105,0.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+}
+
+/* glowing orb top-right */
+.pq-header::after {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(5,150,105,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.pq-header-left {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    z-index: 1;
+}
+
+.pq-header-icon {
+    width: 58px; height: 58px;
+    background: linear-gradient(135deg, #059669, #0ea5e9);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 6px 20px rgba(5,150,105,0.4);
+    position: relative;
+}
+
+.pq-header-icon svg {
+    animation: spin-slow 12s linear infinite;
+}
+
+@keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.pq-header-icon svg circle:first-child {
+    animation: none;
+}
+
+.pq-header-text h2 {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 5px;
+    letter-spacing: -0.03em;
+}
+
+.pq-header-text p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pq-live-dot {
+    width: 7px; height: 7px;
+    background: #10b981;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(1.4); }
+}
+
+.btn-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: linear-gradient(135deg, #059669, #0ea5e9);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    z-index: 1;
+    box-shadow: 0 3px 10px rgba(5,150,105,0.3);
+}
+
+.btn-refresh:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(5,150,105,0.4);
+    color: white;
+}
+
+/* ── Error ── */
+.alert-modern {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #9a3412;
+    font-size: 0.875rem;
+}
+
+/* ── Stats Row ── */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.stat-card:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.09);
+    transform: translateY(-2px);
+}
+
+/* colored glow in corner */
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    opacity: 0.15;
+}
+
+.stat-card.critical::after { background: var(--c-red); }
+.stat-card.high::after     { background: var(--c-amber); }
+.stat-card.medium::after   { background: var(--c-blue); }
+.stat-card.low::after      { background: var(--c-green); }
+
+.stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.stat-icon {
+    width: 38px; height: 38px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.stat-card.critical .stat-icon { background: var(--c-red-bg);   color: var(--c-red); }
+.stat-card.high     .stat-icon { background: var(--c-amber-bg); color: var(--c-amber); }
+.stat-card.medium   .stat-icon { background: var(--c-blue-bg);  color: var(--c-blue); }
+.stat-card.low      .stat-icon { background: var(--c-green-bg); color: var(--c-green); }
+
+.stat-trend {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 20px;
+}
+.stat-card.critical .stat-trend { background: var(--c-red-bg);   color: var(--c-red); }
+.stat-card.high     .stat-trend { background: var(--c-amber-bg); color: var(--c-amber); }
+.stat-card.medium   .stat-trend { background: var(--c-blue-bg);  color: var(--c-blue); }
+.stat-card.low      .stat-trend { background: var(--c-green-bg); color: var(--c-green); }
+
+.stat-num {
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.stat-card.critical .stat-num { color: var(--c-red); }
+.stat-card.high     .stat-num { color: var(--c-amber); }
+.stat-card.medium   .stat-num { color: var(--c-blue); }
+.stat-card.low      .stat-num { color: var(--c-green); }
+
+.stat-lbl {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* bottom bar accent */
+.stat-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 0 0 14px 14px;
+}
+.stat-card.critical .stat-bar { background: var(--c-red); }
+.stat-card.high     .stat-bar { background: var(--c-amber); }
+.stat-card.medium   .stat-bar { background: var(--c-blue); }
+.stat-card.low      .stat-bar { background: var(--c-green); }
+
+/* ── Table Card ── */
+.table-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.table-card-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.table-card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.table-card-title i { color: var(--accent); }
+
+.count-pill {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 3px 11px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+/* ── Table ── */
+.pq-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pq-table thead th {
+    padding: 10px 14px;
+    background: #f9fafb;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.pq-table tbody tr {
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.12s;
+}
+
+.pq-table tbody tr:last-child { border-bottom: none; }
+.pq-table tbody tr:hover { background: #fafbff; }
+
+.pq-table tbody td {
+    padding: 13px 14px;
+    font-size: 0.85rem;
+    color: #374151;
+    vertical-align: middle;
+}
+
+/* Rank */
+.rank-num {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-align: center;
+}
+.rank-num.r1 { color: #a16207; }
+.rank-num.r2 { color: #475569; }
+.rank-num.r3 { color: #c2410c; }
+
+/* Score dot */
+.score-dot {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+.score-dot.critical { background: var(--c-red-bg);   color: var(--c-red);   border: 1.5px solid #fecaca; }
+.score-dot.high     { background: var(--c-amber-bg); color: var(--c-amber); border: 1.5px solid #fde68a; }
+.score-dot.medium   { background: var(--c-blue-bg);  color: var(--c-blue);  border: 1.5px solid #bfdbfe; }
+.score-dot.low      { background: var(--c-green-bg); color: var(--c-green); border: 1.5px solid #bbf7d0; }
+
+/* Task name */
+.task-link {
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+    display: block;
+    margin-bottom: 2px;
+}
+.task-link:hover { color: #4f46e5; }
+
+.task-reason {
+    font-size: 0.73rem;
+    color: #9ca3af;
+    line-height: 1.4;
+}
+
+/* Tags */
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 7px;
+    font-size: 0.73rem;
+    font-weight: 500;
+}
+
+.tag-project   { background: #f3f4f6; color: #374151; }
+.tag-status    { background: #f3f4f6; color: #374151; }
+.tag-complexity { background: #ede9fe; color: #4338ca; }
+
+/* Priority badge — text only, minimal */
+.prio-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+.prio-pill.critical { background: var(--c-red-bg);   color: var(--c-red); }
+.prio-pill.high     { background: var(--c-amber-bg); color: #d97706; }
+.prio-pill.medium   { background: var(--c-blue-bg);  color: #2563eb; }
+.prio-pill.low      { background: var(--c-green-bg); color: #16a34a; }
+
+/* Date */
+.date-text {
+    font-size: 0.78rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.date-text.soon    { color: var(--c-amber); }
+.date-text.overdue { color: var(--c-red); }
+.date-text.normal  { color: var(--muted); }
+
+/* Hours */
+.hours-text { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 56px 20px;
+}
+.empty-icon {
+    width: 68px; height: 68px;
+    background: var(--c-green-bg);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px;
+    color: var(--c-green);
+    margin: 0 auto 16px;
+}
+.empty-state h5 { font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.empty-state p  { color: var(--muted); font-size: 0.875rem; }
+
+@media (max-width: 768px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .pq-header { flex-direction: column; align-items: flex-start; }
+    .pq-wrap   { padding: 16px; }
+}
+</style>
+
+<div class="pq-wrap">
+
+    <!-- Header -->
+    <div class="pq-header">
+        <div class="pq-header-left">
+            <div class="pq-header-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Central core -->
+                    <circle cx="14" cy="14" r="4" fill="white" opacity="0.95"/>
+                    <!-- Ring -->
+                    <circle cx="14" cy="14" r="6.5" stroke="white" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
+                    <!-- Neural nodes -->
+                    <circle cx="14" cy="4"  r="2.2" fill="white" opacity="0.9"/>
+                    <circle cx="14" cy="24" r="2.2" fill="white" opacity="0.9"/>
+                    <circle cx="4"  cy="14" r="2.2" fill="white" opacity="0.9"/>
+                    <circle cx="24" cy="14" r="2.2" fill="white" opacity="0.9"/>
+                    <circle cx="6.5"  cy="6.5"  r="1.6" fill="white" opacity="0.65"/>
+                    <circle cx="21.5" cy="6.5"  r="1.6" fill="white" opacity="0.65"/>
+                    <circle cx="6.5"  cy="21.5" r="1.6" fill="white" opacity="0.65"/>
+                    <circle cx="21.5" cy="21.5" r="1.6" fill="white" opacity="0.65"/>
+                    <!-- Connector lines -->
+                    <line x1="14" y1="10" x2="14" y2="6.2"  stroke="white" stroke-width="1.2" opacity="0.5"/>
+                    <line x1="14" y1="18" x2="14" y2="21.8" stroke="white" stroke-width="1.2" opacity="0.5"/>
+                    <line x1="10" y1="14" x2="6.2" y2="14"  stroke="white" stroke-width="1.2" opacity="0.5"/>
+                    <line x1="18" y1="14" x2="21.8" y2="14" stroke="white" stroke-width="1.2" opacity="0.5"/>
+                    <line x1="11.2" y1="11.2" x2="8.2" y2="8.2"   stroke="white" stroke-width="1" opacity="0.4"/>
+                    <line x1="16.8" y1="11.2" x2="19.8" y2="8.2"  stroke="white" stroke-width="1" opacity="0.4"/>
+                    <line x1="11.2" y1="16.8" x2="8.2" y2="19.8"  stroke="white" stroke-width="1" opacity="0.4"/>
+                    <line x1="16.8" y1="16.8" x2="19.8" y2="19.8" stroke="white" stroke-width="1" opacity="0.4"/>
+                </svg>
+            </div>
+            <div class="pq-header-text">
+                <h2>AI Priority Queue</h2>
+                <p>
+                    <span class="pq-live-dot"></span>
+                    Smart task prioritization powered by AI
+                </p>
+            </div>
+        </div>
+        <button class="btn-refresh" onclick="refreshAnalysis()">
+            <i class="fas fa-sync-alt"></i> Refresh Analysis
+        </button>
+    </div>
+
+    {% if error %}
+    <div class="alert-modern">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-card critical">
+            <div class="stat-top">
+                <div class="stat-icon"><i class="fas fa-fire"></i></div>
+                <span class="stat-trend">Urgent</span>
+            </div>
+            <div class="stat-num" id="critical-count">0</div>
+            <div class="stat-lbl">Critical</div>
+            <div class="stat-bar"></div>
+        </div>
+        <div class="stat-card high">
+            <div class="stat-top">
+                <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
+                <span class="stat-trend">Important</span>
+            </div>
+            <div class="stat-num" id="high-count">0</div>
+            <div class="stat-lbl">High</div>
+            <div class="stat-bar"></div>
+        </div>
+        <div class="stat-card medium">
+            <div class="stat-top">
+                <div class="stat-icon"><i class="fas fa-minus"></i></div>
+                <span class="stat-trend">Normal</span>
+            </div>
+            <div class="stat-num" id="medium-count">0</div>
+            <div class="stat-lbl">Medium</div>
+            <div class="stat-bar"></div>
+        </div>
+        <div class="stat-card low">
+            <div class="stat-top">
+                <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
+                <span class="stat-trend">Backlog</span>
+            </div>
+            <div class="stat-num" id="low-count">0</div>
+            <div class="stat-lbl">Low</div>
+            <div class="stat-bar"></div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+        <div class="table-card-header">
+            <div class="table-card-title">
+                <i class="fas fa-list-ol"></i> Prioritized Tasks
+            </div>
+            <span class="count-pill">{{ total_tasks }} tasks</span>
+        </div>
+
+        {% if priorities %}
+        <div class="table-responsive">
+            <table class="pq-table" id="priority-table">
+                <thead>
+                    <tr>
+                        <th style="text-align:center; width:48px;">#</th>
+                        <th style="text-align:center; width:56px;">Score</th>
+                        <th>Task</th>
+                        <th>Project</th>
+                        <th>Priority</th>
+                        <th>Complexity</th>
+                        <th>Hours</th>
+                        <th>Due</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in priorities %}
+                    <tr>
+                        <td style="text-align:center;">
+                            <span class="rank-num {% if forloop.counter == 1 %}r1{% elif forloop.counter == 2 %}r2{% elif forloop.counter == 3 %}r3{% endif %}">
+                                #{{ forloop.counter }}
+                            </span>
+                        </td>
+                        <td style="text-align:center;">
+                            {% if item.priority_level == 'Critical' %}
+                                <div class="score-dot critical">{{ item.priority_score|default:"?" }}</div>
+                            {% elif item.priority_level == 'High' %}
+                                <div class="score-dot high">{{ item.priority_score|default:"?" }}</div>
+                            {% elif item.priority_level == 'Medium' %}
+                                <div class="score-dot medium">{{ item.priority_score|default:"?" }}</div>
+                            {% else %}
+                                <div class="score-dot low">{{ item.priority_score|default:"?" }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/tasks/{{ item.task_id }}/" class="task-link">{{ item.task_title }}</a>
+                            {% if item.reasoning %}
+                            <div class="task-reason">{{ item.reasoning|truncatechars:80 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="tag tag-project">
+                                <i class="fas fa-folder" style="font-size:10px;"></i>
+                                {{ item.project_name }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if item.priority_level == 'Critical' %}
+                                <span class="prio-pill critical"><i class="fas fa-fire" style="font-size:10px;"></i> Critical</span>
+                            {% elif item.priority_level == 'High' %}
+                                <span class="prio-pill high"><i class="fas fa-arrow-up" style="font-size:10px;"></i> High</span>
+                            {% elif item.priority_level == 'Medium' %}
+                                <span class="prio-pill medium"><i class="fas fa-minus" style="font-size:10px;"></i> Medium</span>
+                            {% else %}
+                                <span class="prio-pill low"><i class="fas fa-arrow-down" style="font-size:10px;"></i> Low</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.complexity %}
+                                <span class="tag tag-complexity">{{ item.complexity }}</span>
+                            {% else %}
+                                <span style="color:#d1d5db;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.estimated_hours %}
+                                <span class="hours-text">{{ item.estimated_hours }}h</span>
+                            {% else %}
+                                <span style="color:#d1d5db;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.due_date %}
+                                <span class="date-text soon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    {{ item.due_date }}
+                                </span>
+                            {% else %}
+                                <span style="color:#d1d5db; font-size:0.8rem;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="tag tag-status">{{ item.task_list }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon"><i class="fas fa-check-double"></i></div>
+            <h5>Tidak ada tugas untuk diprioritaskan</h5>
+            <p>Semua tugas telah selesai atau belum ada tugas yang di-assign ke Anda.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<script>
+function refreshAnalysis() {
+    const btn = document.querySelector('.btn-refresh');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+    btn.disabled = true;
+    window.location.reload();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    let c = 0, h = 0, m = 0, l = 0;
+    document.querySelectorAll('#priority-table tbody tr').forEach(function (row) {
+        const badge = row.querySelector('.prio-pill');
+        if (!badge) return;
+        if (badge.classList.contains('critical')) c++;
+        else if (badge.classList.contains('high'))     h++;
+        else if (badge.classList.contains('medium'))   m++;
+        else if (badge.classList.contains('low'))      l++;
+    });
+    document.getElementById('critical-count').textContent = c;
+    document.getElementById('high-count').textContent     = h;
+    document.getElementById('medium-count').textContent   = m;
+    document.getElementById('low-count').textContent      = l;
+});
+</script>
+
+{% endblock %}
