@@ -790,6 +790,11 @@ $(function() {
       return document.getElementById('task-board');
     }
 
+    function isProjectLocked() {
+      const root = getBoardRoot();
+      return (root?.dataset.isClosed || '0') === '1';
+    }
+
     function syncListEmpty() {
       const root = getBoardRoot();
       if (!root) return;
@@ -827,6 +832,10 @@ $(function() {
 
     function openListTaskCreateModal() {
       const root = getBoardRoot();
+      if (isProjectLocked()) {
+        showError('Project is closed. Re-open the project to make changes.');
+        return;
+      }
       const isStructuredProject = (root?.dataset.isProject || '0') === '1';
       const structuredOnlyFields = document.querySelectorAll('#listTaskCreateModal .task-structured-only');
       const statusSelect = document.getElementById('list-task-status');
@@ -979,6 +988,10 @@ $(function() {
 
       const listAddBtn = e.target.closest('.btn-list-add-task');
       if (listAddBtn) {
+        if (isProjectLocked()) {
+          showError('Project is closed. Re-open the project to make changes.');
+          return;
+        }
         window.currentStructuredDefaultListId = listAddBtn.dataset.defaultListId || '';
         openListTaskCreateModal();
       }
@@ -1015,6 +1028,9 @@ $(function() {
     createForm?.addEventListener('submit', function(e) {
       e.preventDefault();
       const root = getBoardRoot();
+      if (isProjectLocked()) {
+        return showError('Project is closed. Re-open the project to make changes.');
+      }
       const projectId = root?.dataset.projectId;
       const isStructuredProject = (root?.dataset.isProject || '0') === '1';
       const projectEtd = (root?.dataset.projectEtd || '').trim();
@@ -1139,6 +1155,39 @@ $(function() {
 
   $(document).on("click", "#btn-edit-project", function() {
     $("#projectEditModal").modal("show");
+  });
+
+  $(document).on('click', '#btn-project-close-toggle', async function() {
+    const btn = this;
+    const projectId = btn.getAttribute('data-project-id');
+    const nextAction = btn.getAttribute('data-next-action');
+    if (!projectId || !nextAction) return;
+
+    const isClose = nextAction === 'close';
+    const confirmed = await showConfirm(
+      isClose
+        ? 'Close this project and lock all tasks as read-only?'
+        : 'Re-open this project and allow task updates again?',
+      isClose ? 'Close project' : 'Re-open project'
+    );
+    if (!confirmed) return;
+
+    fetch(`/project/${projectId}/${isClose ? 'close' : 'reopen'}/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrftoken,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    }).then((resp) => resp.json().then((data) => ({ ok: resp.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || !data.success) {
+          showError(data?.error || 'Failed to update project status.');
+          return;
+        }
+        window.location.reload();
+      }).catch(() => {
+        showError('Failed to update project status.');
+      });
   });
 
   $("#project-edit-form").on("submit", function(e) {
@@ -1330,7 +1379,7 @@ $(function() {
         }
       },
       error: function() {
-        showError('Failed to create list');
+        showError(arguments[0]?.responseJSON?.error || 'Failed to create list');
       }
     });
   });
@@ -1349,7 +1398,7 @@ $(function() {
         }
       },
       error: function() {
-        showError('Failed to delete list');
+        showError(arguments[0]?.responseJSON?.error || 'Failed to delete list');
       }
     });
   });
@@ -1368,7 +1417,7 @@ $(function() {
         }
       },
       error: function() {
-        showError('Failed to archive list');
+        showError(arguments[0]?.responseJSON?.error || 'Failed to archive list');
       }
     });
   });
@@ -1432,6 +1481,8 @@ $(function() {
       error: function(xhr) {
         if (xhr.status === 403) {
           showError('You do not have access to create tasks on this task.');
+        } else if (xhr.status === 400 && xhr.responseJSON?.error) {
+          showError(xhr.responseJSON.error);
         } else {
           showError('Failed to create task');
         }
@@ -1458,6 +1509,8 @@ $(function() {
       error: function(xhr) {
         if (xhr.status === 403) {
           showError('You do not have access to make this change.');
+        } else if (xhr.status === 400 && xhr.responseJSON?.error) {
+          showError(xhr.responseJSON.error);
         } else {
           showError('Failed to save changes.');
         }
@@ -1776,6 +1829,8 @@ $(function() {
       error: function(xhr) {
         if (xhr.status === 403) {
           showError('You do not have access to comment on this task.');
+        } else if (xhr.status === 400 && xhr.responseJSON?.error) {
+          showError(xhr.responseJSON.error);
         } else {
           showError('Failed to send comment.');
         }
@@ -1824,7 +1879,12 @@ $(function() {
         }
       },
       error: function() {
-        showError("Failed to send reply.");
+        const xhr = arguments[0];
+        if (xhr?.status === 400 && xhr.responseJSON?.error) {
+          showError(xhr.responseJSON.error);
+        } else {
+          showError("Failed to send reply.");
+        }
       }
     });
   });
@@ -1845,6 +1905,8 @@ $(function() {
       error: function(xhr) {
         if (xhr.status === 403) {
           showError("You do not have access to delete this comment.");
+        } else if (xhr.status === 400 && xhr.responseJSON?.error) {
+          showError(xhr.responseJSON.error);
         } else {
           showError("Failed to delete comment.");
         }
@@ -1872,6 +1934,8 @@ $(function() {
       error: function(xhr) {
         if (xhr.status === 403) {
           showError("You do not have access to change this task's checklist.");
+        } else if (xhr.status === 400 && xhr.responseJSON?.error) {
+          showError(xhr.responseJSON.error);
         } else {
           showError('Failed to add checklist.');
         }
@@ -2598,6 +2662,9 @@ $(document).on("click", "#btn-save-member", function () {
       }
     });
 
+    const isClosed = String($('#task-board').data('is-closed') || '0') === '1';
+    if (isClosed) return;
+
     $('#board-lists').sortable({
       items: '> .board-list:not(.add-list-column)',
       axis: 'x',
@@ -2640,6 +2707,8 @@ $(document).on("click", "#btn-save-member", function () {
           error: function(xhr) {
             if (xhr.status === 403) {
               showError('You do not have access to move this task.');
+            } else if (xhr.status === 400 && xhr.responseJSON?.error) {
+              showError(xhr.responseJSON.error);
             } else {
               showError('Failed to move task');
             }

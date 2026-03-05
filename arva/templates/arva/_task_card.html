@@ -139,12 +139,12 @@
         <button class="btn btn-outline-primary btn-sm btn-view-task">
           <i class="bi bi-eye"></i>
         </button>
-        {% if user_role == 'admin' or user_role == 'member' %}
+        {% if not project.is_closed and user_role == 'admin' or not project.is_closed and user_role == 'member' %}
         <button class="btn btn-outline-secondary btn-sm btn-quick-move-task" data-task-id="{{ task.id }}" data-project-id="{{ project.id }}">
           <i class="bi bi-arrow-left-right"></i>
         </button>
         {% endif %}
-        {% if user_role == 'admin' %}
+        {% if user_role == 'admin' and not project.is_closed %}
         <button class="btn btn-outline-warning btn-sm btn-archive-task">
           <i class="bi bi-archive"></i>
         </button>

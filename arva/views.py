@@ -103,6 +103,17 @@ def require_role(user, project, allowed_roles):
         return project.owner_id == user.id
     return project.can_user_view(user)
 
+
+def is_project_locked(project):
+    return bool(project.is_project and project.is_closed)
+
+
+def closed_project_error():
+    return JsonResponse({
+        'success': False,
+        'error': 'Project is closed. Re-open the project to make changes.'
+    }, status=400)
+
 def sync_project_shares(project, cleaned_data):
     selected_users = cleaned_data.get('shared_users') or User.objects.none()
     selected_ids = set(selected_users.values_list('id', flat=True))
@@ -518,6 +529,8 @@ def subproject_create(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(project):
+        return closed_project_error()
 
     had_subprojects = project.subprojects.exists()
     form = SubProjectForm(request.POST)
@@ -553,6 +566,8 @@ def subproject_delete(request, subproject_id):
     project = get_user_project_or_404(request.user, subproject.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(project):
+        return closed_project_error()
 
     if Task.objects.filter(sub_project=subproject).exists():
         return JsonResponse({'success': False, 'error': 'Sub-project cannot be deleted because it still has tasks.'}, status=400)
@@ -578,6 +593,8 @@ def subproject_edit(request, subproject_id):
     project = get_user_project_or_404(request.user, subproject.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(project):
+        return closed_project_error()
 
     form = SubProjectForm(request.POST, instance=subproject)
     if not form.is_valid():
@@ -599,6 +616,8 @@ def subproject_move(request, subproject_id):
     source_project = get_user_project_or_404(request.user, subproject.project.id)
     if not require_role(request.user, source_project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(source_project):
+        return closed_project_error()
 
     target_project_id = request.POST.get('project_id')
     if not target_project_id:
@@ -607,6 +626,8 @@ def subproject_move(request, subproject_id):
     target_project = get_user_project_or_404(request.user, target_project_id)
     if not require_role(request.user, target_project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(target_project):
+        return closed_project_error()
 
     if str(source_project.id) == str(target_project.id):
         return JsonResponse({'success': True})
@@ -853,6 +874,7 @@ def project_detail(request, pk):
         'shared_user_ids': shared_user_ids,
         'shared_role_default': ProjectMember.ROLE_MEMBER,
         'all_users': User.objects.exclude(id=request.user.id).order_by('username'),
+        'project_is_locked': is_project_locked(project),
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -985,6 +1007,50 @@ def project_update(request, pk):
         )
         return JsonResponse({'success': True})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+
+
+@login_required
+@require_POST
+def project_close(request, pk):
+    project = get_user_project_or_404(request.user, pk)
+    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
+        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    if not project.is_project:
+        return JsonResponse({'success': False, 'error': 'Only structured projects can be closed.'}, status=400)
+    if project.is_closed:
+        return JsonResponse({'success': True, 'is_closed': True})
+
+    project.is_closed = True
+    project.save(update_fields=['is_closed'])
+    ActivityLog.objects.create(
+        user=request.user,
+        project=project,
+        action='project_updated',
+        description=f"Project '{project.name}' closed",
+    )
+    return JsonResponse({'success': True, 'is_closed': True})
+
+
+@login_required
+@require_POST
+def project_reopen(request, pk):
+    project = get_user_project_or_404(request.user, pk)
+    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
+        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    if not project.is_project:
+        return JsonResponse({'success': False, 'error': 'Only structured projects can be reopened.'}, status=400)
+    if not project.is_closed:
+        return JsonResponse({'success': True, 'is_closed': False})
+
+    project.is_closed = False
+    project.save(update_fields=['is_closed'])
+    ActivityLog.objects.create(
+        user=request.user,
+        project=project,
+        action='project_updated',
+        description=f"Project '{project.name}' reopened",
+    )
+    return JsonResponse({'success': True, 'is_closed': False})
 
 @login_required
 @require_POST
@@ -1148,6 +1214,8 @@ def tasklist_create(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(project):
+        return closed_project_error()
 
     subproject = None
     subproject_id = request.POST.get('sub_project_id')
@@ -1184,6 +1252,8 @@ def tasklist_reorder(request, pk):
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(project):
+        return closed_project_error()
     subproject = None
     subproject_id = request.POST.get('sub_project_id')
     if project.subprojects.exists():
@@ -1206,6 +1276,8 @@ def tasklist_delete(request, list_id):
     project = get_user_project_or_404(request.user, tl.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(project):
+        return closed_project_error()
     name = tl.name
     tl.delete()
     ActivityLog.objects.create(
@@ -1221,6 +1293,8 @@ def tasklist_archive(request, list_id):
     project = get_user_project_or_404(request.user, tl.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(project):
+        return closed_project_error()
     tl.is_archived = True
     tl.save()
     tl.tasks.update(is_archived=True)
@@ -1237,6 +1311,8 @@ def tasklist_unarchive(request, list_id):
     project = get_user_project_or_404(request.user, tl.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
+    if is_project_locked(project):
+        return closed_project_error()
     tl.is_archived = False
     tl.save()
     ActivityLog.objects.create(
@@ -1271,7 +1347,7 @@ def task_view(request, task_id):
     done = task.checklist_done
     percent = int((done / total) * 100) if total > 0 else 0
 
-    view_only = not (role == "admin" or request.user in task.assignees.all())
+    view_only = bool(is_project_locked(project) or not (role == "admin" or request.user in task.assignees.all()))
     html = render_to_string('arva/_task_view.html', {
         'task': task,
         'project': project,
@@ -1289,6 +1365,7 @@ def task_view(request, task_id):
         'checklist_percent': percent,
         'root_comments': comments,
         "view_only": view_only,
+        'project_is_closed': is_project_locked(project),
     }, request=request)
 
     return JsonResponse({'success': True, 'html': html})
@@ -1314,6 +1391,8 @@ def project_lists(request, pk):
 def task_inline_update(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     role = get_role(request.user, project)
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
@@ -1459,6 +1538,8 @@ def task_inline_update(request, task_id):
 @require_POST
 def task_create(request, pk):
     project = get_user_project_or_404(request.user, pk)
+    if is_project_locked(project):
+        return closed_project_error()
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]):
         return HttpResponseForbidden("Forbidden")
     task_list_id = request.POST.get('task_list_id')
@@ -1526,6 +1607,8 @@ def task_create(request, pk):
 def task_update(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     role = get_role(request.user, project)
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -1555,6 +1638,8 @@ def task_update(request, task_id):
 def task_delete(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
     title = task.title
@@ -1571,6 +1656,8 @@ def task_delete(request, task_id):
 def task_move(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     role = get_role(request.user, project)
     if role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER] or        (role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all()):
         return HttpResponseForbidden("Forbidden")
@@ -1604,6 +1691,8 @@ def task_move(request, task_id):
 def task_transfer(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     source_project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(source_project):
+        return closed_project_error()
     source_role = get_role(request.user, source_project)
     if source_role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER] or (
         source_role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all()
@@ -1616,6 +1705,8 @@ def task_transfer(request, task_id):
         return JsonResponse({'success': False, 'error': 'Missing project'}, status=400)
 
     target_project = get_user_project_or_404(request.user, target_project_id)
+    if is_project_locked(target_project):
+        return closed_project_error()
     target_role = get_role(request.user, target_project)
     if target_role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]:
         return HttpResponseForbidden("Forbidden")
@@ -1663,6 +1754,8 @@ def task_transfer(request, task_id):
 def task_archive(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
     task.is_archived = True
@@ -1678,6 +1771,8 @@ def task_archive(request, task_id):
 def task_unarchive(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
         return HttpResponseForbidden("Forbidden")
     task.is_archived = False
@@ -1693,6 +1788,8 @@ def task_unarchive(request, task_id):
 def comment_add(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     role = get_role(request.user, project)
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -1717,6 +1814,8 @@ def comment_reply(request, comment_id):
     parent = get_object_or_404(Comment, id=comment_id)
     task = parent.task
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     role = get_role(request.user, project)
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
@@ -1752,6 +1851,8 @@ def comment_delete(request, comment_id):
     comment = get_object_or_404(Comment, id=comment_id)
     task = comment.task
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     role = get_role(request.user, project)
 
     if not (comment.user_id == request.user.id or project.owner_id == request.user.id):
@@ -1770,6 +1871,8 @@ def comment_delete(request, comment_id):
 def attachment_add(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     role = get_role(request.user, project)
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -1793,6 +1896,8 @@ def attachment_add(request, task_id):
 def checklist_add(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     if project.is_project:
         return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
@@ -1818,6 +1923,8 @@ def checklist_edit(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     task = item.task
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     if project.is_project:
         return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
@@ -1845,6 +1952,8 @@ def checklist_edit(request, item_id):
 def checklist_toggle(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     project = get_user_project_or_404(request.user, item.task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     if project.is_project:
         return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)
@@ -1865,6 +1974,8 @@ def checklist_delete(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     task = item.task
     project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
     if project.is_project:
         return JsonResponse({'success': False, 'error': 'Checklist is disabled for project tasks.'}, status=400)
     role = get_role(request.user, project)

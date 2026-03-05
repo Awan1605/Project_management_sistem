@@ -117,6 +117,7 @@ class Project(models.Model):
     description = models.TextField(blank=True)
     is_private = models.BooleanField(default=False)
     is_project = models.BooleanField(default=False)
+    is_closed = models.BooleanField(default=False)
     priority = models.CharField(max_length=2, choices=PRIORITY_CHOICES, default=PRIORITY_P2)
     pm_assignee = models.ForeignKey(
         User,

@@ -1,4 +1,4 @@
-<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}" data-is-project="{{ project.is_project|yesno:'1,0' }}" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}">
+<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}" data-is-project="{{ project.is_project|yesno:'1,0' }}" data-is-closed="{{ project.is_closed|yesno:'1,0' }}" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}">
   <div class="board-view-panel board-view-card">
     {% if task_scope == 'all' %}
     <div class="card shadow-sm border-0 mb-3">
@@ -72,7 +72,7 @@
             {% for task_list in group.task_lists %}
               {% include "arva/_task_list.html" with task_list=task_list project=project user_role=user_role %}
             {% endfor %}
-            {% if user_role == 'admin' %}
+            {% if user_role == 'admin' and not project.is_closed %}
               <div class="add-list-column">
                 <form id="add-list-form" data-project-id="{{ project.id }}">
                   {% csrf_token %}
@@ -95,7 +95,7 @@
           {% include "arva/_task_list.html" with task_list=task_list project=project user_role=user_role %}
         {% endfor %}
 
-        {% if user_role == 'admin' %}
+            {% if user_role == 'admin' and not project.is_closed %}
           <div class="add-list-column">
             <form id="add-list-form" data-project-id="{{ project.id }}">
               {% csrf_token %}
@@ -140,7 +140,7 @@
               <i class="bi bi-chevron-right"></i>
             </button>
           </div>
-          {% if user_role == 'admin' or user_role == 'member' %}
+          {% if not project.is_closed and user_role == 'admin' or not project.is_closed and user_role == 'member' %}
             <button type="button" class="btn btn-primary btn-sm compact-add-btn btn-list-add-task">
               <i class="bi bi-plus-lg me-1"></i>Add Task
             </button>
