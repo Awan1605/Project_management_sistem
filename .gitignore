@@ -3,6 +3,10 @@ venv/
 env/
 ENV/
 
+arviga/settings.py
+*/migrations/
+!*/migrations/__init__.py
+
 # Python
 __pycache__/
 *.py[cod]
