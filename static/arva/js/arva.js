@@ -19,6 +19,13 @@ $.ajaxSetup({
   }
 });
 
+// Set progress bar widths from data-percent attribute (avoids CSS linter false positives)
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.checklist-progress-bar[data-percent]').forEach(function (el) {
+    el.style.width = el.getAttribute('data-percent') + '%';
+  });
+});
+
 function showError(message, title = 'Error') {
   Swal.fire({
     icon: 'error',

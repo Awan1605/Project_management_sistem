@@ -35,9 +35,6 @@ media/
 # Environment variables
 .env
 
-# Django settings (contains sensitive API keys)
-arviga/settings.py
-
 # IDE
 .vscode/
 .idea/
