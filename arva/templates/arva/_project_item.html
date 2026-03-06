@@ -25,6 +25,11 @@
           <div class="small d-flex align-items-center gap-1 flex-wrap">
             {% if project.is_project %}
               <span class="badge project-type-badge"><i class="bi bi-briefcase-fill me-1"></i>PROJECT</span>
+              {% if project.is_closed %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="bi bi-lock-fill me-1"></i>Closed</span>
+              {% else %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-unlock me-1"></i>Active</span>
+              {% endif %}
             {% endif %}
             {% if project.is_private %}
               <span class="badge bg-warning-subtle text-dark border"><i class="bi bi-lock-fill me-1"></i>Private</span>

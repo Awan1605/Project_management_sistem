@@ -119,13 +119,7 @@ class Project(models.Model):
     is_project = models.BooleanField(default=False)
     is_closed = models.BooleanField(default=False)
     priority = models.CharField(max_length=2, choices=PRIORITY_CHOICES, default=PRIORITY_P2)
-    pm_assignee = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='managed_projects',
-    )
+    pm_assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_projects')
     start_date = models.DateField(null=True, blank=True)
     start_date_tbd = models.BooleanField(default=False)
     etd = models.DateField(null=True, blank=True)

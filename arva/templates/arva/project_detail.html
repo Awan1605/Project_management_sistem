@@ -530,6 +530,7 @@
           <div>
             <label class="form-label">Assignee</label>
             <select name="assignees" id="list-task-assignees" class="form-select form-select-sm" multiple size="4">
+              <option value="">Select assignee</option>
               {% for u in users %}
                 <option value="{{ u.id }}">{{ u.username }}</option>
               {% endfor %}

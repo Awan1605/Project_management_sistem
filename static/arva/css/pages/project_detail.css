@@ -168,13 +168,39 @@
 .task-chip-status-infeasible { background: rgba(148, 163, 184, 0.2); color: #334155; border-color: rgba(148, 163, 184, 0.34); }
 .task-structured-meta {
   display: grid;
-  gap: 0.22rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.38rem 0.55rem;
 }
 .task-structured-meta-item {
   font-size: 0.79rem;
   color: #475569;
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+  padding: 0.24rem 0.32rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.03);
+}
+.task-meta-label {
   display: inline-flex;
   align-items: center;
+  font-size: 0.68rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.task-meta-value {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #0f172a;
+  font-weight: 600;
+  line-height: 1.2;
 }
 .task-structured-desc {
   font-size: 0.82rem;
@@ -197,16 +223,15 @@
 }
 .task-structured-list-meta {
   display: grid;
-  gap: 0.18rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.24rem 0.5rem;
   font-size: 0.79rem;
   color: #475569;
 }
 .task-structured-list-meta > span {
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: grid;
+  gap: 0.06rem;
+  min-width: 0;
 }
 .activity-dot {
   width: 8px;
@@ -265,6 +290,12 @@
     padding: 0.8rem;
   }
   .task-list-row[data-structured="1"] {
+    grid-template-columns: 1fr;
+  }
+  .task-structured-meta {
+    grid-template-columns: 1fr;
+  }
+  .task-structured-list-meta {
     grid-template-columns: 1fr;
   }
   .task-row-status,
@@ -412,8 +443,14 @@
 
 .task-structured-meta-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem 0.75rem;
+}
+
+@media (max-width: 1199.98px) {
+  .task-structured-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 991.98px) {

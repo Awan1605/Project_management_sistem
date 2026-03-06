@@ -43,45 +43,68 @@
     {% if project.is_project %}
       <div class="task-structured-meta mt-2">
         <div class="task-structured-meta-item">
-          {% with primary_assignee=task.assignees.first %}
-            {% if primary_assignee %}
-              {% if primary_assignee.userprofile.avatar or primary_assignee.userprofile.avatar_icon %}
-                <img src="{{ primary_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ primary_assignee.username }}">
+          <span class="task-meta-label"><i class="bi bi-person-circle me-1"></i>Reporter</span>
+          <span class="task-meta-value">
+            {% if task.created_by %}
+              {% if task.created_by.userprofile.avatar or task.created_by.userprofile.avatar_icon %}
+                <img src="{{ task.created_by.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ task.created_by.username }}">
               {% else %}
-                <span class="assignee-avatar-fallback me-1">{{ primary_assignee.username|first|upper }}</span>
+                <span class="assignee-avatar-fallback me-1">{{ task.created_by.username|first|upper }}</span>
               {% endif %}
-              {{ primary_assignee.username }}
-            {% elif project.pm_assignee %}
-              {% if project.pm_assignee.userprofile.avatar or project.pm_assignee.userprofile.avatar_icon %}
-                <img src="{{ project.pm_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ project.pm_assignee.username }}">
-              {% else %}
-                <span class="assignee-avatar-fallback me-1">{{ project.pm_assignee.username|first|upper }}</span>
-              {% endif %}
-              PM: {{ project.pm_assignee.username }}
+              {{ task.created_by.username }}
             {% else %}
-              <i class="bi bi-person me-1"></i>
-              Unassigned
+              -
             {% endif %}
-          {% endwith %}
+          </span>
         </div>
         <div class="task-structured-meta-item">
-          <i class="bi bi-play-circle me-1"></i>
-          {% if task.start_date_tbd %}Start: TBD{% elif task.start_date %}Start: {{ task.start_date|date:"d M Y" }}{% else %}Start: -{% endif %}
+          <span class="task-meta-label"><i class="bi bi-person-badge me-1"></i>Assignee</span>
+          <span class="task-meta-value">
+            {% with primary_assignee=task.assignees.first %}
+              {% if primary_assignee %}
+                {% if primary_assignee.userprofile.avatar or primary_assignee.userprofile.avatar_icon %}
+                  <img src="{{ primary_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ primary_assignee.username }}">
+                {% else %}
+                  <span class="assignee-avatar-fallback me-1">{{ primary_assignee.username|first|upper }}</span>
+                {% endif %}
+                {{ primary_assignee.username }}
+              {% elif project.pm_assignee %}
+                {% if project.pm_assignee.userprofile.avatar or project.pm_assignee.userprofile.avatar_icon %}
+                  <img src="{{ project.pm_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ project.pm_assignee.username }}">
+                {% else %}
+                  <span class="assignee-avatar-fallback me-1">{{ project.pm_assignee.username|first|upper }}</span>
+                {% endif %}
+                {{ project.pm_assignee.username }}
+              {% else %}
+                -
+              {% endif %}
+            {% endwith %}
+          </span>
+        </div>
+        <div class="task-structured-meta-item">
+          <span class="task-meta-label"><i class="bi bi-play-circle me-1"></i>Start</span>
+          <span class="task-meta-value">{% if task.start_date_tbd %}TBD{% elif task.start_date %}{{ task.start_date|date:"d M Y" }}{% else %}-{% endif %}</span>
         </div>
         <div class="task-structured-meta-item {% if task.is_overdue %}text-danger fw-semibold{% elif task.is_due_today %}text-warning-emphasis fw-semibold{% endif %}">
-          <i class="bi bi-calendar-check me-1"></i>
-          {% if task.due_date %}
-            End: {{ task.due_date|date:"d M Y" }}
-            {% if task.is_overdue %}(Overdue){% elif task.is_due_today %}(Due today){% endif %}
-          {% else %}
-            End: -
-          {% endif %}
+          <span class="task-meta-label"><i class="bi bi-calendar-check me-1"></i>End</span>
+          <span class="task-meta-value">
+            {% if task.due_date %}
+              {{ task.due_date|date:"d M Y" }}
+              {% if task.is_overdue %}(Overdue){% elif task.is_due_today %}(Due today){% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </span>
         </div>
       </div>
       {% if task.description %}
       <div class="task-structured-desc mt-2 text-muted">{{ task.description|truncatechars:120 }}</div>
       {% endif %}
     {% else %}
+      <div class="mt-2 small text-muted">
+        <i class="bi bi-person-circle me-1"></i>
+        Reporter: {{ task.created_by.username|default:"-" }}
+      </div>
       {% if task.due_date %}
       <div class="mt-2">
         <span class="due-badge

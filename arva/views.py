@@ -397,6 +397,7 @@ def project_list(request):
         'subprojects',
         'memberships__user',
     ).distinct().order_by('-created_at')
+    closed_projects = projects.filter(is_project=True, is_closed=True)
     admin_projects = Project.objects.filter(owner=request.user).distinct().order_by('name')
     online_cutoff = now() - timedelta(minutes=1)
     online_users = User.objects.filter(useractivity__last_activity__gte=online_cutoff).order_by('username')
@@ -407,6 +408,7 @@ def project_list(request):
         'projects': projects, 
         'project_form': form,
         'online_users': online_users,
+        'closed_projects': closed_projects,
         'admin_projects': admin_projects,
         'project_roles': project_roles,
     })
@@ -743,7 +745,7 @@ def project_detail(request, pk):
         per_page = '25'
 
     base_tasks = Task.objects.filter(project=project, is_archived=False).select_related(
-        'task_list', 'project', 'sub_project'
+        'task_list', 'project', 'sub_project', 'created_by', 'created_by__userprofile'
     ).prefetch_related(
         'labels',
         Prefetch('assignees', queryset=User.objects.select_related('userprofile')),
@@ -843,9 +845,7 @@ def project_detail(request, pk):
         'comment_form': comment_form,
         'attachment_form': attachment_form,
         'checklist_form': checklist_form,
-        'users': User.objects.filter(
-            Q(owned_projects=project) | Q(project_memberships__project=project)
-        ).select_related('userprofile').distinct().order_by('username'),
+        'users': User.objects.select_related('userprofile').order_by('username'),
         'projects': get_accessible_projects_queryset(request.user).order_by('name'),
         'user_role': role,
         'subprojects': subprojects,
@@ -1323,7 +1323,10 @@ def tasklist_unarchive(request, list_id):
 
 @login_required
 def task_view(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_object_or_404(
+        Task.objects.select_related('created_by', 'created_by__userprofile'),
+        id=task_id
+    )
     project = get_user_project_or_404(request.user, task.project.id)
     role = get_role(request.user, project)
     users = User.objects.all()
@@ -1840,7 +1843,9 @@ def comment_reply(request, comment_id):
     html = render_to_string("arva/_comment_list.html", {
         "comments": [new_comment],
         "user_role": role,
-        "user": request.user
+        "user": request.user,
+        "project_is_closed": is_project_locked(project),
+        "show_comment_avatar": False,
     }, request=request)
 
     return JsonResponse({"success": True, "html": html})
