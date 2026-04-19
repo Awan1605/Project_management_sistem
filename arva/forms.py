@@ -1,3 +1,23 @@
+"""
+Form Arviga Project Manager
+==========================
+Mendefinisikan seluruh form yang digunakan di aplikasi:
+- WebsiteSettingsForm: Pengaturan website
+- RegisterForm: Registrasi user baru
+- ProjectForm: CRUD project
+- SubProjectForm: CRUD sub-project
+- TaskForm: CRUD task
+- CommentForm: Komentar pada task
+- AttachmentForm: Lampiran file
+- TaskListForm: CRUD task list
+- ChecklistItemForm: Item checklist
+- ProjectMemberForm: Keanggotaan project
+- CreateUserInlineForm: Buat user oleh admin
+- UserEditForm: Edit user oleh admin
+- AdminPasswordResetForm: Reset password user
+- AvatarUploadForm: Upload avatar
+"""
+
 import os
 from django import forms
 from django.contrib.auth.models import User
@@ -8,6 +28,7 @@ from .models import (
     UserProfile, WebsiteSettings
 )
 
+# Pilihan warna cover task
 TASK_COVER_COLORS = [
     ('', 'No Cover'),
     ('primary', 'Blue'),
@@ -19,6 +40,7 @@ TASK_COVER_COLORS = [
 ]
 
 class WebsiteSettingsForm(forms.ModelForm):
+    """Form untuk mengubah pengaturan website global."""
     class Meta:
         model = WebsiteSettings
         fields = [
@@ -63,6 +85,9 @@ class AvatarUploadForm(forms.ModelForm):
     class Meta:
         model = UserProfile
         fields = ["avatar", "avatar_icon"]
+        widgets = {
+            "avatar": forms.FileInput(attrs={"class": "form-control"}),
+        }
 
 class CreateUserInlineForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput)
@@ -106,6 +131,33 @@ class UserEditForm(forms.ModelForm):
             if qs.exists():
                 raise forms.ValidationError("Email sudah digunakan.")
         return email
+
+
+class UserProfileEditForm(forms.ModelForm):
+    """Form untuk user edit profile sendiri (tanpa is_active, is_staff)"""
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        }
+
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        qs = User.objects.filter(username=username).exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError("Username sudah digunakan.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if email:
+            qs = User.objects.filter(email=email).exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError("Email sudah digunakan.")
+        return email
+
 
 class AdminPasswordResetForm(forms.Form):
     password = forms.CharField(

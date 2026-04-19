@@ -272,10 +272,14 @@
     scroll-margin-top: 90px;
   }
   .layout-sidebar .project-detail-page .board-list {
-    max-height: calc(100vh - 260px);
+    max-height: none;
+    height: auto;
+  }
+  .layout-sidebar .project-detail-page .board-list:has(.task-column .task-card:nth-child(6)) {
+    max-height: calc(100vh - 180px);
   }
   .layout-sidebar .project-detail-page .task-column {
-    max-height: calc(100vh - 360px);
+    max-height: 600px;
   }
   @media (max-width: 991.98px) {
     .task-list-shell > .page-pagination-bar {

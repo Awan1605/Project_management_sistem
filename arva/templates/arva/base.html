@@ -1,6 +1,7 @@
 {% load static %}
 {% load arva_tags %}
 {% get_settings as settings %}
+{% get_ai_settings as ai_settings %}
 {% effective_theme request.user settings as effective_theme %}
 {% effective_layout request.user as active_layout %}
 <!doctype html>
@@ -15,7 +16,7 @@
   <link rel="stylesheet" href="{% static 'css/fonts-manrope.css' %}">
   <link rel="stylesheet" href="{% static 'css/jquery-ui-1.13.2.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/sweetalert2-11.min.css' %}">
-  <link rel="stylesheet" href="{% static 'arva/css/arva.css' %}">
+  <link rel="stylesheet" href="{% static 'arva/css/arva.css' %}?v=202604181800">
   {% if user.is_authenticated %}
     {% if active_layout == 'sidebar' %}
       <link rel="stylesheet" href="{% static 'arva/css/layout/sidebar.css' %}">
@@ -23,103 +24,17 @@
       <link rel="stylesheet" href="{% static 'arva/css/layout/classic.css' %}">
     {% endif %}
   {% endif %}
+  
+  <!-- Dynamic theme variables - rendered by Django -->
   <style>
     :root {
       --primary-color: {{ settings.primary_color|default:'#09affe' }};
       --navbar-bg: {{ settings.navbar_bg|default:'rgba(255,255,255,0.8)' }};
       --body-bg: {{ settings.body_bg|default:'#f3f4f6' }};
       --text-color: {{ settings.text_color|default:'#111827' }};
-      --card-bg: #ffffff;
-      --sidebar-bg: #ffffff;
-      --border-color: rgba(15, 23, 42, 0.12);
-      --muted-text: #6b7280;
-      --input-bg: #ffffff;
-      --radius: 12px;
-      --shadow: 0 4px 14px rgba(0,0,0,0.08);
-      --blur: 10px;
     }
-    :root[data-theme='light'] {
-      --body-bg: #f3f4f6;
-      --text-color: #111827;
-      --card-bg: #ffffff;
-      --sidebar-bg: #ffffff;
-      --border-color: rgba(15, 23, 42, 0.12);
-      --muted-text: #6b7280;
-      --input-bg: #ffffff;
-      --navbar-bg: rgba(255, 255, 255, 0.7);
-    }
-    :root[data-theme='dark'] {
-      --body-bg: #0f172a;
-      --text-color: #e2e8f0;
-      --card-bg: #1e293b;
-      --sidebar-bg: #1e293b;
-      --border-color: rgba(148, 163, 184, 0.2);
-      --muted-text: #94a3b8;
-      --input-bg: #0f172a;
-      --navbar-bg: rgba(17, 24, 39, 0.7);
-    }
-    @media (prefers-color-scheme: dark) {
-      :root[data-theme='auto'] {
-        --body-bg: #0f172a;
-        --text-color: #e2e8f0;
-        --card-bg: #1e293b;
-        --sidebar-bg: #1e293b;
-        --border-color: rgba(148, 163, 184, 0.2);
-        --muted-text: #94a3b8;
-        --input-bg: #0f172a;
-        --navbar-bg: rgba(17, 24, 39, 0.7);
-      }
-    }
-    body {
-      background: var(--body-bg);
-      color: var(--text-color);
-      font-family: "Manrope", sans-serif;
-    }
-    .card, .modal-content, .section-box, .sidebar-box {
-      background-color: var(--card-bg);
-      color: var(--text-color);
-      border-color: var(--border-color);
-    }
-    .form-control, .form-select {
-      background-color: var(--input-bg);
-      color: var(--text-color);
-      border-color: var(--border-color);
-    }
-    .text-muted {
-      color: var(--muted-text) !important;
-    }
-    .dropdown-item.active {
-      background-color: var(--primary-color) !important;
-      color: white !important;
-    }
-    .navbar-modern {
-      backdrop-filter: blur(var(--blur));
-      background-color: var(--navbar-bg) !important;
-      border-bottom: 1px solid rgba(255,255,255,0.2);
-      box-shadow: var(--shadow);
-    }
-    .navbar-modern .nav-link {
-      color: var(--text-color);
-      font-weight: 500;
-      padding: 8px 14px;
-      border-radius: var(--radius);
-      transition: 0.2s ease-in-out;
-    }
-    .navbar-modern .nav-link:hover {
-      background-color: rgba(0,0,0,0.06);
-    }
-    .navbar-modern .nav-link.active {
-      background-color: var(--primary-color);
-      color: white !important;
-    }
-    .avatar-sm {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid white;
-    }
-
+    
+    /* Dark theme override */
     {% if effective_theme == 'dark' %}
       :root {
         --body-bg: #0f172a;
@@ -135,17 +50,10 @@
         background-color: #0f172a;
         color: #e2e8f0;
       }
-      .navbar-modern {
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-      }
-      .navbar-modern .nav-link:hover {
-        background-color: rgba(255,255,255,0.08);
-      }
       .card, .modal-content {
         background-color: #1e293b !important;
         color: #e2e8f0;
         border: none;
-        border-radius: var(--radius);
       }
     {% elif effective_theme == 'auto' %}
       @media(prefers-color-scheme: dark){
@@ -163,19 +71,13 @@
           background-color: #0f172a;
           color: #e2e8f0;
         }
-        .navbar-modern {
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
         .card, .modal-content {
           background-color: #1e293b !important;
         }
       }
     {% endif %}
-    .site-footer {
-      background: var(--card-bg);
-      border-top: 1px solid var(--border-color);
-      padding: 14px 0;
-    }
+    
+    /* Custom CSS from settings */
     {{ settings.custom_css|safe }}
   </style>
 
@@ -355,7 +257,7 @@
 <script src="{% static 'js/jquery-ui-1.13.2.min.js' %}"></script>
 <script src="{% static 'js/bootstrap.bundle-5.3.3.min.js' %}"></script>
 <script src="{% static 'js/sweetalert2-11.min.js' %}"></script>
-<script src="{% static 'arva/js/arva.js' %}"></script>
+<script src="{% static 'arva/js/arva.js' %}?v=202604181700"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

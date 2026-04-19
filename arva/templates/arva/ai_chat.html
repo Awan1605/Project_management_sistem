@@ -1,658 +1,43 @@
 {% extends 'arva/base.html' %}
-{% load arva_tags %}
+{% load arva_tags static %}
 {% block title %}AI Assistant - Arva{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'arva/css/pages/ai_chat.css' %}">
+{% endblock %}
+
 {% block content %}
-<style>
-@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
-
-:root {
-    --primary: #2563eb;
-    --primary-dark: #1d4ed8;
-    --primary-soft: #dbeafe;
-    --bg-main: #f4f5f7;
-    --bg-card: #ffffff;
-    --bg-chat: #f8fafc;
-    --bg-input: #f1f5f9;
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-muted: #64748b;
-    --border-light: #e2e8f0;
-    --border-soft: #e9eef2;
-    --shadow-sm: 0 2px 8px rgba(0,0,0,0.02);
-    --shadow-md: 0 4px 16px rgba(0,0,0,0.03);
-    --shadow-lg: 0 8px 24px rgba(0,0,0,0.04);
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    background: var(--bg-main);
-}
-
-/* Main Container */
-.ai-dashboard {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 24px;
-    min-height: calc(100vh - 60px);
-}
-
-/* Header Modern */
-.modern-header {
-    background: var(--bg-card);
-    border-radius: 24px;
-    padding: 20px 28px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--border-light);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-}
-
-.header-brand {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.brand-icon {
-    width: 52px;
-    height: 52px;
-    background: var(--primary);
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.15);
-}
-
-.brand-icon i {
-    font-size: 26px;
-    color: white;
-}
-
-.brand-text h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: 1.3;
-    margin-bottom: 4px;
-    letter-spacing: -0.01em;
-}
-
-.brand-text p {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #e6f7e6;
-    color: #0f6e3f;
-    padding: 4px 12px;
-    border-radius: 30px;
-    font-size: 0.7rem;
-    font-weight: 500;
-}
-
-.status-badge i {
-    font-size: 6px;
-    color: #10b981;
-}
-
-.header-actions {
-    display: flex;
-    gap: 10px;
-}
-
-.btn-modern {
-    padding: 10px 20px;
-    border-radius: 40px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-}
-
-.btn-modern-primary {
-    background: var(--primary-soft);
-    color: var(--primary);
-    border-color: var(--border-light);
-}
-
-.btn-modern-primary:hover {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-modern-primary:hover i {
-    color: white;
-}
-
-.btn-modern-danger {
-    background: #fef2f2;
-    color: #b91c1c;
-    border-color: #fee2e2;
-    padding: 10px 18px;
-}
-
-.btn-modern-danger:hover {
-    background: #b91c1c;
-    color: white;
-    border-color: #b91c1c;
-    transform: translateY(-1px);
-}
-
-.btn-modern i {
-    font-size: 0.9rem;
-    transition: color 0.2s;
-}
-
-/* Main Chat Card */
-.chat-container {
-    background: var(--bg-card);
-    border-radius: 24px;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--border-light);
-    overflow: hidden;
-    height: calc(100vh - 240px);
-    min-height: 520px;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Chat Header */
-.chat-header-modern {
-    padding: 16px 24px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border-soft);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.chat-profile {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.profile-avatar {
-    width: 44px;
-    height: 44px;
-    background: linear-gradient(135deg, #2563eb, #4f46e5);
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-}
-
-.profile-avatar i {
-    font-size: 22px;
-    color: white;
-}
-
-.online-indicator {
-    position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 12px;
-    height: 12px;
-    background: #22c55e;
-    border: 2px solid white;
-    border-radius: 50%;
-}
-
-.profile-info h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 2px;
-}
-
-.profile-info p {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.profile-info p i {
-    color: #22c55e;
-    font-size: 6px;
-}
-
-.chat-badge {
-    background: var(--bg-chat);
-    padding: 6px 14px;
-    border-radius: 40px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--border-soft);
-}
-
-.chat-badge i {
-    color: var(--primary);
-    font-size: 0.7rem;
-}
-
-/* Messages Area */
-.messages-modern {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    background: var(--bg-chat);
-    scroll-behavior: smooth;
-}
-
-.messages-modern::-webkit-scrollbar {
-    width: 5px;
-}
-
-.messages-modern::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.messages-modern::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 20px;
-}
-
-/* Welcome Screen Modern */
-.welcome-modern {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 400px;
-    text-align: center;
-    padding: 20px;
-}
-
-.welcome-robot {
-    width: 80px;
-    height: 80px;
-    background: var(--primary-soft);
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 24px;
-    box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.1);
-    animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-6px); }
-}
-
-.welcome-robot i {
-    font-size: 38px;
-    color: var(--primary);
-}
-
-.welcome-modern h2 {
-    font-size: 1.6rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-    letter-spacing: -0.01em;
-}
-
-.welcome-modern p {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-bottom: 32px;
-    max-width: 380px;
-}
-
-.feature-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    max-width: 440px;
-    margin-bottom: 36px;
-}
-
-.feature-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-soft);
-    border-radius: 18px;
-    padding: 16px 12px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    transition: all 0.2s ease;
-    text-align: left;
-}
-
-.feature-card:hover {
-    border-color: var(--primary-soft);
-    background: white;
-    box-shadow: var(--shadow-sm);
-}
-
-.feature-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-}
-
-.feature-icon.blue { background: #dbeafe; color: #2563eb; }
-.feature-icon.purple { background: #ede9fe; color: #7c3aed; }
-.feature-icon.green { background: #dcfce7; color: #16a34a; }
-.feature-icon.orange { background: #ffedd5; color: #ea580c; }
-
-.feature-text {
-    font-weight: 500;
-    color: var(--text-primary);
-    font-size: 0.85rem;
-}
-
-.start-hint {
-    background: var(--bg-card);
-    padding: 12px 24px;
-    border-radius: 50px;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid var(--border-soft);
-    box-shadow: var(--shadow-sm);
-}
-
-.start-hint i {
-    color: var(--primary);
-    font-size: 0.8rem;
-}
-
-/* Message Item */
-.message-item {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-    align-items: flex-end;
-}
-
-.message-item.user {
-    flex-direction: row-reverse;
-}
-
-.message-avatar-modern {
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    flex-shrink: 0;
-}
-
-.message-avatar-modern.ai {
-    background: var(--primary);
-    color: white;
-    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
-}
-
-.message-avatar-modern.user {
-    background: var(--bg-input);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-soft);
-}
-
-.message-wrapper {
-    max-width: 68%;
-}
-
-.message-meta-modern {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-    padding-left: 4px;
-}
-
-.message-item.user .message-meta-modern {
-    justify-content: flex-end;
-    padding-left: 0;
-    padding-right: 4px;
-}
-
-.sender-name {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.7rem;
-}
-
-.message-time {
-    font-size: 0.65rem;
-}
-
-.message-bubble-modern {
-    padding: 12px 18px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    word-break: break-word;
-}
-
-.message-bubble-modern.ai {
-    background: var(--bg-card);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border-soft);
-    border-bottom-left-radius: 6px;
-}
-
-.message-bubble-modern.user {
-    background: var(--primary);
-    color: white;
-    border-bottom-right-radius: 6px;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
-}
-
-/* Typing Modern */
-.typing-modern {
-    padding: 8px 24px;
-    background: var(--bg-chat);
-}
-
-.typing-item {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-
-.typing-bubble-modern {
-    background: var(--bg-card);
-    padding: 14px 18px;
-    border-radius: 20px;
-    border: 1px solid var(--border-soft);
-    border-bottom-left-radius: 6px;
-    box-shadow: var(--shadow-sm);
-}
-
-.typing-animation {
-    display: flex;
-    gap: 4px;
-}
-
-.typing-animation span {
-    width: 6px;
-    height: 6px;
-    background: var(--primary);
-    border-radius: 50%;
-    animation: typingBounce 1.4s infinite ease-in-out;
-    opacity: 0.3;
-}
-
-.typing-animation span:nth-child(1) { animation-delay: 0s; }
-.typing-animation span:nth-child(2) { animation-delay: 0.2s; }
-.typing-animation span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes typingBounce {
-    0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
-    30% { transform: translateY(-6px); opacity: 1; }
-}
-
-/* Input Area Modern */
-.input-modern {
-    padding: 16px 24px;
-    background: var(--bg-card);
-    border-top: 1px solid var(--border-soft);
-}
-
-.input-modern form {
-    display: flex;
-    gap: 12px;
-}
-
-.input-field-modern {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--bg-input);
-    border: 1px solid var(--border-soft);
-    border-radius: 40px;
-    padding: 4px 4px 4px 20px;
-    transition: all 0.2s ease;
-}
-
-.input-field-modern:focus-within {
-    background: white;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.input-field-modern input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    outline: none;
-    font-size: 0.9rem;
-    color: var(--text-primary);
-    padding: 8px 0;
-}
-
-.input-field-modern input::placeholder {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-}
-
-.btn-send-modern {
-    width: 42px;
-    height: 42px;
-    background: var(--primary);
-    border: none;
-    border-radius: 30px;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-}
-
-.btn-send-modern:hover {
-    background: var(--primary-dark);
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
-}
-
-.privacy-modern {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin-top: 12px;
-    font-size: 0.65rem;
-    color: var(--text-muted);
-}
-
-.privacy-modern i {
-    color: var(--primary);
-    font-size: 0.6rem;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .ai-dashboard { padding: 16px; }
-    .modern-header { padding: 16px 20px; }
-    .brand-icon { width: 44px; height: 44px; }
-    .brand-icon i { font-size: 22px; }
-    .brand-text h1 { font-size: 1.3rem; }
-    .header-actions { width: 100%; }
-    .btn-modern { flex: 1; justify-content: center; padding: 8px 12px; }
-    .feature-grid { grid-template-columns: 1fr; }
-    .message-wrapper { max-width: 80%; }
-    .chat-badge { display: none; }
-    .input-modern { padding: 12px 16px; }
-}
-</style>
-
-<div class="ai-dashboard">
-    
-    <!-- Modern Header -->
-    <div class="modern-header">
-        <div class="header-brand">
-            <div class="brand-icon">
-                <i class="fas fa-robot"></i>
+{% if not ai_settings.ai_chat_enabled %}
+<div class="container my-5">
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>AI Chat Disabled</h4>
+        <p>AI Chat Assistant is currently disabled by administrator. Please contact admin for more information.</p>
+        <hr>
+        <a href="{% url 'project_list' %}" class="btn btn-primary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Projects
+        </a>
+    </div>
+</div>
+{% else %}
+<div class="container-fluid p-0">
+    <!-- Header - Consistent with Project Theme -->
+    <div class="page-hero">
+        <div>
+            <div class="hero-badge mb-2">
+                <i class="bi bi-chat-dots"></i>
+                AI Assistant
             </div>
-            <div class="brand-text">
-                <h1>AI Assistant</h1>
-                <p>
-                    <span class="status-badge">
-                        <i class="fas fa-circle"></i>
-                        Online
-                    </span>
-                    <span>Asisten cerdas untuk tugas Anda</span>
-                </p>
-            </div>
+            <h3 class="hero-title">
+                <i class="bi bi-robot me-2 text-primary"></i> AI Assistant
+            </h3>
+            <p class="hero-subtitle">Asisten cerdas untuk tugas Anda</p>
         </div>
-        <div class="header-actions">
-            <button class="btn-modern btn-modern-primary" onclick="askTodayWork()">
-                <i class="fas fa-calendar-check"></i>
-                Tugas Hari Ini
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button class="btn btn-success btn-sm cta-btn" onclick="askTodayWork()">
+                <i class="bi bi-calendar-check me-1"></i> Tugas Hari Ini
             </button>
-            <button class="btn-modern btn-modern-danger" onclick="clearChat()" title="Hapus percakapan">
-                <i class="fas fa-trash-alt"></i>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearChat()" title="Hapus percakapan">
+                <i class="bi bi-trash"></i>
             </button>
         </div>
     </div>
@@ -693,10 +78,14 @@ body {
                     <div class="message-wrapper">
                         <div class="message-meta-modern">
                             <span class="sender-name">{% if msg.role == 'user' %}Anda{% else %}Arva AI{% endif %}</span>
-                            <span class="message-time">{{ msg.created_at|date:"H:i" }}</span>
+                            <span class="message-time">{{ msg.created_at|date:"d M Y H:i" }}</span>
                         </div>
                         <div class="message-bubble-modern {% if msg.role == 'user' %}user{% else %}ai{% endif %}">
-                            {{ msg.content|linebreaksbr }}
+                            {% if msg.role == 'user' %}
+                                {{ msg.content|linebreaksbr }}
+                            {% else %}
+                                <span class="markdown-content" data-content="{{ msg.content|force_escape }}"></span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -783,130 +172,41 @@ body {
     </div>
 </div>
 
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 <script>
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-function scrollToBottom() {
-    const el = document.getElementById('chat-messages');
-    el.scrollTop = el.scrollHeight;
-}
-
-function showTyping() {
-    document.getElementById('typing-indicator').classList.remove('d-none');
-    scrollToBottom();
-}
-
-function hideTyping() {
-    document.getElementById('typing-indicator').classList.add('d-none');
-}
-
-function addMessage(role, content, time) {
-    const area = document.getElementById('chat-messages');
-    const welcome = document.getElementById('welcome-message');
-    if (welcome) welcome.remove();
-
-    const isUser = role === 'user';
-    const html = `
-        <div class="message-item ${isUser ? 'user' : ''}">
-            <div class="message-avatar-modern ${isUser ? 'user' : 'ai'}">
-                <i class="fas ${isUser ? 'fa-user' : 'fa-robot'}"></i>
-            </div>
-            <div class="message-wrapper">
-                <div class="message-meta-modern">
-                    <span class="sender-name">${isUser ? 'Anda' : 'Arva AI'}</span>
-                    <span class="message-time">${time}</span>
-                </div>
-                <div class="message-bubble-modern ${isUser ? 'user' : 'ai'}">
-                    ${content.replace(/\n/g, '<br>')}
-                </div>
-            </div>
-        </div>
-    `;
-    area.insertAdjacentHTML('beforeend', html);
-    scrollToBottom();
-}
-
-async function sendMessage(event) {
-    event.preventDefault();
-    const input = document.getElementById('chat-input');
-    const message = input.value.trim();
-    if (!message) return;
-    input.value = '';
-    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    addMessage('user', message, now);
-    showTyping();
-    try {
-        const response = await fetch('/ai/chat/send/', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/x-www-form-urlencoded', 
-                'X-CSRFToken': getCookie('csrftoken') 
-            },
-            body: 'message=' + encodeURIComponent(message)
-        });
-        const data = await response.json();
-        hideTyping();
-        if (data.success) {
-            addMessage('assistant', data.ai_message.content, data.ai_message.created_at);
+// Immediate markdown parsing for server-rendered messages
+// This runs before ai_chat.js to ensure quick rendering
+(function() {
+    function parseExistingMessages() {
+        if (typeof marked !== 'undefined') {
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: false,
+                mangle: false
+            });
+            document.querySelectorAll('.markdown-content').forEach(function(el) {
+                let content = el.getAttribute('data-content');
+                if (content && !el.getAttribute('data-parsed')) {
+                    // Decode HTML entities (e.g., &amp; -> &, &lt; -> <)
+                    const textarea = document.createElement('textarea');
+                    textarea.innerHTML = content;
+                    content = textarea.value;
+                    
+                    el.innerHTML = marked.parse(content);
+                    el.setAttribute('data-parsed', 'true');
+                }
+            });
         } else {
-            addMessage('assistant', 'Maaf, terjadi kesalahan: ' + (data.error || 'Unknown error'), now);
+            setTimeout(parseExistingMessages, 50);
         }
-    } catch (error) {
-        hideTyping();
-        addMessage('assistant', 'Maaf, terjadi kesalahan koneksi. Silakan coba lagi.', now);
     }
-}
-
-async function askTodayWork() {
-    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    addMessage('user', 'Apa yang harus saya kerjakan hari ini?', now);
-    showTyping();
-    try {
-        const response = await fetch('/ai/chat/today-work/');
-        const data = await response.json();
-        hideTyping();
-        if (data.success) {
-            addMessage('assistant', data.message.content, data.message.created_at);
-        } else {
-            addMessage('assistant', 'Maaf, terjadi kesalahan: ' + (data.error || 'Unknown error'), now);
-        }
-    } catch (error) {
-        hideTyping();
-        addMessage('assistant', 'Maaf, terjadi kesalahan koneksi. Silakan coba lagi.', now);
-    }
-}
-
-async function clearChat() {
-    if (!confirm('Hapus semua percakapan?')) return;
-    try {
-        const response = await fetch('/ai/chat/clear/', {
-            method: 'POST',
-            headers: { 'X-CSRFToken': getCookie('csrftoken') }
-        });
-        const data = await response.json();
-        if (data.success) location.reload();
-    } catch (error) {
-        alert('Gagal menghapus percakapan');
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    scrollToBottom();
-    document.getElementById('chat-input').focus();
-});
+    parseExistingMessages();
+})();
 </script>
-
+<script src="{% static 'arva/js/ai_chat.js' %}"></script>
 {% endblock %}
+
+{% endif %}
+{% endblock content %}

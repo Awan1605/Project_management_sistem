@@ -1,0 +1,105 @@
+{% extends 'arva/base.html' %}
+
+{% block title %}Create AI Developer Request{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-plus-circle"></i> New Feature/Bugfix Request</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="title" name="title" required 
+                                   placeholder="e.g., Add user authentication to API">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="request_type" class="form-label">Request Type</label>
+                                    <select class="form-select" id="request_type" name="request_type">
+                                        {% for value, label in type_choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="priority" class="form-label">Priority</label>
+                                    <select class="form-select" id="priority" name="priority">
+                                        {% for value, label in priority_choices %}
+                                        <option value="{{ value }}" {% if value == 'medium' %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="description" name="description" rows="6" required
+                                      placeholder="Describe the feature or bug in detail. Include:
+- What should be implemented or fixed
+- Expected behavior
+- Any specific requirements
+- Related files or components"></textarea>
+                            <div class="form-text">
+                                Be as detailed as possible. The AI will use this to generate the solution.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="target_files" class="form-label">Target Files (Optional)</label>
+                            <textarea class="form-control" id="target_files" name="target_files" rows="2"
+                                      placeholder="e.g., arva/views.py, arva/models.py"></textarea>
+                            <div class="form-text">
+                                Comma-separated list of files the AI should focus on. Leave empty for auto-detection.
+                            </div>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="start_immediately" name="start_immediately" value="1">
+                            <label class="form-check-label" for="start_immediately">
+                                Start AI processing immediately
+                            </label>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'ai_developer_dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Back
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Create Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tips Card -->
+            <div class="card mt-4 border-info">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-lightbulb"></i> Tips for Better Results
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Be specific about what you want to achieve</li>
+                        <li>Include example inputs/outputs if applicable</li>
+                        <li>Mention any constraints or requirements</li>
+                        <li>Reference existing code patterns if relevant</li>
+                        <li>For bug fixes, describe the error and how to reproduce it</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

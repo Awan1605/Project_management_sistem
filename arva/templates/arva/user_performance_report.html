@@ -1,0 +1,205 @@
+{% extends 'arva/base.html' %}
+{% load arva_tags static %}
+{% block title %}Task Performance Report - Arva{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'arva/css/pages/user_performance_report.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="performance-page">
+    
+    <!-- Report Header - Consistent with Project/Task Theme -->
+    <div class="page-hero mb-4">
+        <div>
+            <div class="hero-badge mb-2">
+                <i class="bi bi-graph-up-arrow"></i>
+                Performance Analytics
+            </div>
+            <h3 class="hero-title">
+                <i class="bi bi-clipboard-data me-2 text-primary"></i> Task Performance Report
+            </h3>
+            <p class="hero-subtitle">Analyze task completion, on-time delivery, and team productivity metrics.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="date-badge">
+                <i class="bi bi-calendar-range"></i>
+                <span>{{ start_date|date:"d M Y" }} - {{ end_date|date:"d M Y" }}</span>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="window.print()">
+                <i class="bi bi-download me-1"></i> Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-card">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">Start Date</label>
+                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">End Date</label>
+                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">User</label>
+                <select name="user" class="form-select form-select-sm">
+                    <option value="">All Users</option>
+                    {% for user in all_users %}
+                    <option value="{{ user.id }}" {% if selected_user == user.id|stringformat:"d" %}selected{% endif %}>{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Project</label>
+                <select name="project" class="form-select form-select-sm">
+                    <option value="">All Projects</option>
+                    {% for project in all_projects %}
+                    <option value="{{ project.id }}" {% if selected_project == project.id|stringformat:"d" %}selected{% endif %}>{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Priority</label>
+                <select name="priority" class="form-select form-select-sm">
+                    <option value="">All Priorities</option>
+                    <option value="p0" {% if selected_priority == 'p0' %}selected{% endif %}>P0 - Urgent</option>
+                    <option value="p1" {% if selected_priority == 'p1' %}selected{% endif %}>P1 - High</option>
+                    <option value="p2" {% if selected_priority == 'p2' %}selected{% endif %}>P2 - Medium</option>
+                    <option value="p3" {% if selected_priority == 'p3' %}selected{% endif %}>P3 - Low</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">Apply</button>
+            </div>
+        </form>
+        <small class="text-muted mt-2 d-block">Click chart data to open the filtered task list.</small>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col">
+            <a href="{% url 'project_list' %}?{% if selected_user %}assignee={{ selected_user }}&{% endif %}{% if selected_project %}project={{ selected_project }}&{% endif %}{% if selected_priority %}priority={{ selected_priority }}{% endif %}" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-label">Total Tasks</div>
+                    <div class="stat-value">{{ total_tasks }}</div>
+                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'project_list' %}?status=done&{% if selected_user %}assignee={{ selected_user }}&{% endif %}{% if selected_project %}project={{ selected_project }}&{% endif %}{% if selected_priority %}priority={{ selected_priority }}{% endif %}" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-label">Completed</div>
+                    <div class="stat-value">{{ completion_rate }}%</div>
+                </div>
+            </a>
+        </div>
+        <div class="col">
+            <div class="stat-card">
+                <div class="stat-label">On-Time</div>
+                <div class="stat-value">{{ ontime_rate }}%</div>
+            </div>
+        </div>
+        <div class="col">
+            <a href="{% url 'project_list' %}?overdue=true&{% if selected_user %}assignee={{ selected_user }}&{% endif %}{% if selected_project %}project={{ selected_project }}&{% endif %}{% if selected_priority %}priority={{ selected_priority }}{% endif %}" class="text-decoration-none">
+                <div class="stat-card">
+                    <div class="stat-label">Overdue</div>
+                    <div class="stat-value">{{ overdue_rate }}%</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="chart-card">
+                <h5 class="chart-title">Completion Rate by User</h5>
+                <div class="chart-container">
+                    <canvas id="completionChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-card">
+                <h5 class="chart-title">On-Time Delivery by User</h5>
+                <div class="chart-container">
+                    <canvas id="ontimeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="chart-card">
+                <h5 class="chart-title">Tasks by User</h5>
+                <div class="chart-container">
+                    <canvas id="userDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-card">
+                <h5 class="chart-title">Task Status Distribution</h5>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Priority Breakdown -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="chart-card">
+                <h5 class="chart-title">Task Priority Breakdown</h5>
+                <div class="chart-container">
+                    <canvas id="priorityChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-card">
+                <h5 class="chart-title">Weekly Task Trend</h5>
+                <div class="chart-container">
+                    <canvas id="weeklyTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue Tasks by User -->
+    <div class="row g-3">
+        <div class="col-lg-12">
+            <div class="chart-card">
+                <h5 class="chart-title">Overdue Tasks by User</h5>
+                <div class="chart-container">
+                    <canvas id="overdueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Set report data as global variable for the external JS file
+window.reportData = {
+    userLabels: {{ user_labels|safe }},
+    userCompletionRates: {{ user_completion_rates|safe }},
+    userOntimeRates: {{ user_ontime_rates|safe }},
+    userTaskCounts: {{ user_task_counts|safe }},
+    userOverdueCounts: {{ user_overdue_counts|safe }},
+    statusCounts: {{ status_counts|safe }},
+    priorityCounts: {{ priority_counts|safe }},
+    weekLabels: {{ week_labels|safe }},
+    weeklyCompleted: {{ weekly_completed|safe }}
+};
+</script>
+<script src="{% static 'arva/js/user_performance_report.js' %}"></script>
+{% endblock %}

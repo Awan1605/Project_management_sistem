@@ -1,4 +1,25 @@
+/**
+ * Arva.js - JavaScript Utama Arviga Project Manager
+ * ==================================================
+ * Menangani seluruh interaksi frontend aplikasi:
+ *
+ * Kelompok fungsi:
+ * - Utilitas: getCookie, CSRF setup
+ * - Project: Buat, edit, hapus, update project
+ * - Task: Buat, edit, hapus, pindah, transfer, archive task
+ * - Inline update: Update field task langsung (judul, deskripsi, deadline, dll)
+ * - Komentar: Tambah, balas, hapus komentar
+ * - Lampiran: Upload file, hapus lampiran
+ * - Checklist: Tambah, edit, toggle, hapus checklist
+ * - Task List: Buat, reorder, hapus, archive kolom
+ * - Subproject: Buat, edit, hapus, pindah, konversi
+ * - User: Update tema, layout, buat user, reset password
+ * - AI: Priority queue, chat, developer
+ * - UI: Modal, sidebar, tema, layout switching
+ */
+
 function getCookie(name) {
+  /** Ambil nilai cookie berdasarkan nama. Digunakan untuk CSRF token. */
   let cookieValue = null;
   if (document.cookie && document.cookie !== '') {
     const cookies = document.cookie.split(';');
@@ -76,15 +97,70 @@ function showConfirm(message, title = 'Are you sure?') {
 }
 
 function showPrompt(message, title = 'Input') {
-  return Swal.fire({
-    title: title,
-    text: message,
-    input: 'text',
-    inputPlaceholder: message,
-    showCancelButton: true,
-    confirmButtonText: 'Submit',
-    cancelButtonText: 'Cancel'
-  }).then((result) => (result.isConfirmed ? result.value : null));
+  return new Promise((resolve) => {
+    // Create a custom modal that will definitely be above Bootstrap modal
+    const modalHtml = `
+      <div class="modal fade" id="customPromptModal" tabindex="-1" style="z-index: 99999 !important;">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">${title}</h5>
+            </div>
+            <div class="modal-body">
+              <p class="mb-2">${message}</p>
+              <input type="text" class="form-control" id="customPromptInput" placeholder="${message}">
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-primary" id="customPromptSubmit">Submit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Remove any existing custom prompt modal
+    const existingModal = document.getElementById('customPromptModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    const modalEl = document.getElementById('customPromptModal');
+    const inputEl = document.getElementById('customPromptInput');
+    const submitBtn = document.getElementById('customPromptSubmit');
+    
+    const modal = new bootstrap.Modal(modalEl, {
+      backdrop: 'static',
+      keyboard: false
+    });
+    
+    // Handle submit
+    const handleSubmit = () => {
+      const value = inputEl.value.trim();
+      modal.hide();
+      resolve(value || null);
+    };
+    
+    submitBtn.addEventListener('click', handleSubmit);
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        handleSubmit();
+      }
+    });
+    
+    // Handle cancel
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      modalEl.remove();
+      resolve(null);
+    }, { once: true });
+    
+    // Show modal and focus input
+    modal.show();
+    setTimeout(() => inputEl.focus(), 300);
+  });
 }
 
 function stripBomText(node) {
@@ -2720,5 +2796,71 @@ $(document).on("click", "#btn-save-member", function () {
 
   if ($('#task-board').length) {
     initSortable();
+  }
+});
+
+// Settings Submenu Toggle with Smooth Dropdown
+$(document).on('click', '#settings-menu-toggle', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const $toggle = $(this);
+  // Find the submenu within the SAME sidebar context (desktop or mobile offcanvas)
+  const $sidebar = $toggle.closest('.sidebar-menu-group');
+  const $submenu = $sidebar.find('.sidebar-submenu');
+  
+  // Toggle active class on parent link
+  $toggle.toggleClass('active');
+  
+  // Toggle submenu visibility with smooth animation
+  if ($submenu.hasClass('show')) {
+    // Close submenu
+    $submenu.removeClass('show');
+  } else {
+    // Open submenu - close other open submenus first
+    $toggle.closest('.sidebar-nav, .offcanvas-body').find('.sidebar-submenu.show').not($submenu).removeClass('show');
+    $toggle.closest('.sidebar-nav, .offcanvas-body').find('.sidebar-link.active').not($toggle).removeClass('active');
+    
+    // Open this submenu
+    $submenu.addClass('show');
+  }
+});
+
+// Prevent submenu link clicks from closing the submenu
+$(document).on('click', '.sidebar-submenu-link', function(e) {
+  // Allow normal navigation but keep submenu open during transition
+  const $submenu = $(this).closest('.sidebar-submenu');
+  setTimeout(function() {
+    $submenu.addClass('show');
+  }, 50);
+});
+
+// Close other submenus when one is opened (optional - for future expansion)
+$(document).on('click', '.sidebar-link[id$="-toggle"]', function(e) {
+  if (!$(this).attr('id').startsWith('settings-menu-toggle')) {
+    // Close settings submenu if clicking other toggles in future
+    $(this).closest('.sidebar-nav, .offcanvas-body').find('#settings-menu-toggle').removeClass('active');
+    $(this).closest('.sidebar-nav, .offcanvas-body').find('#settings-submenu').removeClass('show');
+  }
+});
+
+// Task card actions toggle - show on click, hide when clicking outside or another card
+$(document).on('click', '.task-card', function(e) {
+  // Don't toggle if clicking on buttons, links, or inside task-actions
+  if ($(e.target).closest('button, a, .task-actions, input, textarea').length) {
+    return;
+  }
+  
+  // Remove show-actions from all other cards
+  $('.task-card.show-actions').not(this).removeClass('show-actions');
+  
+  // Toggle show-actions on this card
+  $(this).toggleClass('show-actions');
+});
+
+// Hide task actions when clicking outside task cards
+$(document).on('click', function(e) {
+  if (!$(e.target).closest('.task-card').length) {
+    $('.task-card.show-actions').removeClass('show-actions');
   }
 });

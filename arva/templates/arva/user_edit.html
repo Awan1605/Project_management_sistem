@@ -32,7 +32,7 @@
       <div class="card section-card h-100 mb-3">
         <div class="card-body">
 
-          <h5 class="mb-3">User Info</h5>
+          <h5 class="mb-3">{% if request.user.is_superuser %}User Info{% else %}My Profile{% endif %}</h5>
           <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="mb-3">
@@ -45,6 +45,7 @@
               {{ user_form.email }}
               {{ user_form.email.errors }}
             </div>
+            {% if request.user.is_superuser %}
             <div class="form-check mb-2">
               {{ user_form.is_active }}
               <label class="form-check-label">Active</label>
@@ -53,6 +54,7 @@
               {{ user_form.is_staff }}
               <label class="form-check-label">Staff</label>
             </div>
+            {% endif %}
             <hr class="my-4">
             <h5 class="mb-2">Avatar</h5>
             <label class="form-label">Upload Avatar</label>
@@ -81,6 +83,7 @@
       </div>
     </div>
 
+    {% if request.user.is_superuser %}
     <div class="col-md-6">
       <div class="card section-card mb-3">
         <div class="card-body">
@@ -119,7 +122,7 @@
           </table>
 
           <p class="text-muted small">
-           User roles can also be set from the Project page â†’ Team & Roles.
+           User roles can also be set from the Project page → Team & Roles.
           </p>
         </div>
       </div>
@@ -147,6 +150,7 @@
       </div>
 
     </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

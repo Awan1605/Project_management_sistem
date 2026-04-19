@@ -1,0 +1,307 @@
+{% extends 'arva/base.html' %}
+{% load arva_tags static %}
+
+{% block title %}AI Developer Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'arva/css/pages/ai_developer_navbar.css' %}">
+<link rel="stylesheet" href="{% static 'arva/css/pages/ai_developer_dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <!-- Header - Consistent with Project Theme -->
+  <div class="page-hero mb-4">
+    <div>
+      <div class="hero-badge mb-2">
+        <i class="bi bi-robot"></i>
+        AI Automation
+      </div>
+      <h3 class="hero-title">
+        <i class="bi bi-code-square me-2 text-primary"></i> AI Developer
+      </h3>
+      <p class="hero-subtitle">Automated feature development &amp; bug fixing</p>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <a href="{% url 'ai_developer_analysis' %}" class="btn btn-outline-primary btn-sm cta-btn">
+        <i class="bi bi-diagram-3 me-1"></i> Codebase Analysis
+      </a>
+      <a href="{% url 'ai_developer_create' %}" class="btn btn-primary btn-sm cta-btn">
+        <i class="bi bi-plus-lg me-1"></i> New Request
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-value">{{ stats.total }}</div>
+      <div class="stat-label">Total Requests</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-value">{{ stats.pending }}</div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat-card cyan">
+      <div class="stat-value">{{ stats.in_progress }}</div>
+      <div class="stat-label">In Progress</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-value">{{ stats.completed }}</div>
+      <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-value">{{ stats.failed }}</div>
+      <div class="stat-label">Failed</div>
+    </div>
+    <div class="stat-card api" id="api-status-card">
+      <div class="stat-value" id="api-status-icon">
+        <i class="bi bi-circle" style="color:var(--text-dim);font-size:1.4rem;"></i>
+      </div>
+      <div class="stat-label">API Status</div>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-card">
+    <form method="get" style="display:contents;">
+      <div class="filter-group">
+        <label class="filter-label">Status</label>
+        <select name="status" class="filter-select">
+          <option value="">All Status</option>
+          {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Type</label>
+        <select name="type" class="filter-select">
+          <option value="">All Types</option>
+          {% for value, label in type_choices %}
+          <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn-filter">
+          <i class="bi bi-funnel-fill"></i> Filter
+        </button>
+        <a href="{% url 'ai_developer_dashboard' %}" class="btn-clear">
+          <i class="bi bi-x-lg"></i> Clear
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Table / Cards -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <h5 class="table-card-title">
+        Feature Requests
+        <span>{{ requests|length }} items</span>
+      </h5>
+    </div>
+
+    {% if requests %}
+    <!-- ══ DESKTOP TABLE ══ -->
+    <div class="d-none d-md-block" style="overflow-x:auto;">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for req in requests %}
+          <tr>
+            <td class="td-id">#{{ req.id }}</td>
+
+            <td class="td-title">
+              <a href="{% url 'ai_developer_request_detail' req.id %}">{{ req.title }}</a>
+              <div class="td-desc">{{ req.description|truncatechars:60 }}</div>
+            </td>
+
+            <td>
+              <span class="badge-pill {% if req.request_type == 'bugfix' %}badge-danger{% elif req.request_type == 'feature' %}badge-primary{% elif req.request_type == 'improvement' %}badge-info{% else %}badge-secondary{% endif %}">
+                {{ req.get_request_type_display }}
+              </span>
+            </td>
+
+            <td>
+              <span class="badge-pill {% if req.priority == 'critical' %}badge-dark{% elif req.priority == 'high' %}badge-danger{% elif req.priority == 'medium' %}badge-warning{% else %}badge-success{% endif %}">
+                {{ req.get_priority_display }}
+              </span>
+            </td>
+
+            <td>
+              <span class="badge-pill badge-{{ req.status_color }}">
+                {{ req.get_status_display }}
+              </span>
+            </td>
+
+            <td style="min-width:110px;">
+              <div class="progress-wrap">
+                <div class="progress-bar-dash" style="width:{{ req.progress }}%;"></div>
+              </div>
+              <div class="progress-text">{{ req.progress }}%</div>
+            </td>
+
+            <td class="td-date">{{ req.created_at|date:"d M Y" }}<br>{{ req.created_at|date:"H:i" }}</td>
+
+            <td>
+              <div class="action-group">
+                <a href="{% url 'ai_developer_request_detail' req.id %}" class="btn-icon view" title="View">
+                  <i class="bi bi-eye"></i>
+                </a>
+                {% if req.status == 'pending' or req.status == 'failed' %}
+                <form method="post" action="{% url 'ai_developer_start' req.id %}" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-icon play" title="Start">
+                    <i class="bi bi-play-fill"></i>
+                  </button>
+                </form>
+                {% endif %}
+                {% if req.status not in 'completed,failed,cancelled' %}
+                <form method="post" action="{% url 'ai_developer_cancel' req.id %}" class="d-inline" onsubmit="return confirm('Cancel this request?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-icon stop" title="Cancel">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ══ MOBILE CARDS ══ -->
+    <div class="d-md-none px-3 pt-3 pb-2">
+      {% for req in requests %}
+      <div class="m-req-card" id="mc-{{ forloop.counter0 }}">
+
+        <!-- Summary row (always visible) -->
+        <div class="m-req-summary" onclick="toggleCard({{ forloop.counter0 }})">
+
+          <!-- Status dot -->
+          <div class="m-status-dot dot-{{ req.status_color }}">
+            {% if req.status == 'completed' %}<i class="bi bi-check2"></i>
+            {% elif req.status == 'failed' %}<i class="bi bi-x-lg"></i>
+            {% elif req.status == 'in_progress' or req.status == 'generating' %}<i class="bi bi-play-fill"></i>
+            {% else %}<i class="bi bi-clock"></i>{% endif %}
+          </div>
+
+          <!-- Info -->
+          <div class="m-req-info">
+            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+              <span class="m-req-id">#{{ req.id }}</span>
+              <span class="badge-pill {% if req.request_type == 'bugfix' %}badge-danger{% elif req.request_type == 'feature' %}badge-primary{% elif req.request_type == 'improvement' %}badge-info{% else %}badge-secondary{% endif %}" style="font-size:.6rem;padding:2px 7px;">
+                {{ req.get_request_type_display }}
+              </span>
+              <span class="badge-pill badge-{{ req.status_color }}" style="font-size:.6rem;padding:2px 7px;">
+                {{ req.get_status_display }}
+              </span>
+            </div>
+            <div class="m-req-title">{{ req.title }}</div>
+          </div>
+
+          <!-- Chevron -->
+          <button class="m-chevron" tabindex="-1">
+            <i class="bi bi-chevron-right" style="font-size:.8rem;"></i>
+          </button>
+        </div>
+
+        <!-- Expandable detail -->
+        <div class="m-req-detail">
+          <div class="m-detail-grid">
+            <div class="m-detail-item">
+              <div class="m-detail-label"><i class="bi bi-flag-fill me-1"></i>Priority</div>
+              <div class="m-detail-value">
+                <span class="badge-pill {% if req.priority == 'critical' %}badge-dark{% elif req.priority == 'high' %}badge-danger{% elif req.priority == 'medium' %}badge-warning{% else %}badge-success{% endif %}" style="font-size:.65rem;padding:2px 8px;">
+                  {{ req.get_priority_display }}
+                </span>
+              </div>
+            </div>
+            <div class="m-detail-item">
+              <div class="m-detail-label"><i class="bi bi-graph-up me-1"></i>Progress</div>
+              <div class="m-detail-value">
+                <div class="progress-wrap" style="min-width:60px;">
+                  <div class="progress-bar-dash" style="width:{{ req.progress }}%;"></div>
+                </div>
+                <span style="font-size:.7rem;color:var(--text-secondary);font-family:var(--font-mono);">{{ req.progress }}%</span>
+              </div>
+            </div>
+            <div class="m-detail-item">
+              <div class="m-detail-label"><i class="bi bi-calendar-event me-1"></i>Created</div>
+              <div class="m-detail-value">{{ req.created_at|date:"d M Y H:i" }}</div>
+            </div>
+            <div class="m-detail-item">
+              <div class="m-detail-label"><i class="bi bi-card-text me-1"></i>Description</div>
+              <div class="m-detail-value m-desc-text">{{ req.description|truncatechars:100 }}</div>
+            </div>
+          </div>
+          <div class="m-actions">
+            <a href="{% url 'ai_developer_request_detail' req.id %}" class="m-btn-view">
+              <i class="bi bi-eye me-1"></i> View
+            </a>
+            {% if req.status == 'pending' or req.status == 'failed' %}
+            <form method="post" action="{% url 'ai_developer_start' req.id %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="m-btn-start">
+                <i class="bi bi-play-fill me-1"></i> Start
+              </button>
+            </form>
+            {% endif %}
+            {% if req.status not in 'completed,failed,cancelled' %}
+            <form method="post" action="{% url 'ai_developer_cancel' req.id %}" class="d-inline" onsubmit="return confirm('Cancel this request?');">
+              {% csrf_token %}
+              <button type="submit" class="m-btn-cancel">
+                <i class="bi bi-x-lg me-1"></i> Cancel
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="text-center py-5 px-3">
+      <div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-3"
+           style="width:68px;height:68px;background:var(--bg-elevated);color:var(--text-dim);font-size:1.9rem;">
+        <i class="bi bi-inbox"></i>
+      </div>
+      <h5 class="fw-bold mb-1" style="color:var(--text-primary);">No Requests Yet</h5>
+      <p class="mb-0" style="color:var(--text-secondary);font-size:.875rem;">Create a new request to get started.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<meta name="ai-api-status-url" content="{% url 'ai_developer_api_status' %}">
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'arva/js/ai_developer_dashboard.js' %}"></script>
+<script>
+/* Mobile card toggle */
+function toggleCard(idx) {
+  const card = document.getElementById('mc-' + idx);
+  if (card) card.classList.toggle('open');
+}
+</script>
+{% endblock %}

@@ -21,24 +21,59 @@
     <i class="bi bi-kanban"></i>
     <span class="sidebar-label">Tasks</span>
   </a>
+  {% if ai_settings.ai_chat_enabled %}
   <a href="{% url 'ai_chat' %}" title="AI Assistant" class="sidebar-link {% if current == 'ai_chat' %}active{% endif %}">
     <i class="bi bi-robot"></i>
     <span class="sidebar-label">AI Assistant</span>
   </a>
+  {% endif %}
+  {% if ai_settings.ai_priority_enabled %}
   <a href="{% url 'ai_priority_queue' %}" title="AI Priority" class="sidebar-link {% if current == 'ai_priority_queue' %}active{% endif %}">
     <i class="bi bi-sort-numeric-down"></i>
     <span class="sidebar-label">AI Priority</span>
   </a>
-  <a href="{% url 'user_settings' %}" title="Settings" class="sidebar-link {% if current == 'user_settings' or current == 'website_settings' %}active{% endif %}">
-    <i class="bi bi-gear"></i>
-    <span class="sidebar-label">Settings</span>
-  </a>
-  {% if user.is_superuser %}
-    <a href="{% url 'user_list' %}" title="Users" class="sidebar-link {% if current == 'user_list' or current == 'user_edit' %}active{% endif %}">
-      <i class="bi bi-people"></i>
-      <span class="sidebar-label">Users</span>
-    </a>
   {% endif %}
+  {% if user.is_staff and ai_settings.ai_developer_enabled %}
+  <a href="{% url 'ai_developer_dashboard' %}" title="AI Developer" class="sidebar-link {% if current == 'ai_developer_dashboard' or current == 'ai_developer_create' or current == 'ai_developer_request_detail' or current == 'ai_developer_analysis' %}active{% endif %}">
+    <i class="bi bi-code-square"></i>
+    <span class="sidebar-label">AI Developer</span>
+  </a>
+  <a href="{% url 'user_performance' %}?t={% now 'U' %}" title="User Performance" class="sidebar-link {% if current == 'user_performance' %}active{% endif %}">
+    <i class="bi bi-graph-up"></i>
+    <span class="sidebar-label">User Performance</span>
+  </a>
+  {% endif %}
+  
+  <!-- Settings Menu with Submenu -->
+  <div class="sidebar-menu-group">
+    <button type="button" title="Settings" class="sidebar-link {% if current == 'user_settings' or current == 'website_settings' or current == 'ai_settings' or current == 'user_list' or current == 'user_edit' %}active{% endif %}" id="settings-menu-toggle" style="width: 100%; border: none; background: transparent; text-align: left;">
+      <i class="bi bi-gear"></i>
+      <span class="sidebar-label">Settings</span>
+      <i class="bi bi-chevron-down ms-auto sidebar-submenu-arrow"></i>
+    </button>
+    
+    <div class="sidebar-submenu {% if current == 'user_settings' or current == 'website_settings' or current == 'ai_settings' or current == 'user_list' or current == 'user_edit' %}show{% endif %}" id="settings-submenu">
+      <a href="{% url 'user_settings' %}" class="sidebar-submenu-link {% if current == 'user_settings' %}active{% endif %}">
+        <i class="bi bi-layout-text-sidebar"></i>
+        <span class="sidebar-label">Layout Settings</span>
+      </a>
+      
+      {% if user.is_superuser %}
+      <a href="{% url 'website_settings' %}" class="sidebar-submenu-link {% if current == 'website_settings' %}active{% endif %}">
+        <i class="bi bi-gear-wide-connected"></i>
+        <span class="sidebar-label">Website Settings</span>
+      </a>
+      <a href="{% url 'ai_settings' %}" class="sidebar-submenu-link {% if current == 'ai_settings' %}active{% endif %}">
+        <i class="bi bi-robot"></i>
+        <span class="sidebar-label">AI Settings</span>
+      </a>
+      <a href="{% url 'user_list' %}" class="sidebar-submenu-link {% if current == 'user_list' or current == 'user_edit' %}active{% endif %}">
+        <i class="bi bi-people"></i>
+        <span class="sidebar-label">Users Settings</span>
+      </a>
+      {% endif %}
+    </div>
+  </div>
 </nav>
 
 <div class="sidebar-task-search">

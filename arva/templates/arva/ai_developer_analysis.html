@@ -1,0 +1,729 @@
+{% extends 'arva/base.html' %}
+{% load arva_tags static %}
+
+{% block title %}AI Codebase Analysis{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'arva/css/pages/ai_developer_navbar.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4 analysis-container">
+  <div class="page-hero mb-4">
+    <div>
+      <div class="hero-badge mb-2">
+        <i class="bi bi-robot"></i>
+        AI Developer
+      </div>
+      <h3 class="hero-title">
+        <i class="bi bi-code-square me-2 text-primary"></i> Codebase Analysis
+      </h3>
+      <p class="hero-subtitle">Overview of models, views, URLs, and templates in the codebase.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <a href="{% url 'ai_developer_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Dashboard
+      </a>
+    </div>
+  </div>
+
+<style>
+  /* Custom Theme Variables */
+  .analysis-container {
+    --bg-base: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-elevated: #f1f5f9;
+    --bg-hover: #e2e8f0;
+    --border: rgba(148, 163, 184, 0.2);
+    --border-bright: rgba(148, 163, 184, 0.3);
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.15);
+    --accent-green: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-red: #ef4444;
+    --accent-purple: #8b5cf6;
+    --accent-cyan: #06b6d4;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-dim: #94a3b8;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --font-sans: system-ui, -apple-system, sans-serif;
+    --font-mono: 'SF Mono', Monaco, monospace;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 10px 20px -3px rgba(0,0,0,0.08);
+    --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.08), 0 20px 40px -10px rgba(0,0,0,0.1);
+    background: var(--bg-base);
+    padding: 1.5rem;
+    border-radius: 24px;
+    min-height: 100vh;
+  }
+
+  /* ── Stats Grid ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+
+  .stat-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem 1rem;
+    text-align: center;
+    box-shadow: var(--shadow);
+    border-top: 4px solid var(--sc, var(--accent));
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    background: linear-gradient(135deg, var(--sc, var(--accent)) 0%, transparent 60%);
+    opacity: 0.05;
+    pointer-events: none;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .stat-card.blue   { --sc: var(--accent); }
+  .stat-card.green  { --sc: var(--accent-green); }
+  .stat-card.cyan   { --sc: var(--accent-cyan); }
+  .stat-card.amber  { --sc: var(--accent-amber); }
+
+  .stat-value {
+    font-family: var(--font-mono);
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--sc, var(--accent));
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--sc, var(--accent)), var(--accent-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Content Grid ── */
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  @media (max-width: 900px) { .content-grid { grid-template-columns: 1fr; } }
+
+  /* ── Page Hero overrides (base styles from ai_developer_navbar.css) ── */
+
+  /* ── Panel Cards ── */
+  .panel-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .panel-card:hover {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .panel-header {
+    padding: 0.9rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-elevated);
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .panel-title i { color: var(--accent); font-size: 0.9rem; }
+
+  .panel-count {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    background: var(--accent-glow);
+    color: var(--accent);
+    padding: 0.2em 0.6em;
+    border-radius: 999px;
+    font-weight: 700;
+    border: 1px solid rgba(59,126,248,0.2);
+  }
+
+  .panel-body {
+    overflow-y: auto;
+    max-height: 360px;
+    flex: 1;
+  }
+
+  /* ── List Items ── */
+  .code-item {
+    padding: 0.75rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .code-item:last-child { border-bottom: none; }
+  .code-item:hover { background: var(--bg-hover); }
+
+  .code-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .code-name {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .code-meta {
+    font-size: 0.71rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    margin-bottom: 0.4rem;
+  }
+
+  .code-meta i { margin-right: 0.2rem; }
+
+  /* Badges */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18em 0.55em;
+    border-radius: 5px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+  }
+
+  .tag-field  { background: #f0f4ff; color: #4a6fa5; border: 1px solid #d1dcf5; }
+  .tag-more   { background: var(--bg-elevated); color: var(--text-dim); border: 1px solid var(--border); }
+  .tag-count  { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border-bright); font-family: var(--font-mono); }
+  .tag-class  { background: #eff6ff; color: var(--accent); border: 1px solid rgba(59,126,248,0.2); }
+  .tag-func   { background: #ecfdf5; color: var(--accent-green); border: 1px solid rgba(16,185,129,0.2); }
+  .tag-name   { background: #fdf4ff; color: var(--accent-purple); border: 1px solid rgba(139,92,246,0.2); }
+
+  /* URL items */
+  .url-item {
+    padding: 0.65rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .url-item:last-child { border-bottom: none; }
+  .url-item:hover { background: var(--bg-hover); }
+
+  .url-pattern {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--accent);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .url-arrow { color: var(--text-dim); font-size: 0.75rem; flex-shrink: 0; }
+
+  .url-view {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+  }
+
+  /* Template items */
+  .tpl-item {
+    padding: 0.65rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .tpl-item:last-child { border-bottom: none; }
+  .tpl-item:hover { background: var(--bg-hover); }
+
+  .tpl-path {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-primary);
+  }
+
+  .tpl-extends {
+    font-size: 0.71rem;
+    color: var(--text-dim);
+    margin-top: 0.2rem;
+    font-family: var(--font-mono);
+  }
+
+  .tpl-extends span { color: var(--accent-purple); }
+
+  /* Empty state */
+  .empty-item {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+  }
+
+  /* ── Full-width panels (static files, folder) ── */
+  .full-panel { margin-bottom: 1rem; }
+
+  /* ── Folder Tree ── */
+  .folder-item {
+    padding: 5px 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: default;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: background 0.12s;
+  }
+
+  .folder-item:hover { background: var(--bg-hover); }
+
+  .folder-name { flex: 1; }
+
+  .folder-toggle { cursor: pointer; color: var(--text-dim); font-size: 0.7rem; transition: transform 0.2s; }
+
+  .folder-children { }
+
+  /* ── Backup Files ── */
+  .backup-item {
+    padding: 0.85rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .backup-item:last-child { border-bottom: none; }
+  .backup-item:hover { background: var(--bg-hover); }
+
+  .backup-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .backup-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .backup-filename {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .backup-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .backup-date {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .backup-size {
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .backup-path {
+    font-size: 0.71rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    padding-left: 1.5rem;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg-elevated); }
+  ::-webkit-scrollbar-thumb { background: #c8cde0; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* ── Mobile Responsive ── */
+  @media (max-width: 767.98px) {
+    .analysis-container {
+      padding: 0.5rem;
+    }
+
+    .analysis-container .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+
+    .analysis-container .stat-card {
+      padding: 0.75rem 0.6rem;
+    }
+
+    .analysis-container .stat-value {
+      font-size: 1.3rem;
+    }
+
+    .analysis-container .stat-label {
+      font-size: 0.6rem;
+    }
+
+    .analysis-container .panel-card {
+      border-radius: 10px;
+    }
+
+    .analysis-container .panel-header {
+      padding: 0.75rem 1rem;
+    }
+
+    .analysis-container .panel-title {
+      font-size: 0.78rem;
+    }
+
+    .analysis-container .folder-item {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.78rem;
+    }
+
+    .analysis-container .folder-item .bi {
+      font-size: 0.85rem;
+    }
+
+    .analysis-container .code-item {
+      font-size: 0.72rem;
+      padding: 0.3rem 0 0.3rem 1.2rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .analysis-container .stats-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .analysis-container .stat-value {
+      font-size: 1.1rem;
+    }
+  }
+</style>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-value">{{ models_count }}</div>
+      <div class="stat-label">Models</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-value">{{ views_count }}</div>
+      <div class="stat-label">Views</div>
+    </div>
+    <div class="stat-card cyan">
+      <div class="stat-value">{{ urls_count }}</div>
+      <div class="stat-label">URL Patterns</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-value">{{ templates_count }}</div>
+      <div class="stat-label">Templates</div>
+    </div>
+  </div>
+
+  <!-- 2-col grid: Models + Views -->
+  <div class="content-grid">
+
+    <!-- Models -->
+    <div class="panel-card">
+      <div class="panel-header">
+        <h5 class="panel-title"><i class="bi bi-database"></i> Models</h5>
+        <span class="panel-count">{{ analysis.models|length }}</span>
+      </div>
+      <div class="panel-body">
+        {% for model in analysis.models %}
+        <div class="code-item">
+          <div class="code-item-header">
+            <span class="code-name">{{ model.name }}</span>
+            <span class="tag tag-count">{{ model.fields|length }} fields</span>
+          </div>
+          <div class="code-meta"><i class="bi bi-file-earmark-code"></i>{{ model.file_path }}:{{ model.line_number }}</div>
+          {% if model.fields %}
+          <div style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.35rem;">
+            {% for field in model.fields|slice:":5" %}
+            <span class="tag tag-field">{{ field.name }}</span>
+            {% endfor %}
+            {% if model.fields|length > 5 %}
+            <span class="tag tag-more">+{{ model.fields|length|add:"-5" }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="empty-item"><i class="bi bi-inbox d-block mb-1" style="font-size:1.4rem;"></i>No models found</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Views -->
+    <div class="panel-card">
+      <div class="panel-header">
+        <h5 class="panel-title"><i class="bi bi-eye"></i> Views</h5>
+        <span class="panel-count">{{ analysis.views|length }}</span>
+      </div>
+      <div class="panel-body">
+        {% for view in analysis.views %}
+        <div class="code-item">
+          <div class="code-item-header">
+            <span class="code-name">{{ view.name }}</span>
+            <span class="tag {% if view.view_type == 'class' %}tag-class{% else %}tag-func{% endif %}">{{ view.view_type }}</span>
+          </div>
+          <div class="code-meta"><i class="bi bi-file-earmark-code"></i>{{ view.file_path }}:{{ view.line_number }}</div>
+          {% if view.methods %}
+          <div style="font-size:0.71rem;color:var(--text-dim);font-family:var(--font-mono);margin-top:0.2rem;">
+            {% for method in view.methods|slice:":3" %}{{ method }}{% if not forloop.last %}, {% endif %}{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="empty-item"><i class="bi bi-inbox d-block mb-1" style="font-size:1.4rem;"></i>No views found</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- URLs -->
+    <div class="panel-card">
+      <div class="panel-header">
+        <h5 class="panel-title"><i class="bi bi-link-45deg"></i> URL Patterns</h5>
+        <span class="panel-count">{{ analysis.urls|length }}</span>
+      </div>
+      <div class="panel-body">
+        {% for url in analysis.urls %}
+        <div class="url-item">
+          <span class="url-pattern">{{ url.pattern }}</span>
+          <span class="url-arrow"><i class="bi bi-arrow-right"></i></span>
+          <span class="url-view">{{ url.view_name }}</span>
+          {% if url.name %}
+          <span class="tag tag-name">{{ url.name }}</span>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="empty-item"><i class="bi bi-inbox d-block mb-1" style="font-size:1.4rem;"></i>No URLs found</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Templates -->
+    <div class="panel-card">
+      <div class="panel-header">
+        <h5 class="panel-title"><i class="bi bi-file-earmark-text"></i> Templates</h5>
+        <span class="panel-count">{{ analysis.templates|length }}</span>
+      </div>
+      <div class="panel-body">
+        {% for template in analysis.templates %}
+        <div class="tpl-item">
+          <div class="tpl-path">{{ template.path }}</div>
+          {% if template.extends %}
+          <div class="tpl-extends">extends: <span>{{ template.extends }}</span></div>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="empty-item"><i class="bi bi-inbox d-block mb-1" style="font-size:1.4rem;"></i>No templates found</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div><!-- /content-grid -->
+
+  <!-- Static Files -->
+  {% if analysis.static_files %}
+  <div class="panel-card full-panel">
+    <div class="panel-header">
+      <h5 class="panel-title"><i class="bi bi-folder"></i> Static Files</h5>
+      <span class="panel-count">{{ analysis.static_files|length }}</span>
+    </div>
+    <div class="panel-body" style="max-height:260px;">
+      {% for file in analysis.static_files %}
+      <div class="tpl-item">
+        <span class="tpl-path">{{ file }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Folder Structure -->
+  {% if analysis.folder_structure %}
+  <div class="panel-card full-panel">
+    <div class="panel-header">
+      <h5 class="panel-title"><i class="bi bi-diagram-3"></i> Folder Structure</h5>
+    </div>
+    <div id="folder-tree" class="panel-body" style="max-height:480px;padding:0.5rem 0;">
+      <div style="padding:2rem;text-align:center;">
+        <div class="spinner-border text-primary" role="status" style="width:1.5rem;height:1.5rem;border-width:2px;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script id="folder-data" type="application/json">{{ analysis.folder_structure|safe }}</script>
+  {% endif %}
+
+  <!-- AI Backup Files -->
+  {% if backup_files %}
+  <div class="panel-card full-panel">
+    <div class="panel-header">
+      <h5 class="panel-title"><i class="bi bi-archive"></i> AI Backup Files</h5>
+      <span class="panel-count">{{ backup_count }}</span>
+    </div>
+    <div class="panel-body" style="max-height:360px;">
+      {% for backup in backup_files %}
+      <div class="backup-item">
+        <div class="backup-item-header">
+          <div class="backup-info">
+            <i class="bi bi-file-earmark-text text-primary"></i>
+            <span class="backup-filename" title="{{ backup.original_file }}">{{ backup.original_file|truncatechars:40 }}</span>
+          </div>
+          <div class="backup-meta">
+            {% if backup.created_at %}
+            <span class="backup-date">{{ backup.created_at|date:"d M Y H:i" }}</span>
+            {% endif %}
+            <span class="backup-size">{{ backup.size|filesizeformat }}</span>
+          </div>
+        </div>
+        <div class="backup-path">{{ backup.filename }}</div>
+      </div>
+      {% empty %}
+      <div class="empty-item"><i class="bi bi-inbox d-block mb-1" style="font-size:1.4rem;"></i>No backup files found</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function renderFolder(folder, depth) {
+  if (!folder) return '';
+  const indent = depth * 18;
+  const isFolder = folder.is_folder;
+  const hasChildren = isFolder && folder.children && folder.children.length > 0;
+  const icon = isFolder ? 'bi-folder-fill' : 'bi-file-earmark';
+  const iconColor = isFolder ? '#f59e0b' : '#9aa0bc';
+  const chevron = hasChildren
+    ? `<i class="bi bi-chevron-down folder-toggle" style="cursor:pointer;color:#9aa0bc;font-size:0.65rem;flex-shrink:0;"></i>`
+    : `<span style="width:14px;flex-shrink:0;"></span>`;
+
+  let fileTypesHtml = '';
+  if (folder.file_types && Object.keys(folder.file_types).length > 0) {
+    fileTypesHtml = Object.entries(folder.file_types).slice(0, 4).map(([ext, count]) =>
+      `<span style="font-size:0.62rem;background:#f0f4ff;color:#4a6fa5;border:1px solid #d1dcf5;border-radius:4px;padding:0.1em 0.4em;margin-left:3px;">${ext}:${count}</span>`
+    ).join('');
+  }
+
+  const countBadge = folder.file_count > 0
+    ? `<span style="font-size:0.65rem;background:var(--bg-elevated);color:var(--text-dim);border:1px solid var(--border);border-radius:4px;padding:0.1em 0.45em;margin-left:4px;">${folder.file_count}</span>`
+    : '';
+
+  let html = `
+    <div class="folder-item" style="padding-left:${indent + 12}px;" data-path="${folder.path}">
+      ${chevron}
+      <i class="bi ${icon}" style="color:${iconColor};flex-shrink:0;font-size:0.8rem;"></i>
+      <span class="folder-name">${folder.name}</span>
+      ${countBadge}${fileTypesHtml}
+    </div>`;
+
+  if (hasChildren) {
+    html += `<div class="folder-children">`;
+    for (const child of folder.children) html += renderFolder(child, depth + 1);
+    html += `</div>`;
+  }
+  return html;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const folderDataEl = document.getElementById('folder-data');
+  if (!folderDataEl) return;
+  try {
+    const folderData = JSON.parse(folderDataEl.textContent);
+    if (folderData) {
+      const tree = document.getElementById('folder-tree');
+      tree.innerHTML = renderFolder(folderData, 0);
+      tree.querySelectorAll('.folder-toggle').forEach(toggle => {
+        toggle.addEventListener('click', function (e) {
+          e.stopPropagation();
+          const parent = this.closest('.folder-item');
+          const children = parent.nextElementSibling;
+          if (children && children.classList.contains('folder-children')) {
+            const hidden = children.style.display === 'none';
+            children.style.display = hidden ? 'block' : 'none';
+            this.style.transform = hidden ? '' : 'rotate(-90deg)';
+          }
+        });
+      });
+    }
+  } catch (err) {
+    document.getElementById('folder-tree').innerHTML =
+      '<p style="padding:1rem;color:var(--accent-red);font-size:0.82rem;">Error loading folder structure</p>';
+  }
+});
+</script>
+{% endblock %}

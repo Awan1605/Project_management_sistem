@@ -1,14 +1,35 @@
+"""
+URL Configuration Arviga Project Manager
+==========================================
+Mendefinisikan seluruh URL routing aplikasi.
+
+Kelompok URL:
+- Auth: Login, logout
+- Projects & board: CRUD project, kanban board
+- Project members: Keanggotaan project
+- Lists: CRUD task list dalam project
+- Subprojects: CRUD sub-project
+- Tasks: CRUD task, move, transfer, archive
+- Comments & attachments: Komentar, lampiran, checklist
+- User management: Pengaturan user, performa
+- AI features: Priority queue, chat, developer
+"""
+
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
 
 urlpatterns = [
-    # Auth
+    # ============================================================
+    # AUTENTIKASI
+    # ============================================================
     path('login/', auth_views.LoginView.as_view(template_name='arva/auth_login.html'), name='login'),
     path('logout/', views.custom_logout, name='logout'),
     # path('register/', views.register, name='register'),
 
-    # Projects & board
+    # ============================================================
+    # PROJECT & BOARD
+    # ============================================================
     path('', views.project_list, name='project_list'),
     path('my/cards/', views.my_cards, name='my_cards'),
     path('tasks/search/', views.task_search_by_user, name='task_search_by_user'),
@@ -24,13 +45,17 @@ urlpatterns = [
     path('project/<int:pk>/subprojects/list/', views.subproject_list, name='subproject_list'),
     path('project/<int:pk>/lists/', views.project_lists, name='project_lists'),
 
-    # Project members
+    # ============================================================
+    # KEANGGOTAAN PROJECT
+    # ============================================================
     path('project/<int:pk>/members/', views.project_members, name='project_members'),
     path('project/<int:pk>/members/add/', views.project_member_add, name='project_member_add'),
     path('project/member/<int:member_id>/update/', views.project_member_update, name='project_member_update'),
     path('project/member/<int:member_id>/delete/', views.project_member_delete, name='project_member_delete'),
 
-    # Lists
+    # ============================================================
+    # TASK LIST & SUBPROJECT
+    # ============================================================
     path('project/<int:pk>/list/create/', views.tasklist_create, name='tasklist_create'),
     path('project/<int:pk>/edit/', views.project_edit, name='project_edit'),
     path('project/<int:pk>/list/reorder/', views.tasklist_reorder, name='tasklist_reorder'),
@@ -44,7 +69,9 @@ urlpatterns = [
     path('subproject/<int:subproject_id>/convert-project/', views.subproject_convert_to_project, name='subproject_convert_to_project'),
     path('project/<int:pk>/subprojects/', views.project_subprojects, name='project_subprojects'),
 
-    # Tasks
+    # ============================================================
+    # TASK
+    # ============================================================
     path('project/<int:pk>/task/create/', views.task_create, name='task_create'),
     path('task/<int:task_id>/view/', views.task_view, name='task_view'),
     path('task/<int:task_id>/update/', views.task_update, name='task_update'),
@@ -55,19 +82,25 @@ urlpatterns = [
     path('task/<int:task_id>/unarchive/', views.task_unarchive, name='task_unarchive'),
     path('task/<int:task_id>/inline-update/', views.task_inline_update, name='task_inline_update'),
 
-    # Comments & attachments
+    # ============================================================
+    # KOMENTAR & LAMPIRAN
+    # ============================================================
     path('task/<int:task_id>/comment/add/', views.comment_add, name='comment_add'),
     path('comment/<int:comment_id>/reply/', views.comment_reply, name="comment_reply"),
     path('comment/<int:comment_id>/delete/', views.comment_delete, name="comment_delete"),
     path('task/<int:task_id>/attachment/add/', views.attachment_add, name='attachment_add'),
 
-    # Checklist
+    # ============================================================
+    # CHECKLIST
+    # ============================================================
     path('task/<int:task_id>/checklist/add/', views.checklist_add, name='checklist_add'),
     path('checklist/<int:item_id>/edit/', views.checklist_edit, name='checklist_edit'),
     path('checklist/<int:item_id>/delete/', views.checklist_delete, name='checklist_delete'),
     path('checklist/<int:item_id>/toggle/', views.checklist_toggle, name='checklist_toggle'),
 
-    # User
+    # ============================================================
+    # MANAJEMEN USER
+    # ============================================================
     path('users/', views.user_list, name='user_list'),
     path('users/create/', views.create_user_system, name='create_user_system'),
     path('users/<int:user_id>/edit/', views.user_edit, name='user_edit'),
@@ -77,21 +110,61 @@ urlpatterns = [
     path('project-member/<int:pm_id>/update-role/', views.project_member_update_role, name='project_member_update_role'),
     path('project-member/<int:pm_id>/remove/', views.project_member_remove, name='project_member_remove'),
 
-    # Settings
+    # ============================================================
+    # PENGATURAN
+    # ============================================================
     path('settings/', views.user_settings, name='user_settings'),
     path('settings/website/', views.website_settings, name='website_settings'),
+    path('settings/ai/', views.ai_settings, name='ai_settings'),
     path('profile/theme/update/', views.update_user_theme, name='update_user_theme'),
     path('profile/layout/update/', views.update_user_layout, name='update_user_layout'),
 
-    # AI Priority Analysis
+    # ============================================================
+    # PERFORMA USER
+    # ============================================================
+    path('user/performance/', views.user_performance, name='user_performance'),
+
+    # ============================================================
+    # AI PRIORITY ANALYSIS
+    # ============================================================
     path('ai/priority-queue/', views.ai_priority_queue, name='ai_priority_queue'),
     path('ai/priority-refresh/', views.ai_priority_refresh, name='ai_priority_refresh'),
     path('ai/analyze-task/<int:task_id>/', views.ai_analyze_task, name='ai_analyze_task'),
     path('ai/analyze-project/<int:pk>/', views.ai_analyze_project, name='ai_analyze_project'),
     
-    # AI Chat Assistant
+    # ============================================================
+    # AI CHAT ASSISTANT
+    # ============================================================
     path('ai/chat/', views.ai_chat, name='ai_chat'),
     path('ai/chat/send/', views.ai_chat_send, name='ai_chat_send'),
     path('ai/chat/clear/', views.ai_chat_clear, name='ai_chat_clear'),
     path('ai/chat/today-work/', views.ai_chat_today_work, name='ai_chat_today_work'),
+    
+    # ============================================================
+    # AI DEVELOPER V1 (LEGACY)
+    # ============================================================
+    path('ai/developer/', views.ai_developer_dashboard, name='ai_developer_dashboard'),
+    path('ai/developer/create/', views.ai_developer_create_request, name='ai_developer_create'),
+    path('ai/developer/request/<int:request_id>/', views.ai_developer_request_detail, name='ai_developer_request_detail'),
+    path('ai/developer/request/<int:request_id>/start/', views.ai_developer_start_processing, name='ai_developer_start'),
+    path('ai/developer/request/<int:request_id>/apply/', views.ai_developer_apply_changes, name='ai_developer_apply'),
+    path('ai/developer/request/<int:request_id>/reject/', views.ai_developer_reject_changes, name='ai_developer_reject'),
+    path('ai/developer/request/<int:request_id>/cancel/', views.ai_developer_cancel_request, name='ai_developer_cancel'),
+    path('ai/developer/diff/<int:change_id>/', views.ai_developer_view_diff, name='ai_developer_diff'),
+    path('ai/developer/analysis/', views.ai_developer_codebase_analysis, name='ai_developer_analysis'),
+    path('ai/developer/api-status/', views.ai_developer_api_status, name='ai_developer_api_status'),
+    
+    # ============================================================
+    # AI DEVELOPER V2 (PROGRESS TRACKING)
+    # ============================================================
+    path('ai/developer/v2/create/', views.ai_developer_create_v2, name='ai_developer_create_v2'),
+    path('ai/developer/v2/request/<int:request_id>/progress/', views.ai_developer_progress, name='ai_developer_progress'),
+    path('ai/developer/v2/request/<int:request_id>/start/', views.ai_developer_start_v2, name='ai_developer_start_v2'),
+    path('ai/developer/v2/request/<int:request_id>/retry/', views.ai_developer_retry_v2, name='ai_developer_retry'),
+    
+    # ============================================================
+    # API ENDPOINTS V2
+    # ============================================================
+    path('ai-developer/api/progress/<int:request_id>/', views.ai_developer_api_progress, name='ai_developer_api_progress'),
+    path('ai-developer/api/cancel/<int:request_id>/', views.ai_developer_api_cancel, name='ai_developer_api_cancel'),
 ]

@@ -1,0 +1,451 @@
+/* ========================================
+   AI Settings Page - Modern Redesign
+   ======================================== */
+
+/* --- Hero Section --- */
+.page-hero {
+  border-radius: 18px;
+  padding: 1.5rem 1.75rem;
+  background:
+    radial-gradient(600px 240px at 0% 0%, rgba(99, 102, 241, 0.18), transparent 65%),
+    radial-gradient(520px 220px at 90% 20%, rgba(16, 185, 129, 0.18), transparent 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.75));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hero-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+
+.hero-subtitle {
+  margin: 0;
+  color: #64748b;
+}
+
+/* --- Step Indicator --- */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.25rem;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.step-number.bg-provider  { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.step-number.bg-model     { background: linear-gradient(135deg, #0ea5e9, #06b6d4); }
+.step-number.bg-api       { background: linear-gradient(135deg, #f59e0b, #f97316); }
+.step-number.bg-parameter { background: linear-gradient(135deg, #10b981, #059669); }
+.step-number.bg-feature   { background: linear-gradient(135deg, #8b5cf6, #a855f7); }
+.step-number.bg-advanced  { background: linear-gradient(135deg, #64748b, #475569); }
+
+.step-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.step-desc {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0.15rem 0 0 2.65rem;
+}
+
+/* --- Provider Selection Cards --- */
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.provider-card {
+  position: relative;
+  border: 2px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fff;
+  text-align: center;
+}
+
+.provider-card:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.12);
+  transform: translateY(-2px);
+}
+
+.provider-card.selected {
+  border-color: #6366f1;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(139, 92, 246, 0.06));
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.18);
+}
+
+.provider-card .provider-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.55rem;
+  font-size: 1.35rem;
+}
+
+.provider-card .provider-icon.icon-local   { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+.provider-card .provider-icon.icon-deepseek { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; }
+.provider-card .provider-icon.icon-google   { background: linear-gradient(135deg, #f59e0b, #ea580c); color: #fff; }
+.provider-card .provider-icon.icon-claude   { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; }
+
+.provider-card .provider-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1e293b;
+  margin-bottom: 0.2rem;
+}
+
+.provider-card .provider-tag {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  display: inline-block;
+  font-weight: 600;
+}
+
+.provider-tag.tag-free       { background: #dcfce7; color: #166534; }
+.provider-tag.tag-recommended { background: #fef3c7; color: #92400e; }
+.provider-tag.tag-cloud      { background: #e0f2fe; color: #075985; }
+.provider-tag.tag-premium    { background: #f3e8ff; color: #6b21a8; }
+
+.provider-card .check-mark {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #6366f1;
+  color: #fff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.provider-card.selected .check-mark {
+  display: inline-flex;
+}
+
+/* --- Model Selection Cards --- */
+.model-section-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: #6366f1;
+  margin-bottom: 0.5rem;
+}
+
+.model-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 1rem 1.15rem;
+  background: #fff;
+}
+
+.model-card .model-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.model-card .model-header .model-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.model-icon-wrap.mi-assistant { background: linear-gradient(135deg, #0ea5e9, #06b6d4); color: #fff; }
+.model-icon-wrap.mi-developer { background: linear-gradient(135deg, #8b5cf6, #a855f7); color: #fff; }
+
+.model-card .model-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.model-card .model-subtitle {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+/* --- Setting Cards --- */
+.setting-card {
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+}
+
+.setting-card .card-body {
+  padding: 1.5rem;
+}
+
+/* --- Form Controls --- */
+.form-label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.form-control,
+.form-select {
+  border-radius: 12px;
+  border-color: rgba(15, 23, 42, 0.12);
+  padding: 0.55rem 0.85rem;
+  font-size: 0.95rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+/* --- Feature Toggle Cards --- */
+.feature-toggle-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 1.15rem;
+  transition: all 0.2s ease;
+  background: #fff;
+}
+
+.feature-toggle-card:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+.feature-toggle-card .toggle-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.15rem;
+}
+
+.toggle-icon.ti-priority  { background: linear-gradient(135deg, #f59e0b, #f97316); color: #fff; }
+.toggle-icon.ti-chat      { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+.toggle-icon.ti-developer { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; }
+
+.feature-toggle-card .toggle-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.feature-toggle-card .toggle-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+/* --- Info Boxes --- */
+.info-box {
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 0.85rem;
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.info-box .info-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.info-box.info-tip {
+  background: linear-gradient(135deg, #fef3c7, #fffbeb);
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.info-box.info-info {
+  background: linear-gradient(135deg, #e0f2fe, #f0f9ff);
+  border: 1px solid #bae6fd;
+  color: #075985;
+}
+
+.info-box.info-success {
+  background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+/* --- Temperature Slider --- */
+.temp-visual {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+}
+
+.temp-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 6px;
+}
+
+.temp-label.tl-precise { background: #e0f2fe; color: #075985; }
+.temp-label.tl-creative { background: #fef3c7; color: #92400e; }
+
+.form-range::-webkit-slider-thumb {
+  background: #6366f1;
+}
+
+.form-range::-moz-range-thumb {
+  background: #6366f1;
+}
+
+/* --- Save Button --- */
+.btn-save-settings {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 14px;
+  padding: 0.75rem 2rem;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.btn-save-settings:hover {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+  color: #fff;
+}
+
+/* --- API Key Input Group --- */
+.api-key-wrapper {
+  position: relative;
+}
+
+.api-key-wrapper .toggle-visibility {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.api-key-wrapper .toggle-visibility:hover {
+  color: #6366f1;
+}
+
+/* --- Quick Start Guide --- */
+.quick-start-card {
+  border-radius: 16px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.04), rgba(5, 150, 105, 0.04));
+}
+
+.quick-start-card .qs-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.5rem 0;
+}
+
+.quick-start-card .qs-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.quick-start-card .qs-step-text {
+  font-size: 0.85rem;
+  color: #334155;
+  padding-top: 2px;
+}
+
+.quick-start-card .qs-step-text code {
+  background: rgba(16, 185, 129, 0.1);
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #059669;
+}
+
+/* --- Accordion Tweaks --- */
+.accordion-button:not(.collapsed) {
+  background: rgba(99, 102, 241, 0.06);
+  color: #4f46e5;
+  font-weight: 600;
+}
+
+.accordion-button:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* --- Section Divider --- */
+.section-divider {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.1), transparent);
+  margin: 1.5rem 0;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .provider-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .provider-grid {
+    grid-template-columns: 1fr;
+  }
+}

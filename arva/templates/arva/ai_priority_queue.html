@@ -1,804 +1,438 @@
 {% extends 'arva/base.html' %}
-{% load arva_tags %}
+{% load arva_tags static %}
 {% block title %}AI Priority Queue - Arva{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'arva/css/pages/ai_priority_queue.css' %}?v=2">
+{% endblock %}
+
 {% block content %}
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-:root {
-    --bg: #f6f7f9;
-    --surface: #ffffff;
-    --border: #e5e7eb;
-    --text: #111827;
-    --muted: #6b7280;
-    --accent: #059669;
-
-    --c-red:    #ef4444;
-    --c-amber:  #f59e0b;
-    --c-blue:   #3b82f6;
-    --c-green:  #22c55e;
-
-    --c-red-bg:   #fef2f2;
-    --c-amber-bg: #fffbeb;
-    --c-blue-bg:  #eff6ff;
-    --c-green-bg: #f0fdf4;
-}
-
-.pq-wrap {
-    font-family: 'Inter', sans-serif;
-    background: var(--bg);
-    min-height: calc(100vh - 60px);
-    padding: 28px 24px;
-}
-
-/* ── Header ── */
-.pq-header {
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: 18px;
-    padding: 24px 28px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    position: relative;
-    overflow: hidden;
-}
-
-/* subtle grid pattern */
-.pq-header::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(rgba(5,150,105,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(5,150,105,0.04) 1px, transparent 1px);
-    background-size: 28px 28px;
-    pointer-events: none;
-}
-
-/* glowing orb top-right */
-.pq-header::after {
-    content: '';
-    position: absolute;
-    top: -60px; right: -60px;
-    width: 220px; height: 220px;
-    background: radial-gradient(circle, rgba(5,150,105,0.12) 0%, transparent 70%);
-    border-radius: 50%;
-    pointer-events: none;
-}
-
-.pq-header-left {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    z-index: 1;
-}
-
-.pq-header-icon {
-    width: 58px; height: 58px;
-    background: linear-gradient(135deg, #059669, #0ea5e9);
-    border-radius: 16px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    box-shadow: 0 6px 20px rgba(5,150,105,0.4);
-    position: relative;
-}
-
-.pq-header-icon svg {
-    animation: spin-slow 12s linear infinite;
-}
-
-@keyframes spin-slow {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-}
-
-.pq-header-icon svg circle:first-child {
-    animation: none;
-}
-
-.pq-header-text h2 {
-    font-size: 1.45rem;
-    font-weight: 800;
-    color: var(--text);
-    margin: 0 0 5px;
-    letter-spacing: -0.03em;
-}
-
-.pq-header-text p {
-    font-size: 0.82rem;
-    color: var(--muted);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.pq-live-dot {
-    width: 7px; height: 7px;
-    background: #10b981;
-    border-radius: 50%;
-    display: inline-block;
-    animation: pulse-dot 2s infinite;
-}
-@keyframes pulse-dot {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.4; transform: scale(1.4); }
-}
-
-.btn-refresh {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    background: linear-gradient(135deg, #059669, #0ea5e9);
-    border: none;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-family: inherit;
-    z-index: 1;
-    box-shadow: 0 3px 10px rgba(5,150,105,0.3);
-}
-
-.btn-refresh:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(5,150,105,0.4);
-    color: white;
-}
-
-/* ── Error ── */
-.alert-modern {
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    border-radius: 12px;
-    padding: 14px 18px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #9a3412;
-    font-size: 0.875rem;
-}
-
-/* ── Stats Row ── */
-.stats-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
-}
-
-.stat-card {
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: 14px;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
-    transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.stat-card:hover {
-    box-shadow: 0 6px 20px rgba(0,0,0,0.09);
-    transform: translateY(-2px);
-}
-
-/* colored glow in corner */
-.stat-card::after {
-    content: '';
-    position: absolute;
-    top: -20px; right: -20px;
-    width: 80px; height: 80px;
-    border-radius: 50%;
-    opacity: 0.15;
-}
-
-.stat-card.critical::after { background: var(--c-red); }
-.stat-card.high::after     { background: var(--c-amber); }
-.stat-card.medium::after   { background: var(--c-blue); }
-.stat-card.low::after      { background: var(--c-green); }
-
-.stat-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-}
-
-.stat-icon {
-    width: 38px; height: 38px;
-    border-radius: 9px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 15px;
-    flex-shrink: 0;
-}
-
-.stat-card.critical .stat-icon { background: var(--c-red-bg);   color: var(--c-red); }
-.stat-card.high     .stat-icon { background: var(--c-amber-bg); color: var(--c-amber); }
-.stat-card.medium   .stat-icon { background: var(--c-blue-bg);  color: var(--c-blue); }
-.stat-card.low      .stat-icon { background: var(--c-green-bg); color: var(--c-green); }
-
-.stat-trend {
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 20px;
-}
-.stat-card.critical .stat-trend { background: var(--c-red-bg);   color: var(--c-red); }
-.stat-card.high     .stat-trend { background: var(--c-amber-bg); color: var(--c-amber); }
-.stat-card.medium   .stat-trend { background: var(--c-blue-bg);  color: var(--c-blue); }
-.stat-card.low      .stat-trend { background: var(--c-green-bg); color: var(--c-green); }
-
-.stat-num {
-    font-size: 2.2rem;
-    font-weight: 800;
-    line-height: 1;
-    margin-bottom: 4px;
-}
-.stat-card.critical .stat-num { color: var(--c-red); }
-.stat-card.high     .stat-num { color: var(--c-amber); }
-.stat-card.medium   .stat-num { color: var(--c-blue); }
-.stat-card.low      .stat-num { color: var(--c-green); }
-
-.stat-lbl {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* bottom bar accent */
-.stat-bar {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 3px;
-    border-radius: 0 0 14px 14px;
-}
-.stat-card.critical .stat-bar { background: var(--c-red); }
-.stat-card.high     .stat-bar { background: var(--c-amber); }
-.stat-card.medium   .stat-bar { background: var(--c-blue); }
-.stat-card.low      .stat-bar { background: var(--c-green); }
-
-/* ── Table Card ── */
-.table-card {
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: 16px;
-    overflow: hidden;
-}
-
-.table-card-header {
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.table-card-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.table-card-title i { color: var(--accent); }
-
-.count-pill {
-    background: #f3f4f6;
-    color: #374151;
-    padding: 3px 11px;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 600;
-}
-
-/* ── Table ── */
-.pq-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.pq-table thead th {
-    padding: 10px 14px;
-    background: #f9fafb;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-}
-
-.pq-table tbody tr {
-    border-bottom: 1px solid #f3f4f6;
-    transition: background 0.12s;
-}
-
-.pq-table tbody tr:last-child { border-bottom: none; }
-.pq-table tbody tr:hover { background: #fafbff; }
-
-.pq-table tbody td {
-    padding: 13px 14px;
-    font-size: 0.85rem;
-    color: #374151;
-    vertical-align: middle;
-}
-
-/* Rank */
-.rank-num {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--muted);
-    text-align: center;
-}
-.rank-num.r1 { color: #a16207; }
-.rank-num.r2 { color: #475569; }
-.rank-num.r3 { color: #c2410c; }
-
-/* Score dot */
-.score-dot {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.72rem;
-    font-weight: 800;
-}
-.score-dot.critical { background: var(--c-red-bg);   color: var(--c-red);   border: 1.5px solid #fecaca; }
-.score-dot.high     { background: var(--c-amber-bg); color: var(--c-amber); border: 1.5px solid #fde68a; }
-.score-dot.medium   { background: var(--c-blue-bg);  color: var(--c-blue);  border: 1.5px solid #bfdbfe; }
-.score-dot.low      { background: var(--c-green-bg); color: var(--c-green); border: 1.5px solid #bbf7d0; }
-
-/* Task name */
-.task-link {
-    font-weight: 600;
-    color: var(--text);
-    text-decoration: none;
-    display: block;
-    margin-bottom: 2px;
-}
-.task-link:hover { color: #4f46e5; }
-
-.task-reason {
-    font-size: 0.73rem;
-    color: #9ca3af;
-    line-height: 1.4;
-}
-
-/* Tags */
-.tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 9px;
-    border-radius: 7px;
-    font-size: 0.73rem;
-    font-weight: 500;
-}
-
-.tag-project   { background: #f3f4f6; color: #374151; }
-.tag-status    { background: #f3f4f6; color: #374151; }
-.tag-complexity { background: #ede9fe; color: #4338ca; }
-
-/* Priority badge — text only, minimal */
-.prio-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.2px;
-}
-.prio-pill.critical { background: var(--c-red-bg);   color: var(--c-red); }
-.prio-pill.high     { background: var(--c-amber-bg); color: #d97706; }
-.prio-pill.medium   { background: var(--c-blue-bg);  color: #2563eb; }
-.prio-pill.low      { background: var(--c-green-bg); color: #16a34a; }
-
-/* Date */
-.date-text {
-    font-size: 0.78rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-.date-text.soon    { color: var(--c-amber); }
-.date-text.overdue { color: var(--c-red); }
-.date-text.normal  { color: var(--muted); }
-
-/* Hours */
-.hours-text { font-size: 0.8rem; font-weight: 600; color: var(--text); }
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 56px 20px;
-}
-.empty-icon {
-    width: 68px; height: 68px;
-    background: var(--c-green-bg);
-    border-radius: 16px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 30px;
-    color: var(--c-green);
-    margin: 0 auto 16px;
-}
-.empty-state h5 { font-weight: 700; color: var(--text); margin-bottom: 6px; }
-.empty-state p  { color: var(--muted); font-size: 0.875rem; }
-
-@media (max-width: 768px) {
-    .stats-row { grid-template-columns: repeat(2, 1fr); }
-    .pq-header { flex-direction: column; align-items: flex-start; }
-    .pq-wrap   { padding: 16px; }
-}
-</style>
-
-<div class="pq-wrap">
-
-    <!-- Header -->
-    <div class="pq-header">
-        <div class="pq-header-left">
-            <div class="pq-header-icon">
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Central core -->
-                    <circle cx="14" cy="14" r="4" fill="white" opacity="0.95"/>
-                    <!-- Ring -->
-                    <circle cx="14" cy="14" r="6.5" stroke="white" stroke-width="1.5" opacity="0.5" stroke-dasharray="3 2"/>
-                    <!-- Neural nodes -->
-                    <circle cx="14" cy="4"  r="2.2" fill="white" opacity="0.9"/>
-                    <circle cx="14" cy="24" r="2.2" fill="white" opacity="0.9"/>
-                    <circle cx="4"  cy="14" r="2.2" fill="white" opacity="0.9"/>
-                    <circle cx="24" cy="14" r="2.2" fill="white" opacity="0.9"/>
-                    <circle cx="6.5"  cy="6.5"  r="1.6" fill="white" opacity="0.65"/>
-                    <circle cx="21.5" cy="6.5"  r="1.6" fill="white" opacity="0.65"/>
-                    <circle cx="6.5"  cy="21.5" r="1.6" fill="white" opacity="0.65"/>
-                    <circle cx="21.5" cy="21.5" r="1.6" fill="white" opacity="0.65"/>
-                    <!-- Connector lines -->
-                    <line x1="14" y1="10" x2="14" y2="6.2"  stroke="white" stroke-width="1.2" opacity="0.5"/>
-                    <line x1="14" y1="18" x2="14" y2="21.8" stroke="white" stroke-width="1.2" opacity="0.5"/>
-                    <line x1="10" y1="14" x2="6.2" y2="14"  stroke="white" stroke-width="1.2" opacity="0.5"/>
-                    <line x1="18" y1="14" x2="21.8" y2="14" stroke="white" stroke-width="1.2" opacity="0.5"/>
-                    <line x1="11.2" y1="11.2" x2="8.2" y2="8.2"   stroke="white" stroke-width="1" opacity="0.4"/>
-                    <line x1="16.8" y1="11.2" x2="19.8" y2="8.2"  stroke="white" stroke-width="1" opacity="0.4"/>
-                    <line x1="11.2" y1="16.8" x2="8.2" y2="19.8"  stroke="white" stroke-width="1" opacity="0.4"/>
-                    <line x1="16.8" y1="16.8" x2="19.8" y2="19.8" stroke="white" stroke-width="1" opacity="0.4"/>
-                </svg>
+<div class="container my-4">
+    <!-- Header - Consistent with Project Theme -->
+    <div class="page-hero mb-4">
+        <div>
+            <div class="hero-badge mb-2">
+                <i class="bi bi-robot"></i>
+                AI Automation
             </div>
-            <div class="pq-header-text">
-                <h2>AI Priority Queue</h2>
-                <p>
-                    <span class="pq-live-dot"></span>
-                    Smart task prioritization powered by AI
-                </p>
-            </div>
+            <h3 class="hero-title">
+                <i class="bi bi-speedometer2 me-2 text-primary"></i> AI Priority Queue
+            </h3>
+            <p class="hero-subtitle">Smart task prioritization powered by AI</p>
         </div>
-        <button class="btn-refresh" onclick="refreshAnalysis()">
-            <i class="bi bi-arrow-clockwise"></i> Refresh Analysis
-        </button>
+        <div class="d-flex flex-column align-items-end gap-2">
+            <button class="btn btn-primary btn-sm cta-btn" onclick="refreshAnalysis()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh Analysis
+            </button>
+            <small class="text-muted" id="usage-info">
+                <i class="bi bi-info-circle"></i> Maksimal 2x refresh per hari
+            </small>
+        </div>
     </div>
 
     {% if error %}
-    <div class="alert-modern">
-        <i class="bi bi-exclamation-triangle"></i>
-        <span>{{ error }}</span>
+    <div class="d-flex align-items-center gap-2 rounded-3 p-3 mb-4"
+         style="background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:.875rem;">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ error }}
     </div>
     {% endif %}
 
     <!-- Stats -->
-    <div class="stats-row">
-        <div class="stat-card critical">
-            <div class="stat-top">
-                <div class="stat-icon"><i class="bi bi-fire"></i></div>
-                <span class="stat-trend">Urgent</span>
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card stat-card-wrap h-100 border rounded-3 overflow-hidden" style="border-color:#fecaca !important; box-shadow:0 2px 12px rgba(239,68,68,.10);">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="stat-icon c-red-bg c-red-txt"><i class="bi bi-fire"></i></div>
+                        <span class="badge rounded-pill c-red-bg c-red-txt">Urgent</span>
+                    </div>
+                    <div class="stat-num c-red-txt" id="critical-count">0</div>
+                    <div>Critical</div>
+                </div>
+                <div class="stat-bar" style="background:var(--c-red);"></div>
             </div>
-            <div class="stat-num" id="critical-count">0</div>
-            <div class="stat-lbl">Critical</div>
-            <div class="stat-bar"></div>
         </div>
-        <div class="stat-card high">
-            <div class="stat-top">
-                <div class="stat-icon"><i class="bi bi-arrow-up"></i></div>
-                <span class="stat-trend">Important</span>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card-wrap h-100 border rounded-3 overflow-hidden" style="border-color:#fde68a !important; box-shadow:0 2px 12px rgba(245,158,11,.10);">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="stat-icon c-amb-bg c-amb-txt"><i class="bi bi-arrow-up-circle"></i></div>
+                        <span class="badge rounded-pill c-amb-bg c-amb-txt">Important</span>
+                    </div>
+                    <div class="stat-num c-amb-txt" id="high-count">0</div>
+                    <div>High</div>
+                </div>
+                <div class="stat-bar"></div>
             </div>
-            <div class="stat-num" id="high-count">0</div>
-            <div class="stat-lbl">High</div>
-            <div class="stat-bar"></div>
         </div>
-        <div class="stat-card medium">
-            <div class="stat-top">
-                <div class="stat-icon"><i class="bi bi-dash"></i></div>
-                <span class="stat-trend">Normal</span>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card-wrap h-100 border rounded-3 overflow-hidden">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="stat-icon c-blu-bg c-blu-txt"><i class="bi bi-activity"></i></div>
+                        <span class="badge rounded-pill c-blu-bg c-blu-txt">Normal</span>
+                    </div>
+                    <div class="stat-num c-blu-txt" id="medium-count">0</div>
+                    <div>Medium</div>
+                </div>
+                <div class="stat-bar"></div>
             </div>
-            <div class="stat-num" id="medium-count">0</div>
-            <div class="stat-lbl">Medium</div>
-            <div class="stat-bar"></div>
         </div>
-        <div class="stat-card low">
-            <div class="stat-top">
-                <div class="stat-icon"><i class="bi bi-arrow-down"></i></div>
-                <span class="stat-trend">Backlog</span>
+        <div class="col-6 col-md-3">
+            <div class="card stat-card-wrap h-100 border rounded-3 overflow-hidden">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="stat-icon c-grn-bg c-grn-txt"><i class="bi bi-inbox"></i></div>
+                        <span class="badge rounded-pill c-grn-bg c-grn-txt">Backlog</span>
+                    </div>
+                    <div class="stat-num c-grn-txt" id="low-count">0</div>
+                    <div>Low</div>
+                </div>
+                <div class="stat-bar" style="background:var(--c-green);"></div>
             </div>
-            <div class="stat-num" id="low-count">0</div>
-            <div class="stat-lbl">Low</div>
-            <div class="stat-bar"></div>
         </div>
     </div>
 
-    <!-- Table -->
-    <div class="table-card">
-        <div class="table-card-header">
-            <div class="table-card-title">
-                <i class="bi bi-list-ol"></i> Prioritized Tasks
-            </div>
-            <span class="count-pill">{{ total_tasks }} tasks</span>
+    <!-- Table Card -->
+    <div class="card border" style="border-color:#e5e7eb !important; border-radius:16px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,.07);">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between py-3 px-4"
+             style="border-bottom:1px solid #e5e7eb;">
+            <span class="fw-bold d-flex align-items-center gap-2" style="color:#111827; font-size:.95rem;">
+                <i class="bi bi-list-ol" style="color:#059669;"></i> Prioritized Tasks
+            </span>
+            <span class="badge rounded-pill" style="background:#f3f4f6; color:#374151; font-size:.78rem;">{{ total_tasks }} tasks</span>
         </div>
 
         {% if priorities %}
-        <div class="table-responsive">
-            <table class="pq-table" id="priority-table">
+
+        <!-- ══ DESKTOP TABLE ══ -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="table pq-table align-middle mb-0" id="priority-table">
                 <thead>
                     <tr>
-                        <th style="text-align:center; width:48px;">#</th>
-                        <th style="text-align:center; width:56px;"><i class="bi bi-speedometer2"></i></th>
+                        <th style="width:1%; text-align:center; white-space:nowrap;">#</th>
+                        <th style="width:1%; text-align:center; white-space:nowrap;"><i class="bi bi-speedometer2"></i> Score</th>
                         <th><i class="bi bi-card-text"></i> Task</th>
-                        <th><i class="bi bi-folder"></i> Project / Sub-Project</th>
-                        <th><i class="bi bi-flag-fill"></i> Priority</th>
-                        <th><i class="bi bi-lightning"></i> Complexity</th>
-                        <th><i class="bi bi-clock"></i> Est. Hours</th>
-                        <th><i class="bi bi-calendar3"></i> Due Date</th>
-                        <th><i class="bi bi-kanban"></i> List</th>
+                        <th style="white-space:nowrap;"><i class="bi bi-folder2-open"></i> Project</th>
+                        <th style="width:1%; white-space:nowrap;"><i class="bi bi-flag-fill"></i> Priority</th>
+                        <th style="width:1%; white-space:nowrap;"><i class="bi bi-lightning-charge-fill"></i> Complexity</th>
+                        <th style="width:1%; white-space:nowrap;"><i class="bi bi-calendar-event-fill"></i> Due Date</th>
+                        <th style="width:1%; white-space:nowrap;"><i class="bi bi-kanban-fill"></i> List</th>
+                        <th style="width:1%; text-align:center; white-space:nowrap;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in priorities %}
-                    <tr>
-                        <td style="text-align:center;">
-                            <span class="rank-num {% if forloop.counter == 1 %}r1{% elif forloop.counter == 2 %}r2{% elif forloop.counter == 3 %}r3{% endif %}">
-                                #{{ forloop.counter }}
+                {% for item in priorities %}
+                <tr>
+                    <td class="text-center">
+                        <span class="rank-badge {% if forloop.counter == 1 %}r1{% elif forloop.counter == 2 %}r2{% elif forloop.counter == 3 %}r3{% endif %}">#{{ forloop.counter }}</span>
+                    </td>
+                    <td class="text-center">
+                        {% if item.priority_level == 'Critical' %}
+                            <div class="score-dot c-red-bg c-red-txt">{{ item.priority_score|default:"?" }}</div>
+                        {% elif item.priority_level == 'High' %}
+                            <div class="score-dot c-amb-bg c-amb-txt">{{ item.priority_score|default:"?" }}</div>
+                        {% elif item.priority_level == 'Medium' %}
+                            <div class="score-dot c-blu-bg c-blu-txt">{{ item.priority_score|default:"?" }}</div>
+                        {% else %}
+                            <div class="score-dot c-grn-bg c-grn-txt">{{ item.priority_score|default:"?" }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="td-task">
+                        <a href="#" class="task-link open-task-modal"
+                           data-task-id="{{ item.task_id }}" data-project-id="{{ item.project_id }}">{{ item.task_title }}</a>
+                    </td>
+                    <td>
+                        <div class="tag-badge mb-1">
+                            <i class="bi bi-folder2-open" style="font-size:10px;"></i> {{ item.project_name }}
+                        </div>
+                        {% if item.sub_project_name %}
+                        <div class="tag-badge">
+                            <i class="bi bi-diagram-3" style="font-size:10px;"></i> {{ item.sub_project_name }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.priority_level == 'Critical' %}
+                            <span class="prio-pill c-red-bg c-red-txt"><i class="bi bi-fire"></i> Critical</span>
+                        {% elif item.priority_level == 'High' %}
+                            <span class="prio-pill c-amb-bg c-amb-txt"><i class="bi bi-arrow-up-circle-fill"></i> High</span>
+                        {% elif item.priority_level == 'Medium' %}
+                            <span class="prio-pill c-blu-bg c-blu-txt"><i class="bi bi-activity"></i> Medium</span>
+                        {% else %}
+                            <span class="prio-pill c-grn-bg c-grn-txt"><i class="bi bi-arrow-down-circle"></i> Low</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.complexity %}
+                        <span class="tag-badge purple">
+                            {% if item.complexity == 'Very High' %}<i class="bi bi-lightning-fill"></i>
+                            {% elif item.complexity == 'High' %}<i class="bi bi-lightning"></i>
+                            {% elif item.complexity == 'Medium' %}<i class="bi bi-lightning-charge"></i>
+                            {% else %}<i class="bi bi-battery-charging"></i>{% endif %}
+                            {{ item.complexity }}
+                        </span>
+                        {% else %}<span style="color:#d1d5db;">—</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if item.due_date %}
+                            {% if item.due_status == 'overdue' %}
+                            <span class="due-pill overdue">
+                                <i class="bi bi-exclamation-circle-fill"></i> {{ item.due_date }}
                             </span>
-                        </td>
-                        <td style="text-align:center;">
-                            {% if item.priority_level == 'Critical' %}
-                                <div class="score-dot critical">{{ item.priority_score|default:"?" }}</div>
-                            {% elif item.priority_level == 'High' %}
-                                <div class="score-dot high">{{ item.priority_score|default:"?" }}</div>
-                            {% elif item.priority_level == 'Medium' %}
-                                <div class="score-dot medium">{{ item.priority_score|default:"?" }}</div>
-                            {% else %}
-                                <div class="score-dot low">{{ item.priority_score|default:"?" }}</div>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="#" class="task-link open-task-modal" data-task-id="{{ item.task_id }}" data-project-id="{{ item.project_id }}">{{ item.task_title }}</a>
-                            {% if item.reasoning %}
-                            <div class="task-reason">{{ item.reasoning|truncatechars:80 }}</div>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="tag tag-project">
-                                <i class="bi bi-folder" style="font-size:10px;"></i>
-                                {{ item.project_name }}
-                                {% if item.sub_project_name %}
-                                    <span style="color:#6b7280; margin-left:4px;">→ {{ item.sub_project_name }}</span>
-                                {% endif %}
+                            {% elif item.due_status == 'urgent' %}
+                            <span class="due-pill urgent">
+                                <i class="bi bi-clock-fill"></i> {{ item.due_date }}
                             </span>
-                        </td>
-                        <td>
-                            {% if item.priority_level == 'Critical' %}
-                                <span class="prio-pill critical"><i class="bi bi-fire" style="font-size:10px;"></i> Critical</span>
-                            {% elif item.priority_level == 'High' %}
-                                <span class="prio-pill high"><i class="bi bi-arrow-up" style="font-size:10px;"></i> High</span>
-                            {% elif item.priority_level == 'Medium' %}
-                                <span class="prio-pill medium"><i class="bi bi-dash" style="font-size:10px;"></i> Medium</span>
-                            {% else %}
-                                <span class="prio-pill low"><i class="bi bi-arrow-down" style="font-size:10px;"></i> Low</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if item.complexity %}
-                                <span class="tag tag-complexity">
-                                    {% if item.complexity == 'Very High' %}
-                                        <i class="bi bi-lightning-fill" style="font-size:10px;"></i>
-                                    {% elif item.complexity == 'High' %}
-                                        <i class="bi bi-lightning" style="font-size:10px;"></i>
-                                    {% elif item.complexity == 'Medium' %}
-                                        <i class="bi bi-lightning-charge" style="font-size:10px;"></i>
-                                    {% else %}
-                                        <i class="bi bi-battery-charging" style="font-size:10px;"></i>
-                                    {% endif %}
-                                    {{ item.complexity }}
-                                </span>
-                            {% else %}
-                                <span style="color:#d1d5db;">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if item.estimated_hours %}
-                                <span class="hours-text">
-                                    <i class="bi bi-clock" style="font-size:0.75rem;"></i>
-                                    {{ item.estimated_hours }}h
-                                </span>
-                            {% else %}
-                                <span style="color:#d1d5db;">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if item.due_date %}
-                                <span class="date-text soon">
-                                    <i class="bi bi-calendar3"></i>
-                                    {{ item.due_date }}
-                                </span>
-                            {% else %}
-                                <span style="color:#d1d5db; font-size:0.8rem;">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="tag tag-status">
-                                <i class="bi bi-kanban" style="font-size:10px;"></i>
-                                {{ item.task_list }}
+                            {% elif item.due_status == 'warning' %}
+                            <span class="due-pill warning">
+                                <i class="bi bi-clock"></i> {{ item.due_date }}
                             </span>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                            {% else %}
+                            <span class="due-pill safe">
+                                <i class="bi bi-calendar-check-fill"></i> {{ item.due_date }}
+                            </span>
+                            {% endif %}
+                        {% else %}<span style="color:#d1d5db;">—</span>{% endif %}
+                    </td>
+                    <td>
+                        <span class="tag-badge">
+                            <i class="bi bi-kanban-fill"></i> {{ item.task_list }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn-detail" onclick="openDetail({{ forloop.counter0 }})" title="View full detail">
+                            <i class="bi bi-layout-text-sidebar-reverse"></i> Detail
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        <!-- ══ MOBILE CARDS ══ -->
+        <div class="d-md-none px-3 pt-3 pb-2">
+            {% for item in priorities %}
+            <div class="m-task-card" id="mc-{{ forloop.counter0 }}">
+
+                <!-- Summary row (always visible) -->
+                <div class="m-task-summary" onclick="toggleMobile({{ forloop.counter0 }})">
+
+                    <!-- Score dot -->
+                    {% if item.priority_level == 'Critical' %}
+                    <div class="score-dot c-red-bg c-red-txt">{{ item.priority_score|default:"?" }}</div>
+                    {% elif item.priority_level == 'High' %}
+                    <div class="score-dot c-amb-bg c-amb-txt">{{ item.priority_score|default:"?" }}</div>
+                    {% elif item.priority_level == 'Medium' %}
+                    <div class="score-dot c-blu-bg c-blu-txt">{{ item.priority_score|default:"?" }}</div>
+                    {% else %}
+                    <div class="score-dot c-grn-bg c-grn-txt">{{ item.priority_score|default:"?" }}</div>
+                    {% endif %}
+
+                    <!-- Info -->
+                    <div class="m-task-info">
+                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                            <span class="rank-badge {% if forloop.counter == 1 %}r1{% elif forloop.counter == 2 %}r2{% elif forloop.counter == 3 %}r3{% endif %}" style="font-size:.68rem;">#{{ forloop.counter }}</span>
+                            {% if item.priority_level == 'Critical' %}
+                            <span class="prio-pill c-red-bg c-red-txt" style="font-size:.65rem; padding:2px 8px;"><i class="bi bi-fire"></i> Critical</span>
+                            {% elif item.priority_level == 'High' %}
+                            <span class="prio-pill c-amb-bg c-amb-txt" style="font-size:.65rem; padding:2px 8px;"><i class="bi bi-arrow-up-circle-fill"></i> High</span>
+                            {% elif item.priority_level == 'Medium' %}
+                            <span class="prio-pill c-blu-bg c-blu-txt" style="font-size:.65rem; padding:2px 8px;"><i class="bi bi-activity"></i> Medium</span>
+                            {% else %}
+                            <span class="prio-pill c-grn-bg c-grn-txt" style="font-size:.65rem; padding:2px 8px;"><i class="bi bi-arrow-down-circle"></i> Low</span>
+                            {% endif %}
+                        </div>
+                        <div style="font-weight:600; font-size:.84rem; color:#111827; line-height:1.4;">{{ item.task_title }}</div>
+                        <div style="font-size:.72rem; color:#9ca3af; margin-top:2px;">
+                            <i class="bi bi-folder2-open" style="font-size:10px;"></i> {{ item.project_name }}
+                        </div>
+                    </div>
+
+                    <!-- Chevron -->
+                    <button class="m-chevron" tabindex="-1">
+                        <i class="bi bi-chevron-right" style="font-size:.8rem;"></i>
+                    </button>
+                </div>
+
+                <!-- Expandable detail -->
+                <div class="m-task-detail">
+                    <div class="m-detail-grid">
+                        <div class="m-detail-item">
+                            <div class="detail-label"><i class="bi bi-speedometer2 me-1"></i>AI Score</div>
+                            <div class="detail-value fw-bold
+                                {% if item.priority_level == 'Critical' %}c-red-txt
+                                {% elif item.priority_level == 'High' %}c-amb-txt
+                                {% elif item.priority_level == 'Medium' %}c-blu-txt
+                                {% else %}c-grn-txt{% endif %}"
+                                style="font-size:1.1rem;">{{ item.priority_score|default:"—" }}</div>
+                        </div>
+                        <div class="m-detail-item">
+                            <div class="detail-label"><i class="bi bi-lightning-charge-fill me-1"></i>Complexity</div>
+                            <div class="detail-value">{{ item.complexity|default:"—" }}</div>
+                        </div>
+                        <div class="m-detail-item">
+                            <div class="detail-label"><i class="bi bi-calendar-event-fill me-1"></i>Due Date</div>
+                            <div class="detail-value">
+                                {% if item.due_date %}
+                                    {% if item.due_status == 'overdue' %}
+                                    <span class="due-pill overdue" style="font-size:.7rem; padding:3px 8px;">
+                                        <i class="bi bi-exclamation-circle-fill"></i> {{ item.due_date }}
+                                    </span>
+                                    {% elif item.due_status == 'urgent' %}
+                                    <span class="due-pill urgent" style="font-size:.7rem; padding:3px 8px;">
+                                        <i class="bi bi-clock-fill"></i> {{ item.due_date }}
+                                    </span>
+                                    {% elif item.due_status == 'warning' %}
+                                    <span class="due-pill warning" style="font-size:.7rem; padding:3px 8px;">
+                                        <i class="bi bi-clock"></i> {{ item.due_date }}
+                                    </span>
+                                    {% else %}
+                                    <span class="due-pill safe" style="font-size:.7rem; padding:3px 8px;">
+                                        <i class="bi bi-calendar-check-fill"></i> {{ item.due_date }}
+                                    </span>
+                                    {% endif %}
+                                {% else %}—{% endif %}
+                            </div>
+                        </div>
+                        <div class="m-detail-item">
+                            <div class="detail-label"><i class="bi bi-kanban-fill me-1"></i>Task List</div>
+                            <div class="detail-value">{{ item.task_list|default:"—" }}</div>
+                        </div>
+                        {% if item.sub_project_name %}
+                        <div class="m-detail-item">
+                            <div class="detail-label"><i class="bi bi-diagram-3 me-1"></i>Sub-Project</div>
+                            <div class="detail-value">{{ item.sub_project_name }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if item.reasoning %}
+                    <div class="detail-label mb-1"><i class="bi bi-robot me-1"></i>AI Reasoning</div>
+                    <div class="m-reasoning">{{ item.reasoning }}</div>
+                    {% endif %}
+                    <div class="m-actions">
+                        <button class="btn-detail-sm"
+                                onclick="openDetail({{ forloop.counter0 }})">
+                            <i class="bi bi-layout-text-sidebar-reverse me-1"></i> Detail
+                        </button>
+                        <button class="btn-open-task"
+                                onclick="gotoTask('{{ item.project_id }}','{{ item.task_id }}')">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> Open Task
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+
         {% else %}
-        <div class="empty-state">
-            <div class="empty-icon"><i class="bi bi-robot"></i></div>
-            <h5>Belum Ada Analisis AI</h5>
-            <p>Klik tombol "Refresh Analysis" di atas untuk menganalisis tugas dengan AI dan melihat prioritas.</p>
+        <div class="text-center py-5 px-3">
+            <div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-3"
+                 style="width:68px; height:68px; background:#f0fdf4; color:#22c55e; font-size:1.9rem;">
+                <i class="bi bi-robot"></i>
+            </div>
+            <h5 class="fw-bold mb-1" style="color:#111827;">Belum Ada Analisis AI</h5>
+            <p class="mb-0" style="color:#6b7280; font-size:.875rem;">Klik "Refresh Analysis" untuk menganalisis tugas dengan AI.</p>
         </div>
         {% endif %}
     </div>
 
+<!-- Detail Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header-custom d-flex align-items-start justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div id="modal-score-dot" class="score-dot"></div>
+                    <div>
+                        <div id="modal-task-title" class="fw-bold lh-sm" style="font-size:.95rem; color:#111827;"></div>
+                        <div id="modal-project-name" class="mt-1" style="font-size:.78rem; color:#6b7280;"></div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close flex-shrink-0" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-0">
+                <div class="row g-3 py-3" style="border-bottom:1px solid #f3f4f6;">
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label"><i class="bi bi-flag-fill me-1"></i>Priority</div>
+                        <div id="modal-priority"></div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label"><i class="bi bi-speedometer2 me-1"></i>AI Score</div>
+                        <div id="modal-score" class="fw-bold" style="font-size:1.4rem;"></div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label"><i class="bi bi-lightning-charge-fill me-1"></i>Complexity</div>
+                        <div id="modal-complexity" class="detail-value"></div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="detail-label"><i class="bi bi-kanban-fill me-1"></i>Task List</div>
+                        <div id="modal-list" class="detail-value"></div>
+                    </div>
+                </div>
+                <div class="row g-3 py-3" style="border-bottom:1px solid #f3f4f6;">
+                    <div class="col-12">
+                        <div class="detail-label"><i class="bi bi-calendar-event-fill me-1"></i>Due Date</div>
+                        <div id="modal-due"></div>
+                    </div>
+                </div>
+                <div class="py-3" id="modal-subproject-row" style="display:none; border-bottom:1px solid #f3f4f6;">
+                    <div class="detail-label"><i class="bi bi-diagram-3 me-1"></i>Sub-Project</div>
+                    <div id="modal-subproject" class="detail-value"></div>
+                </div>
+                <div class="py-3" id="modal-reasoning-row" style="display:none;">
+                    <div class="detail-label mb-2"><i class="bi bi-robot me-1"></i>AI Reasoning</div>
+                    <div id="modal-reasoning" class="reasoning-box"></div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-2 d-flex gap-2">
+                <button type="button" class="btn btn-sm fw-semibold"
+                        style="background:#f3f4f6; border:none; border-radius:8px; color:#374151; padding:8px 18px;"
+                        data-bs-dismiss="modal">
+                    <i class="bi bi-x me-1"></i> Close
+                </button>
+                <button type="button" class="btn btn-sm fw-semibold text-white" id="modal-open-btn"
+                        style="background:linear-gradient(135deg,#059669,#0ea5e9); border:none; border-radius:8px; padding:8px 18px;">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> Open Task
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- Task data for JavaScript -->
+<script id="tasks-data" type="application/json">
+[
+{% for item in priorities %}{
+    "idx": {{ forloop.counter0 }},
+    "task_id": "{{ item.task_id }}",
+    "project_id": "{{ item.project_id }}",
+    "task_title": "{{ item.task_title|escapejs }}",
+    "project_name": "{{ item.project_name|escapejs }}",
+    "sub_project_name": "{{ item.sub_project_name|default:''|escapejs }}",
+    "priority_level": "{{ item.priority_level }}",
+    "priority_score": "{{ item.priority_score|default:'' }}",
+    "complexity": "{{ item.complexity|default:''|escapejs }}",
+    "due_date": "{{ item.due_date|default:'' }}",
+    "due_status": "{{ item.due_status }}",
+    "task_list": "{{ item.task_list|escapejs }}",
+    "reasoning": "{{ item.reasoning|default:''|escapejs }}"
+}{% if not forloop.last %},{% endif %}{% endfor %}
+]
+</script>
+
+{% block extra_js %}
+<script src="{% static 'arva/js/ai_priority_queue.js' %}"></script>
 <script>
-function refreshAnalysis() {
-    const btn = document.querySelector('.btn-refresh');
-    const originalContent = btn.innerHTML;
-    
-    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Analyzing...';
-    btn.disabled = true;
-    
-    // Show loading overlay with SweetAlert2
-    Swal.fire({
-        title: 'AI is analyzing your tasks...',
-        html: '<div class="d-flex flex-column align-items-center">' +
-              '<div class="spinner-border text-success mb-3" role="status" style="width: 3rem; height: 3rem;">' +
-              '  <span class="visually-hidden">Loading...</span>' +
-              '</div>' +
-              '<p class="text-muted">This may take a few moments</p>' +
-              '</div>',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-    
-    // Call API endpoint
-    fetch('/ai/priority-refresh/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Update success message
-            Swal.fire({
-                icon: 'success',
-                title: 'Analysis Complete!',
-                html: '<div class="text-center">' +
-                      '<i class="bi bi-check-circle-fill text-success fs-1 mb-2"></i>' +
-                      `<p>Successfully analyzed <strong>${data.analyzed_count}</strong> tasks</p>` +
-                      '<p class="text-muted small">Redirecting to updated priority queue...</p>' +
-                      '</div>',
-                timer: 2000,
-                showConfirmButton: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-            
-            // Reload page to show new analysis
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-        } else {
-            // Show error message
-            Swal.fire({
-                icon: 'error',
-                title: 'Analysis Failed',
-                text: data.error || 'Failed to analyze tasks',
-                confirmButtonText: 'OK'
-            }).then(() => {
-                // Restore button
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
-            });
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'An error occurred while analyzing tasks',
-            confirmButtonText: 'OK'
-        }).then(() => {
-            // Restore button
-            btn.innerHTML = originalContent;
-            btn.disabled = false;
-        });
-    });
-}
-
-// Helper function to get CSRF token
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    let c = 0, h = 0, m = 0, l = 0;
-    document.querySelectorAll('#priority-table tbody tr').forEach(function (row) {
-        const badge = row.querySelector('.prio-pill');
-        if (!badge) return;
-        if (badge.classList.contains('critical')) c++;
-        else if (badge.classList.contains('high'))     h++;
-        else if (badge.classList.contains('medium'))   m++;
-        else if (badge.classList.contains('low'))      l++;
-    });
-    document.getElementById('critical-count').textContent = c;
-    document.getElementById('high-count').textContent     = h;
-    document.getElementById('medium-count').textContent   = m;
-    document.getElementById('low-count').textContent      = l;
-
-    // Handle task link click to open modal
-    document.querySelectorAll('.open-task-modal').forEach(function(link) {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const taskId = this.getAttribute('data-task-id');
-            const projectId = this.getAttribute('data-project-id');
-            
-            // Navigate to project detail page with task ID parameter
-            // This will allow the project page to open the task modal automatically
-            window.location.href = '/project/' + projectId + '/?open_task=' + taskId;
-        });
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    const tasksData = JSON.parse(document.getElementById('tasks-data').textContent);
+    initializeTasks(tasksData);
 });
 </script>
 
 {% endblock %}
+
+{% endblock %}
+

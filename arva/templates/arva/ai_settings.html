@@ -1,0 +1,977 @@
+{% extends "arva/base.html" %}
+{% load static %}
+{% block title %}AI Settings{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'arva/css/pages/ai_settings.css' %}">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container my-4" data-user-settings-root data-layout-url="{% url 'update_user_layout' %}" data-theme-url="{% url 'update_user_theme' %}">
+
+  <!-- ====== HERO ====== -->
+  <div class="page-hero mb-4">
+    <div>
+      <h3 class="hero-title mb-1">
+        <i data-lucide="sparkles" class="me-2" style="width:28px;height:28px;color:#6366f1"></i>AI Settings
+      </h3>
+      <p class="hero-subtitle mb-0">Atur cara AI bekerja di aplikasi Anda. Ikuti langkah-langkah di bawah ini.</p>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="POST" enctype="multipart/form-data" id="ai-settings-form">
+    {% csrf_token %}
+
+    <!-- ====== STEP 1: PROVIDER ====== -->
+    <div class="card setting-card mb-4">
+      <div class="card-body">
+        <div class="step-indicator">
+          <span class="step-number bg-provider">1</span>
+          <h5 class="step-title">Pilih Provider AI</h5>
+        </div>
+        <p class="step-desc">Provider adalah "sumber" AI Anda. Setiap provider punya kelebihan sendiri.</p>
+
+        <input type="hidden" name="provider" id="provider-hidden" value="{{ ai_settings.provider|default:'openclaw' }}">
+
+        <div class="provider-grid mt-3">
+          <!-- Open Claw / Local -->
+          <div class="provider-card {% if ai_settings.provider == 'openclaw' %}selected{% endif %}" data-provider="openclaw">
+            <span class="check-mark"><i data-lucide="check" style="width:14px;height:14px"></i></span>
+            <div class="provider-icon icon-local">
+              <i data-lucide="server" style="width:22px;height:22px"></i>
+            </div>
+            <div class="provider-name">Local AI</div>
+            <span class="provider-tag tag-free">Gratis</span>
+            <div class="small text-muted mt-1">Jalankan AI di komputer sendiri pakai Ollama</div>
+          </div>
+
+          <!-- DeepSeek -->
+          <div class="provider-card {% if ai_settings.provider == 'deepseek' %}selected{% endif %}" data-provider="deepseek">
+            <span class="check-mark"><i data-lucide="check" style="width:14px;height:14px"></i></span>
+            <div class="provider-icon icon-deepseek">
+              <i data-lucide="brain" style="width:22px;height:22px"></i>
+            </div>
+            <div class="provider-name">DeepSeek</div>
+            <span class="provider-tag tag-recommended">⭐ Rekomendasi</span>
+            <div class="small text-muted mt-1">Murah, bagus untuk coding, mudah dipakai</div>
+          </div>
+
+          <!-- Google Gemini -->
+          <div class="provider-card {% if ai_settings.provider == 'google' %}selected{% endif %}" data-provider="google">
+            <span class="check-mark"><i data-lucide="check" style="width:14px;height:14px"></i></span>
+            <div class="provider-icon icon-google">
+              <i data-lucide="cloud" style="width:22px;height:22px"></i>
+            </div>
+            <div class="provider-name">Google Gemini</div>
+            <span class="provider-tag tag-cloud">Cloud</span>
+            <div class="small text-muted mt-1">AI dari Google, gratis pakai tertentu</div>
+          </div>
+
+          <!-- Qoder / Claude -->
+          <div class="provider-card {% if ai_settings.provider == 'qoder' %}selected{% endif %}" data-provider="qoder">
+            <span class="check-mark"><i data-lucide="check" style="width:14px;height:14px"></i></span>
+            <div class="provider-icon icon-claude">
+              <i data-lucide="sparkles" style="width:22px;height:22px"></i>
+            </div>
+            <div class="provider-name">Qoder (Claude)</div>
+            <span class="provider-tag tag-premium">Premium</span>
+            <div class="small text-muted mt-1">AI Claude, sangat pintar untuk coding</div>
+          </div>
+        </div>
+
+        <!-- Base URL (collapsed for cloud providers) -->
+        <div id="base-url-section" class="mt-3 {% if ai_settings.provider != 'openclaw' %}d-none{% endif %}">
+          <label class="form-label fw-semibold">
+            <i data-lucide="link" class="me-1" style="width:16px;height:16px"></i>Server Address
+          </label>
+          <div class="input-group">
+            <select name="base_url_preset" class="form-select" id="base-url-preset" style="max-width: 200px;">
+              <option value="ollama" {% if ai_settings.base_url == 'http://localhost:11434/v1' %}selected{% endif %}>Ollama (11434)</option>
+              <option value="openclaw" {% if ai_settings.base_url == 'http://localhost:8080/v1' %}selected{% endif %}>Open Claw (8080)</option>
+              <option value="custom" {% if ai_settings.base_url not in 'http://localhost:11434/v1,http://localhost:8080/v1' %}selected{% endif %}>Custom URL</option>
+            </select>
+            <input type="text" name="base_url" class="form-control" id="base-url-input"
+                   value="{{ ai_settings.base_url|default:'http://localhost:11434/v1' }}" 
+                   placeholder="http://localhost:11434/v1">
+          </div>
+          <div class="info-box info-info mt-2">
+            <span class="info-icon"><i data-lucide="info" style="width:16px;height:16px"></i></span>
+            <span>Untuk Local AI: pastikan Ollama sudah terinstall dan berjalan. Download di <a href="https://ollama.com/download" target="_blank">ollama.com</a></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== STEP 2: MODELS ====== -->
+    <div class="card setting-card mb-4">
+      <div class="card-body">
+        <div class="step-indicator">
+          <span class="step-number bg-model">2</span>
+          <h5 class="step-title">Pilih Model AI</h5>
+        </div>
+        <p class="step-desc">Model menentukan "seberapa pintar" AI Anda. Semakin besar = semakin pintar, tapi butuh komputer lebih kuat.</p>
+
+        <div class="row g-3 mt-2">
+          <!-- AI Assistant Model -->
+          <div class="col-lg-6">
+            <div class="model-card">
+              <div class="model-header">
+                <div class="model-icon-wrap mi-assistant">
+                  <i data-lucide="message-circle" style="width:20px;height:20px"></i>
+                </div>
+                <div>
+                  <div class="model-title">AI Assistant</div>
+                  <div class="model-subtitle">Untuk Chat & Analisis Prioritas</div>
+                </div>
+              </div>
+              <select name="assistant_model" class="form-select" id="assistant-model-select">
+                <optgroup label="⚡ Cepat (Respon Instan)">
+                  <option value="llama3.2:1b" {% if ai_settings.assistant_model == 'llama3.2:1b' %}selected{% endif %}>⚡ Llama 3.2 1B - Super Cepat</option>
+                  <option value="llama3.2:3b" {% if ai_settings.assistant_model == 'llama3.2:3b' %}selected{% endif %}>⚡ Llama 3.2 3B - Cepat</option>
+                  <option value="phi3:mini" {% if ai_settings.assistant_model == 'phi3:mini' %}selected{% endif %}>⚡ Phi-3 Mini - Super Cepat</option>
+                  <option value="gemma2:2b" {% if ai_settings.assistant_model == 'gemma2:2b' %}selected{% endif %}>⚡ Gemma 2 2B - Ringan</option>
+                </optgroup>
+                <optgroup label="⭐ Seimbang (Direkomendasikan)">
+                  <option value="qwen2.5:7b" {% if ai_settings.assistant_model == 'qwen2.5:7b' %}selected{% endif %}>⭐ Qwen 2.5 7B - Multilingual</option>
+                  <option value="mistral:7b" {% if ai_settings.assistant_model == 'mistral:7b' %}selected{% endif %}>⭐ Mistral 7B - Cepat & Mampu</option>
+                  <option value="gemma2:9b" {% if ai_settings.assistant_model == 'gemma2:9b' %}selected{% endif %}>⭐ Gemma 2 9B - Seimbang</option>
+                  <option value="llama3.1:8b" {% if ai_settings.assistant_model == 'llama3.1:8b' %}selected{% endif %}>Llama 3.1 8B</option>
+                </optgroup>
+                <optgroup label="🏆 Premium (Kualitas Terbaik)">
+                  <option value="llama3.3:70b" {% if ai_settings.assistant_model == 'llama3.3:70b' %}selected{% endif %}>🏆 Llama 3.3 70B</option>
+                  <option value="qwen2.5:14b" {% if ai_settings.assistant_model == 'qwen2.5:14b' %}selected{% endif %}>Qwen 2.5 14B</option>
+                  <option value="mixtral:8x7b" {% if ai_settings.assistant_model == 'mixtral:8x7b' %}selected{% endif %}>Mixtral 8x7B</option>
+                </optgroup>
+                <optgroup label="☁️ Google Gemini">
+                  <option value="gemini-2.5-flash" {% if ai_settings.assistant_model == 'gemini-2.5-flash' %}selected{% endif %}>⭐ Gemini 2.5 Flash</option>
+                  <option value="gemini-1.5-pro" {% if ai_settings.assistant_model == 'gemini-1.5-pro' %}selected{% endif %}>Gemini 1.5 Pro</option>
+                </optgroup>
+                <optgroup label="🧠 Claude AI">
+                  <option value="claude-3-5-sonnet-20241022" {% if ai_settings.assistant_model == 'claude-3-5-sonnet-20241022' %}selected{% endif %}>⭐ Claude 3.5 Sonnet</option>
+                  <option value="claude-3-opus-20240229" {% if ai_settings.assistant_model == 'claude-3-opus-20240229' %}selected{% endif %}>🏆 Claude 3 Opus</option>
+                  <option value="claude-3-haiku-20240307" {% if ai_settings.assistant_model == 'claude-3-haiku-20240307' %}selected{% endif %}>⚡ Claude 3 Haiku</option>
+                </optgroup>
+                <optgroup label="🔷 DeepSeek">
+                  <option value="deepseek-chat" {% if ai_settings.assistant_model == 'deepseek-chat' %}selected{% endif %}>⭐ DeepSeek Chat - Cepat & Pintar</option>
+                  <option value="deepseek-reasoner" {% if ai_settings.assistant_model == 'deepseek-reasoner' %}selected{% endif %}>🧠 DeepSeek Reasoner - Mode Berpikir</option>
+                </optgroup>
+                <optgroup label="🔧 Custom">
+                  <option value="custom" {% if ai_settings.assistant_model == 'custom' %}selected{% endif %}>🔧 Model Custom</option>
+                </optgroup>
+              </select>
+              <div id="custom-assistant-model-field" class="mt-2" style="display: none;">
+                <input type="text" name="custom_assistant_model" class="form-control" 
+                       value="{{ ai_settings.custom_assistant_model|default:'' }}" 
+                       placeholder="Contoh: qwen2.5:14b">
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Developer Model -->
+          <div class="col-lg-6">
+            <div class="model-card">
+              <div class="model-header">
+                <div class="model-icon-wrap mi-developer">
+                  <i data-lucide="code-2" style="width:20px;height:20px"></i>
+                </div>
+                <div>
+                  <div class="model-title">AI Developer</div>
+                  <div class="model-subtitle">Untuk Membuat Fitur & Perbaiki Bug</div>
+                </div>
+              </div>
+              <select name="developer_model" class="form-select" id="developer-model-select">
+                <optgroup label="🐍 Spesialis Coding">
+                  <option value="codellama:7b" {% if ai_settings.developer_model == 'codellama:7b' %}selected{% endif %}>CodeLlama 7B - Dasar</option>
+                  <option value="codellama:13b" {% if ai_settings.developer_model == 'codellama:13b' %}selected{% endif %}>⭐ CodeLlama 13B - Rekomendasi</option>
+                  <option value="codellama:34b" {% if ai_settings.developer_model == 'codellama:34b' %}selected{% endif %}>CodeLlama 34B - Pro</option>
+                  <option value="deepseek-coder:6.7b" {% if ai_settings.developer_model == 'deepseek-coder:6.7b' %}selected{% endif %}>⚡ DeepSeek Coder 6.7B - Cepat</option>
+                  <option value="deepseek-coder:33b" {% if ai_settings.developer_model == 'deepseek-coder:33b' %}selected{% endif %}>DeepSeek Coder 33B</option>
+                  <option value="qwen2.5-coder:7b" {% if ai_settings.developer_model == 'qwen2.5-coder:7b' %}selected{% endif %}>Qwen 2.5 Coder 7B</option>
+                  <option value="starcoder2:7b" {% if ai_settings.developer_model == 'starcoder2:7b' %}selected{% endif %}>StarCoder2 7B</option>
+                  <option value="codegemma:7b" {% if ai_settings.developer_model == 'codegemma:7b' %}selected{% endif %}>CodeGemma 7B</option>
+                </optgroup>
+                <optgroup label="🧠 Analisis & Penalaran">
+                  <option value="deepseek-r1:8b" {% if ai_settings.developer_model == 'deepseek-r1:8b' %}selected{% endif %}>⭐ DeepSeek R1 8B - Penalaran</option>
+                  <option value="deepseek-r1:14b" {% if ai_settings.developer_model == 'deepseek-r1:14b' %}selected{% endif %}>DeepSeek R1 14B</option>
+                </optgroup>
+                <optgroup label="🏆 Premium (Fitur Kompleks)">
+                  <option value="llama3.3:70b" {% if ai_settings.developer_model == 'llama3.3:70b' %}selected{% endif %}>🏆 Llama 3.3 70B</option>
+                  <option value="llama3.1:70b" {% if ai_settings.developer_model == 'llama3.1:70b' %}selected{% endif %}>Llama 3.1 70B</option>
+                  <option value="mixtral:8x7b" {% if ai_settings.developer_model == 'mixtral:8x7b' %}selected{% endif %}>Mixtral 8x7B</option>
+                </optgroup>
+                <optgroup label="🧠 Claude AI (Bagus untuk Coding)">
+                  <option value="claude-3-5-sonnet-20241022" {% if ai_settings.developer_model == 'claude-3-5-sonnet-20241022' %}selected{% endif %}>⭐ Claude 3.5 Sonnet - Terbaik</option>
+                  <option value="claude-3-opus-20240229" {% if ai_settings.developer_model == 'claude-3-opus-20240229' %}selected{% endif %}>🏆 Claude 3 Opus - Premium</option>
+                  <option value="claude-3-haiku-20240307" {% if ai_settings.developer_model == 'claude-3-haiku-20240307' %}selected{% endif %}>⚡ Claude 3 Haiku - Cepat</option>
+                </optgroup>
+                <optgroup label="🔷 DeepSeek (Terbaik untuk Coding)">
+                  <option value="deepseek-chat" {% if ai_settings.developer_model == 'deepseek-chat' %}selected{% endif %}>⭐ DeepSeek Chat - Terbaik Coding</option>
+                  <option value="deepseek-reasoner" {% if ai_settings.developer_model == 'deepseek-reasoner' %}selected{% endif %}>🧠 DeepSeek Reasoner - Mode Berpikir</option>
+                </optgroup>
+                <optgroup label="🔧 Custom">
+                  <option value="custom" {% if ai_settings.developer_model == 'custom' %}selected{% endif %}>🔧 Model Custom</option>
+                </optgroup>
+              </select>
+              <div id="custom-developer-model-field" class="mt-2" style="display: none;">
+                <input type="text" name="custom_developer_model" class="form-control" 
+                       value="{{ ai_settings.custom_developer_model|default:'' }}" 
+                       placeholder="Contoh: codellama:70b">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-box info-tip mt-3">
+          <span class="info-icon"><i data-lucide="lightbulb" style="width:16px;height:16px"></i></span>
+          <span><strong>Tips Pilih Model:</strong> Untuk awal, pilih yang bertanda ⭐. Model besar (70B) butuh RAM 48GB+. Model kecil (1B-3B) cukup RAM 8GB.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== STEP 3: API KEY ====== -->
+    <div class="card setting-card mb-4">
+      <div class="card-body">
+        <div class="step-indicator">
+          <span class="step-number bg-api">3</span>
+          <h5 class="step-title">API Key</h5>
+        </div>
+        <p class="step-desc">API Key adalah "kunci" untuk mengakses AI. Beberapa provider gratis tanpa kunci.</p>
+
+        <div class="mt-2">
+          <label class="form-label fw-semibold">
+            <i data-lucide="key-round" class="me-1" style="width:16px;height:16px"></i>Masukkan API Key
+          </label>
+          <div class="api-key-wrapper">
+            <input type="password" name="api_key" class="form-control pe-5" id="api-key-input"
+                   value="{{ ai_settings.api_key|default:'' }}" 
+                   placeholder="Masukkan API Key Anda di sini...">
+            <button type="button" class="toggle-visibility" onclick="toggleApiKey()" title="Tampilkan/Sembunyikan">
+              <i data-lucide="eye" id="eye-icon" style="width:18px;height:18px"></i>
+            </button>
+          </div>
+          <div class="info-box info-info mt-2" id="api-key-help">
+            <span class="info-icon"><i data-lucide="info" style="width:16px;height:16px"></i></span>
+            <span>Local AI (Ollama) tidak memerlukan API Key. Untuk DeepSeek & Google, API Key wajib diisi.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== STEP 4: PARAMETERS ====== -->
+    <div class="card setting-card mb-4">
+      <div class="card-body">
+        <div class="step-indicator">
+          <span class="step-number bg-parameter">4</span>
+          <h5 class="step-title">Parameter AI</h5>
+        </div>
+        <p class="step-desc">Atur bagaimana AI merespons. Biarkan default jika tidak yakin.</p>
+
+        <div class="row g-4 mt-2">
+          <!-- Temperature -->
+          <div class="col-md-7">
+            <label class="form-label fw-semibold">
+              <i data-lucide="thermometer" class="me-1" style="width:16px;height:16px"></i>Kreativitas AI (Temperature)
+            </label>
+            <input type="range" name="temperature" class="form-range" 
+                   min="0.0" max="1.0" step="0.1" 
+                   value="{{ ai_settings.temperature }}" 
+                   id="temperature-range">
+            <div class="temp-visual">
+              <span class="temp-label tl-precise"><i data-lucide="target" class="me-1" style="width:12px;height:12px"></i>Pasti & Tepat (0.0)</span>
+              <span class="fw-bold" style="color:#6366f1" id="temp-value">{{ ai_settings.temperature }}</span>
+              <span class="temp-label tl-creative"><i data-lucide="palette" class="me-1" style="width:12px;height:12px"></i>Kreatif & Variasi (1.0)</span>
+            </div>
+            <div class="info-box info-tip mt-2">
+              <span class="info-icon"><i data-lucide="lightbulb" style="width:16px;height:16px"></i></span>
+              <span><strong>Untuk analisis:</strong> gunakan 0.3-0.5 (lebih konsisten). <strong>Untuk brainstorming:</strong> gunakan 0.7-0.9 (lebih kreatif).</span>
+            </div>
+          </div>
+
+          <!-- Max Tokens -->
+          <div class="col-md-5">
+            <label class="form-label fw-semibold">
+              <i data-lucide="align-left" class="me-1" style="width:16px;height:16px"></i>Panjang Respons Maksimal
+            </label>
+            <input type="number" name="max_tokens" class="form-control" 
+                   value="{{ ai_settings.max_tokens }}" 
+                   min="256" max="8192" step="256">
+            <div class="small text-muted mt-1">
+              Makin besar = respons makin panjang, tapi makin lambat. Default: 2048
+            </div>
+            <div class="mt-2">
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.querySelector('[name=max_tokens]').value=512" style="border-radius:8px">Pendek (512)</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.querySelector('[name=max_tokens]').value=2048" style="border-radius:8px">Sedang (2048)</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.querySelector('[name=max_tokens]').value=4096" style="border-radius:8px">Panjang (4096)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== STEP 5: FEATURE TOGGLES ====== -->
+    <div class="card setting-card mb-4">
+      <div class="card-body">
+        <div class="step-indicator">
+          <span class="step-number bg-feature">5</span>
+          <h5 class="step-title">Nyalakan / Matikan Fitur AI</h5>
+        </div>
+        <p class="step-desc">Pilih fitur AI mana yang ingin Anda gunakan.</p>
+
+        <div class="row g-3 mt-2">
+          <div class="col-md-4">
+            <div class="feature-toggle-card">
+              <div class="d-flex align-items-start gap-3">
+                <div class="toggle-icon ti-priority">
+                  <i data-lucide="bar-chart-3" style="width:20px;height:20px"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="toggle-title">AI Priority Queue</div>
+                  <div class="toggle-desc">AI menganalisis tugas Anda dan menentukan mana yang paling penting dikerjakan duluan.</div>
+                </div>
+              </div>
+              <div class="form-check form-switch mt-3">
+                <input class="form-check-input" type="checkbox" name="ai_priority_enabled" 
+                       id="ai-priority-enabled" 
+                       {% if ai_settings.ai_priority_enabled %}checked{% endif %}>
+                <label class="form-check-label small" for="ai-priority-enabled">
+                  {% if ai_settings.ai_priority_enabled %}Aktif{% else %}Nonaktif{% endif %}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="feature-toggle-card">
+              <div class="d-flex align-items-start gap-3">
+                <div class="toggle-icon ti-chat">
+                  <i data-lucide="message-circle" style="width:20px;height:20px"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="toggle-title">AI Chat Assistant</div>
+                  <div class="toggle-desc">Chat langsung dengan AI untuk bertanya tentang tugas dan manajemen proyek Anda.</div>
+                </div>
+              </div>
+              <div class="form-check form-switch mt-3">
+                <input class="form-check-input" type="checkbox" name="ai_chat_enabled" 
+                       id="ai-chat-enabled" 
+                       {% if ai_settings.ai_chat_enabled %}checked{% endif %}>
+                <label class="form-check-label small" for="ai-chat-enabled">
+                  {% if ai_settings.ai_chat_enabled %}Aktif{% else %}Nonaktif{% endif %}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="feature-toggle-card">
+              <div class="d-flex align-items-start gap-3">
+                <div class="toggle-icon ti-developer">
+                  <i data-lucide="code-2" style="width:20px;height:20px"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="toggle-title">AI Developer</div>
+                  <div class="toggle-desc">AI bisa menulis kode, membuat fitur baru, dan memperbaiki bug secara otomatis.</div>
+                </div>
+              </div>
+              <div class="form-check form-switch mt-3">
+                <input class="form-check-input" type="checkbox" name="ai_developer_enabled" 
+                       id="ai-developer-enabled" 
+                       {% if ai_settings.ai_developer_enabled %}checked{% endif %}>
+                <label class="form-check-label small" for="ai-developer-enabled">
+                  {% if ai_settings.ai_developer_enabled %}Aktif{% else %}Nonaktif{% endif %}
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== STEP 6: ADVANCED (Collapsible) ====== -->
+    <div class="card setting-card mb-4">
+      <div class="card-body">
+        <div class="step-indicator">
+          <span class="step-number bg-advanced">6</span>
+          <h5 class="step-title">Pengaturan Lanjutan</h5>
+        </div>
+        <p class="step-desc">Opsional - Hanya untuk pengguna berpengalaman. Biarkan kosong jika tidak yakin.</p>
+
+        <div class="accordion mt-3" id="advancedAccordion">
+          <!-- Custom Prompts -->
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#priorityPrompt">
+                <i data-lucide="list-checks" class="me-2" style="width:18px;height:18px"></i>Custom Prompt - Analisis Prioritas
+              </button>
+            </h2>
+            <div id="priorityPrompt" class="accordion-collapse collapse" data-bs-parent="#advancedAccordion">
+              <div class="accordion-body">
+                <textarea name="priority_analysis_prompt" class="form-control font-monospace" rows="6" 
+                          placeholder="Kosongkan untuk menggunakan prompt default...">{{ ai_settings.priority_analysis_prompt }}</textarea>
+                <div class="small text-muted mt-2">
+                  Placeholder yang tersedia: <code>{title}</code>, <code>{description}</code>, <code>{due_date}</code>, <code>{project_name}</code>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#chatPrompt">
+                <i data-lucide="message-square-text" class="me-2" style="width:18px;height:18px"></i>Custom Prompt - Chat System
+              </button>
+            </h2>
+            <div id="chatPrompt" class="accordion-collapse collapse" data-bs-parent="#advancedAccordion">
+              <div class="accordion-body">
+                <textarea name="chat_system_prompt" class="form-control font-monospace" rows="6" 
+                          placeholder="Kosongkan untuk menggunakan prompt default...">{{ ai_settings.chat_system_prompt }}</textarea>
+                <div class="small text-muted mt-2">
+                  Placeholder yang tersedia: <code>{username}</code>, <code>{full_name}</code>, <code>{tasks_context}</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== SAVE BUTTON ====== -->
+    <div class="d-grid gap-2 mb-4">
+      <button type="submit" class="btn btn-save-settings btn-lg">
+        <i data-lucide="save" class="me-2" style="width:20px;height:20px"></i>Simpan Pengaturan AI
+      </button>
+    </div>
+  </form>
+
+  <!-- ====== TIPS & DOWNLOAD MODELS (Collapsible) ====== -->
+  <div class="accordion mb-4" id="helpAccordion">
+    <!-- Tips & Info -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tipsSection">
+          <i data-lucide="lightbulb" class="me-2 text-warning" style="width:18px;height:18px"></i>Tips & Informasi
+        </button>
+      </h2>
+      <div id="tipsSection" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <h6 class="fw-bold"><i data-lucide="monitor" class="me-2" style="width:16px;height:16px"></i>Kebutuhan RAM</h6>
+              <ul class="small mb-0 ps-3">
+                <li>Model 1B-3B: 8GB RAM</li>
+                <li>Model 7B-8B: 16GB RAM</li>
+                <li>Model 13B-14B: 24GB RAM</li>
+                <li>Model 70B: 48GB+ RAM</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6 class="fw-bold"><i data-lucide="star" class="me-2" style="width:16px;height:16px"></i>Model Rekomendasi</h6>
+              <ul class="small mb-0 ps-3">
+                <li><strong>Coding:</strong> CodeLlama 13B, DeepSeek R1 8B</li>
+                <li><strong>Umum:</strong> Llama 3.2 3B, Qwen 2.5 7B</li>
+                <li><strong>Cepat:</strong> Phi-3 Mini, Llama 3.2 1B</li>
+                <li><strong>Premium:</strong> Llama 3.3 70B, Mixtral 8x7B</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Download Models -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#downloadSection">
+          <i data-lucide="download" class="me-2 text-success" style="width:18px;height:18px"></i>Download Model (Untuk Local AI / Ollama)
+        </button>
+      </h2>
+      <div id="downloadSection" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+        <div class="accordion-body">
+          <div class="info-box info-info mb-3">
+            <span class="info-icon"><i data-lucide="info" style="width:16px;height:16px"></i></span>
+            <span>Section ini hanya untuk <strong>Local AI</strong>. Jika Anda pakai DeepSeek/Google/Claude, Anda tidak perlu download model.</span>
+          </div>
+
+          <div class="accordion" id="downloadAccordion">
+            <!-- LLAMA -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#downloadLlama">
+                  Llama Family (Meta)
+                </button>
+              </h2>
+              <div id="downloadLlama" class="accordion-collapse collapse" data-bs-parent="#downloadAccordion">
+                <div class="accordion-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover small mb-0">
+                      <thead><tr><th>Model</th><th>Ukuran</th><th>RAM</th><th>Command</th></tr></thead>
+                      <tbody>
+                        <tr><td>⭐ Llama 3.3 70B</td><td>40 GB</td><td>48GB+</td><td><code>ollama pull llama3.3:70b</code></td></tr>
+                        <tr><td>Llama 3.2 3B</td><td>2.0 GB</td><td>8GB</td><td><code>ollama pull llama3.2:3b</code></td></tr>
+                        <tr><td>⚡ Llama 3.2 1B</td><td>1.3 GB</td><td>4GB</td><td><code>ollama pull llama3.2:1b</code></td></tr>
+                        <tr><td>Llama 3.1 8B</td><td>4.7 GB</td><td>16GB</td><td><code>ollama pull llama3.1:8b</code></td></tr>
+                        <tr><td>Llama 3.1 70B</td><td>40 GB</td><td>48GB+</td><td><code>ollama pull llama3.1:70b</code></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CODELLAMA -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#downloadCodellama">
+                  CodeLlama (Spesialis Coding)
+                </button>
+              </h2>
+              <div id="downloadCodellama" class="accordion-collapse collapse" data-bs-parent="#downloadAccordion">
+                <div class="accordion-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover small mb-0">
+                      <thead><tr><th>Model</th><th>Ukuran</th><th>RAM</th><th>Command</th></tr></thead>
+                      <tbody>
+                        <tr><td>CodeLlama 7B</td><td>3.8 GB</td><td>16GB</td><td><code>ollama pull codellama:7b</code></td></tr>
+                        <tr><td>⭐ CodeLlama 13B</td><td>7.4 GB</td><td>24GB</td><td><code>ollama pull codellama:13b</code></td></tr>
+                        <tr><td>CodeLlama 34B</td><td>19 GB</td><td>32GB</td><td><code>ollama pull codellama:34b</code></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DEEPSEEK -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#downloadDeepseek">
+                  DeepSeek (Penalaran & Coding)
+                </button>
+              </h2>
+              <div id="downloadDeepseek" class="accordion-collapse collapse" data-bs-parent="#downloadAccordion">
+                <div class="accordion-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover small mb-0">
+                      <thead><tr><th>Model</th><th>Ukuran</th><th>RAM</th><th>Command</th></tr></thead>
+                      <tbody>
+                        <tr><td>⚡ DeepSeek Coder 6.7B</td><td>3.8 GB</td><td>16GB</td><td><code>ollama pull deepseek-coder:6.7b</code></td></tr>
+                        <tr><td>DeepSeek Coder 33B</td><td>19 GB</td><td>32GB</td><td><code>ollama pull deepseek-coder:33b</code></td></tr>
+                        <tr><td>⭐ DeepSeek R1 8B</td><td>4.9 GB</td><td>16GB</td><td><code>ollama pull deepseek-r1:8b</code></td></tr>
+                        <tr><td>DeepSeek R1 14B</td><td>9.0 GB</td><td>24GB</td><td><code>ollama pull deepseek-r1:14b</code></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- QWEN -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#downloadQwen">
+                  Qwen (Multilingual)
+                </button>
+              </h2>
+              <div id="downloadQwen" class="accordion-collapse collapse" data-bs-parent="#downloadAccordion">
+                <div class="accordion-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover small mb-0">
+                      <thead><tr><th>Model</th><th>Ukuran</th><th>RAM</th><th>Command</th></tr></thead>
+                      <tbody>
+                        <tr><td>Qwen 2.5 3B</td><td>1.9 GB</td><td>8GB</td><td><code>ollama pull qwen2.5:3b</code></td></tr>
+                        <tr><td>⭐ Qwen 2.5 7B</td><td>4.7 GB</td><td>16GB</td><td><code>ollama pull qwen2.5:7b</code></td></tr>
+                        <tr><td>Qwen 2.5 14B</td><td>9.0 GB</td><td>24GB</td><td><code>ollama pull qwen2.5:14b</code></td></tr>
+                        <tr><td>Qwen 2.5 Coder 7B</td><td>4.7 GB</td><td>16GB</td><td><code>ollama pull qwen2.5-coder:7b</code></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MISTRAL -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#downloadMistral">
+                  Mistral
+                </button>
+              </h2>
+              <div id="downloadMistral" class="accordion-collapse collapse" data-bs-parent="#downloadAccordion">
+                <div class="accordion-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover small mb-0">
+                      <thead><tr><th>Model</th><th>Ukuran</th><th>RAM</th><th>Command</th></tr></thead>
+                      <tbody>
+                        <tr><td>⚡ Mistral 7B</td><td>4.1 GB</td><td>16GB</td><td><code>ollama pull mistral:7b</code></td></tr>
+                        <tr><td>Mistral NeMo 12B</td><td>7.0 GB</td><td>16GB</td><td><code>ollama pull mistral-nemo</code></td></tr>
+                        <tr><td>Mixtral 8x7B</td><td>26 GB</td><td>48GB+</td><td><code>ollama pull mixtral:8x7b</code></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PHI & GEMMA -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#downloadPhiGemma">
+                  Phi & Gemma
+                </button>
+              </h2>
+              <div id="downloadPhiGemma" class="accordion-collapse collapse" data-bs-parent="#downloadAccordion">
+                <div class="accordion-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover small mb-0">
+                      <thead><tr><th>Model</th><th>Ukuran</th><th>RAM</th><th>Command</th></tr></thead>
+                      <tbody>
+                        <tr><td>⚡ Phi-3 Mini 3.8B</td><td>2.3 GB</td><td>8GB</td><td><code>ollama pull phi3:mini</code></td></tr>
+                        <tr><td>Phi-3 Medium 14B</td><td>7.9 GB</td><td>24GB</td><td><code>ollama pull phi3:medium</code></td></tr>
+                        <tr><td>⭐ Gemma 2 9B</td><td>5.5 GB</td><td>16GB</td><td><code>ollama pull gemma2:9b</code></td></tr>
+                        <tr><td>Gemma 2 27B</td><td>16 GB</td><td>32GB</td><td><code>ollama pull gemma2:27b</code></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CODE SPECIALISTS -->
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#downloadCode">
+                  Spesialis Coding Lainnya
+                </button>
+              </h2>
+              <div id="downloadCode" class="accordion-collapse collapse" data-bs-parent="#downloadAccordion">
+                <div class="accordion-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover small mb-0">
+                      <thead><tr><th>Model</th><th>Ukuran</th><th>RAM</th><th>Command</th></tr></thead>
+                      <tbody>
+                        <tr><td>StarCoder2 7B</td><td>4.1 GB</td><td>16GB</td><td><code>ollama pull starcoder2:7b</code></td></tr>
+                        <tr><td>StarCoder2 15B</td><td>9.0 GB</td><td>24GB</td><td><code>ollama pull starcoder2:15b</code></td></tr>
+                        <tr><td>CodeGemma 7B</td><td>4.1 GB</td><td>16GB</td><td><code>ollama pull codegemma:7b</code></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ollama Commands -->
+          <h6 class="fw-bold mt-3 mb-2"><i data-lucide="terminal" class="me-2" style="width:16px;height:16px"></i>Perintah Ollama yang Sering Dipakai</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered small mb-0">
+              <thead class="table-light">
+                <tr><th>Perintah</th><th>Kegunaan</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>ollama list</code></td><td>Lihat semua model yang sudah terinstall</td></tr>
+                <tr><td><code>ollama pull llama3.2:3b</code></td><td>Download model Llama 3.2 3B</td></tr>
+                <tr><td><code>ollama run codellama:13b</code></td><td>Jalankan model secara interaktif</td></tr>
+                <tr><td><code>ollama rm model-name</code></td><td>Hapus model dari disk</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize Lucide icons
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+});
+
+// ====== Provider Card Selection ======
+document.querySelectorAll('.provider-card').forEach(card => {
+  card.addEventListener('click', function() {
+    // Deselect all
+    document.querySelectorAll('.provider-card').forEach(c => c.classList.remove('selected'));
+    // Select this one
+    this.classList.add('selected');
+    const provider = this.dataset.provider;
+    document.getElementById('provider-hidden').value = provider;
+    
+    // Update model dropdowns
+    updateModelDropdowns(provider);
+    // Update base URL section visibility
+    updateBaseUrlSection(provider);
+    // Update API key help
+    updateApiKeyHelp(provider);
+  });
+});
+
+// ====== Update Model Dropdowns ======
+function updateModelDropdowns(provider) {
+  const assistantModelSelect = document.getElementById('assistant-model-select');
+  const developerModelSelect = document.getElementById('developer-model-select');
+
+  const assistantModels = {
+    'openclaw': [
+      {group: '⚡ Cepat (Respon Instan)', items: [
+        {value: 'llama3.2:1b', text: '⚡ Llama 3.2 1B - Super Cepat'},
+        {value: 'llama3.2:3b', text: '⚡ Llama 3.2 3B - Cepat'},
+        {value: 'phi3:mini', text: '⚡ Phi-3 Mini - Super Cepat'},
+        {value: 'gemma2:2b', text: '⚡ Gemma 2 2B - Ringan'},
+      ]},
+      {group: '⭐ Seimbang (Direkomendasikan)', items: [
+        {value: 'qwen2.5:7b', text: '⭐ Qwen 2.5 7B - Multilingual', recommended: true},
+        {value: 'mistral:7b', text: '⭐ Mistral 7B - Cepat & Mampu'},
+        {value: 'gemma2:9b', text: '⭐ Gemma 2 9B - Seimbang'},
+      ]},
+      {group: '🏆 Premium (Kualitas Terbaik)', items: [
+        {value: 'llama3.3:70b', text: '🏆 Llama 3.3 70B'},
+        {value: 'qwen2.5:14b', text: 'Qwen 2.5 14B'},
+        {value: 'mixtral:8x7b', text: 'Mixtral 8x7B'},
+      ]},
+      {group: '🔧 Custom', items: [
+        {value: 'custom', text: '🔧 Model Custom'},
+      ]},
+    ],
+    'google': [
+      {group: '☁️ Google Gemini', items: [
+        {value: 'gemini-2.5-flash', text: '⭐ Gemini 2.5 Flash', recommended: true},
+        {value: 'gemini-1.5-pro', text: 'Gemini 1.5 Pro'},
+      ]},
+      {group: '🔧 Custom', items: [
+        {value: 'custom', text: '🔧 Model Custom'},
+      ]},
+    ],
+    'qoder': [
+      {group: '🧠 Claude AI', items: [
+        {value: 'claude-3-5-sonnet-20241022', text: '⭐ Claude 3.5 Sonnet', recommended: true},
+        {value: 'claude-3-opus-20240229', text: '🏆 Claude 3 Opus - Premium'},
+        {value: 'claude-3-haiku-20240307', text: '⚡ Claude 3 Haiku - Cepat'},
+      ]},
+      {group: '🔧 Custom', items: [
+        {value: 'custom', text: '🔧 Model Custom'},
+      ]},
+    ],
+    'deepseek': [
+      {group: '🔷 DeepSeek', items: [
+        {value: 'deepseek-chat', text: '⭐ DeepSeek Chat - Cepat & Pintar', recommended: true},
+        {value: 'deepseek-reasoner', text: '🧠 DeepSeek Reasoner - Mode Berpikir'},
+      ]},
+      {group: '🔧 Custom', items: [
+        {value: 'custom', text: '🔧 Model Custom'},
+      ]},
+    ]
+  };
+
+  const developerModels = {
+    'openclaw': [
+      {group: '🐍 Spesialis Coding', items: [
+        {value: 'codellama:7b', text: 'CodeLlama 7B - Dasar'},
+        {value: 'codellama:13b', text: '⭐ CodeLlama 13B - Rekomendasi', recommended: true},
+        {value: 'codellama:34b', text: 'CodeLlama 34B - Pro'},
+        {value: 'deepseek-coder:6.7b', text: '⚡ DeepSeek Coder 6.7B - Cepat'},
+        {value: 'qwen2.5-coder:7b', text: 'Qwen 2.5 Coder 7B'},
+        {value: 'starcoder2:7b', text: 'StarCoder2 7B'},
+      ]},
+      {group: '🧠 Analisis & Penalaran', items: [
+        {value: 'deepseek-r1:8b', text: '⭐ DeepSeek R1 8B - Penalaran'},
+        {value: 'deepseek-r1:14b', text: 'DeepSeek R1 14B'},
+      ]},
+      {group: '🏆 Premium (Fitur Kompleks)', items: [
+        {value: 'llama3.3:70b', text: '🏆 Llama 3.3 70B'},
+        {value: 'mixtral:8x7b', text: 'Mixtral 8x7B'},
+      ]},
+      {group: '🔧 Custom', items: [
+        {value: 'custom', text: '🔧 Model Custom'},
+      ]},
+    ],
+    'google': [
+      {group: '☁️ Google Gemini', items: [
+        {value: 'gemini-2.5-flash', text: '⭐ Gemini 2.5 Flash', recommended: true},
+        {value: 'gemini-1.5-pro', text: 'Gemini 1.5 Pro'},
+      ]},
+      {group: '🔧 Custom', items: [
+        {value: 'custom', text: '🔧 Model Custom'},
+      ]},
+    ],
+    'qoder': [
+      {group: '🧠 Claude AI (Bagus untuk Coding)', items: [
+        {value: 'claude-3-5-sonnet-20241022', text: '⭐ Claude 3.5 Sonnet - Terbaik', recommended: true},
+        {value: 'claude-3-opus-20240229', text: '🏆 Claude 3 Opus - Premium'},
+        {value: 'claude-3-haiku-20240307', text: '⚡ Claude 3 Haiku - Cepat'},
+      ]},
+      {group: '🔧 Custom', items: [
+        {value: 'custom', text: '🔧 Model Custom'},
+      ]},
+    ],
+    'deepseek': [
+      {group: '🔷 DeepSeek (Terbaik untuk Coding)', items: [
+        {value: 'deepseek-chat', text: '⭐ DeepSeek Chat - Terbaik Coding', recommended: true},
+        {value: 'deepseek-reasoner', text: '🧠 DeepSeek Reasoner - Mode Berpikir'},
+      ]},
+      {group: '🔧 Custom', items: [
+        {value: 'custom', text: '🔧 Model Custom'},
+      ]},
+    ]
+  };
+
+  // Populate assistant model dropdown
+  populateModelSelect(assistantModelSelect, assistantModels[provider] || assistantModels['openclaw']);
+  // Populate developer model dropdown
+  populateModelSelect(developerModelSelect, developerModels[provider] || developerModels['openclaw']);
+  
+  // Hide custom fields
+  document.getElementById('custom-assistant-model-field').style.display = 'none';
+  document.getElementById('custom-developer-model-field').style.display = 'none';
+}
+
+function populateModelSelect(selectEl, groups) {
+  selectEl.innerHTML = '';
+  groups.forEach(group => {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = group.group;
+    group.items.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.value;
+      option.text = item.text;
+      if (item.recommended) option.selected = true;
+      optgroup.appendChild(option);
+    });
+    selectEl.appendChild(optgroup);
+  });
+}
+
+// ====== Update Base URL Section ======
+function updateBaseUrlSection(provider) {
+  const section = document.getElementById('base-url-section');
+  const baseurlPreset = document.getElementById('base-url-preset');
+  const baseurlInput = document.getElementById('base-url-input');
+
+  if (provider === 'openclaw') {
+    section.classList.remove('d-none');
+    baseurlPreset.value = 'ollama';
+    baseurlInput.value = 'http://localhost:11434/v1';
+    baseurlInput.readOnly = true;
+  } else if (provider === 'google') {
+    section.classList.add('d-none');
+    baseurlPreset.value = 'custom';
+    baseurlInput.value = '';
+    baseurlInput.readOnly = false;
+  } else if (provider === 'qoder') {
+    section.classList.add('d-none');
+    baseurlPreset.value = 'custom';
+    baseurlInput.value = 'https://api.anthropic.com';
+    baseurlInput.readOnly = true;
+  } else if (provider === 'deepseek') {
+    section.classList.add('d-none');
+    baseurlPreset.value = 'custom';
+    baseurlInput.value = 'https://api.deepseek.com';
+    baseurlInput.readOnly = true;
+  }
+}
+
+// ====== Update API Key Help ======
+function updateApiKeyHelp(provider) {
+  const helpEl = document.getElementById('api-key-help');
+  const messages = {
+    'openclaw': '<span class="info-icon"><i data-lucide="info" style="width:16px;height:16px"></i></span><span>Local AI (Ollama) tidak memerlukan API Key. Isi hanya jika server Anda menggunakan autentikasi.</span>',
+    'deepseek': '<span class="info-icon"><i data-lucide="key-round" style="width:16px;height:16px"></i></span><span><strong>API Key wajib diisi</strong> untuk DeepSeek. Dapatkan gratis di <a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com</a></span>',
+    'google': '<span class="info-icon"><i data-lucide="key-round" style="width:16px;height:16px"></i></span><span><strong>API Key wajib diisi</strong> untuk Google Gemini. Dapatkan gratis di <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a></span>',
+    'qoder': '<span class="info-icon"><i data-lucide="key-round" style="width:16px;height:16px"></i></span><span><strong>API Key wajib diisi</strong> untuk Qoder (Claude). Masukkan API Key dari dashboard Qoder Anda.</span>',
+  };
+  helpEl.innerHTML = messages[provider] || messages['openclaw'];
+  // Re-render lucide icons for the new elements
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ====== API Key Toggle Visibility ======
+function toggleApiKey() {
+  const input = document.getElementById('api-key-input');
+  const icon = document.getElementById('eye-icon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.setAttribute('data-lucide', 'eye-off');
+  } else {
+    input.type = 'password';
+    icon.setAttribute('data-lucide', 'eye');
+  }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ====== Temperature Slider ======
+document.getElementById('temperature-range').addEventListener('input', function(e) {
+  document.getElementById('temp-value').textContent = e.target.value;
+});
+
+// ====== Base URL Preset ======
+document.getElementById('base-url-preset').addEventListener('change', function(e) {
+  const input = document.getElementById('base-url-input');
+  const presets = {
+    'ollama': 'http://localhost:11434/v1',
+    'openclaw': 'http://localhost:8080/v1',
+    'custom': input.value
+  };
+  input.value = presets[e.target.value] || input.value;
+  input.readOnly = e.target.value !== 'custom';
+});
+
+// ====== Custom Model Fields ======
+document.getElementById('assistant-model-select').addEventListener('change', function(e) {
+  document.getElementById('custom-assistant-model-field').style.display = e.target.value === 'custom' ? 'block' : 'none';
+});
+
+document.getElementById('developer-model-select').addEventListener('change', function(e) {
+  document.getElementById('custom-developer-model-field').style.display = e.target.value === 'custom' ? 'block' : 'none';
+});
+
+// ====== Feature Toggle Labels ======
+document.querySelectorAll('.feature-toggle-card .form-check-input').forEach(toggle => {
+  toggle.addEventListener('change', function() {
+    const label = this.nextElementSibling;
+    label.textContent = this.checked ? 'Aktif' : 'Nonaktif';
+  });
+});
+
+// ====== Initialize on DOM Ready ======
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize readonly state for base URL
+  const baseurlPreset = document.getElementById('base-url-preset');
+  const baseurlInput = document.getElementById('base-url-input');
+  baseurlInput.readOnly = baseurlPreset.value !== 'custom';
+
+  // Show custom model fields if needed
+  const assistantModel = document.getElementById('assistant-model-select');
+  const developerModel = document.getElementById('developer-model-select');
+  
+  if (assistantModel && assistantModel.value === 'custom') {
+    document.getElementById('custom-assistant-model-field').style.display = 'block';
+  }
+  if (developerModel && developerModel.value === 'custom') {
+    document.getElementById('custom-developer-model-field').style.display = 'block';
+  }
+
+  // Initialize base URL section visibility based on current provider
+  const currentProvider = document.getElementById('provider-hidden').value;
+  if (currentProvider !== 'openclaw') {
+    document.getElementById('base-url-section').classList.add('d-none');
+  }
+});
+</script>
+{% endblock %}

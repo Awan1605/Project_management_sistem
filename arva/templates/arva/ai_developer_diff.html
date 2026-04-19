@@ -1,0 +1,687 @@
+{% extends 'arva/base.html' %}
+{% load arva_tags static %}
+
+{% block title %}Diff - {{ change.file_path }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'arva/css/pages/ai_developer_navbar.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<style>
+  /* VS Code-like Code Viewer */
+  .code-editor {
+    background: #0d1117;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #30363d;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .code-editor-header {
+    background: #161b22;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #30363d;
+  }
+
+  .code-editor-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .code-editor-dots span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .code-editor-dots .dot-red { background: #ff5f57; }
+  .code-editor-dots .dot-yellow { background: #febc2e; }
+  .code-editor-dots .dot-green { background: #28c840; }
+
+  .code-editor-filename {
+    color: #8b949e;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 0.8rem;
+  }
+
+  .code-editor-copy {
+    background: none;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .code-editor-copy:hover {
+    background: #21262d;
+    color: #c9d1d9;
+    border-color: #8b949e;
+  }
+
+  .code-editor-body {
+    max-height: 500px;
+    overflow: auto;
+  }
+
+  .code-editor-body pre {
+    margin: 0;
+    padding: 1rem 1.25rem;
+    background: transparent !important;
+    color: #c9d1d9;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    white-space: pre;
+    overflow-x: auto;
+    tab-size: 4;
+  }
+
+  .code-editor-body code {
+    background: transparent !important;
+    font-family: inherit !important;
+    font-size: inherit;
+  }
+
+  /* Line Numbers */
+  .code-with-lines {
+    display: flex;
+  }
+
+  .line-numbers {
+    padding: 1rem 0.5rem 1rem 0.75rem;
+    text-align: right;
+    color: #484f58;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    user-select: none;
+    border-right: 1px solid #21262d;
+    flex-shrink: 0;
+  }
+
+  .line-numbers .line-num {
+    display: block;
+  }
+
+  .code-content {
+    flex: 1;
+    overflow-x: auto;
+  }
+
+  /* Diff View - VS Code Style */
+  .diff-editor {
+    background: #0d1117;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #30363d;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .diff-editor-header {
+    background: #161b22;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #30363d;
+  }
+
+  .diff-editor-body {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    overflow: auto;
+    max-height: 500px;
+  }
+
+  .diff-line {
+    display: flex;
+    align-items: stretch;
+  border-bottom: 1px solid #161b22;
+  }
+
+  .diff-line:last-child { border-bottom: none; }
+
+  .diff-line-num {
+    width: 55px;
+    text-align: right;
+    padding: 0 0.75rem;
+    color: #484f58;
+    user-select: none;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    border-right: 1px solid #21262d;
+    min-height: 1.6em;
+  }
+
+  .diff-line-content {
+    padding: 0 1rem;
+    flex: 1;
+    white-space: pre;
+    overflow-x: auto;
+    display: flex;
+    align-items: center;
+    min-height: 1.6em;
+  }
+
+  /* Diff line types */
+  .diff-line-add {
+    background: rgba(46, 160, 67, 0.15);
+  }
+
+  .diff-line-add .diff-line-content {
+    color: #7ee787;
+  }
+
+  .diff-line-add .diff-line-num {
+    background: rgba(46, 160, 67, 0.1);
+  }
+
+  .diff-line-del {
+    background: rgba(248, 81, 73, 0.15);
+  }
+
+  .diff-line-del .diff-line-content {
+    color: #ff7b72;
+  }
+
+  .diff-line-del .diff-line-num {
+    background: rgba(248, 81, 73, 0.1);
+  }
+
+  .diff-line-hunk {
+    background: rgba(56, 139, 253, 0.1);
+    color: #79c0ff;
+  }
+
+  .diff-line-hunk .diff-line-content {
+    color: #79c0ff;
+  }
+
+  .diff-line-meta {
+    background: #161b22;
+    color: #8b949e;
+    font-weight: 600;
+  }
+
+  .diff-line-meta .diff-line-content {
+    color: #c9d1d9;
+  }
+
+  .diff-line-ctx .diff-line-content {
+    color: #c9d1d9;
+  }
+
+  /* Diff change markers */
+  .diff-marker {
+    display: inline-block;
+    width: 16px;
+    flex-shrink: 0;
+    text-align: center;
+    color: inherit;
+    opacity: 0.7;
+  }
+
+  /* Info card style */
+  .info-card {
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 14px;
+    color: #1e293b;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.06);
+  }
+
+  .info-card .card-body {
+    color: #1e293b;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .info-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .info-icon.icon-status { background: #eff6ff; color: #3b82f6; }
+  .info-icon.icon-type { background: #f0fdf4; color: #10b981; }
+  .info-icon.icon-changes { background: #fefce8; color: #f59e0b; }
+  .info-icon.icon-backup { background: #fdf2f8; color: #ec4899; }
+
+  /* Diff stats like GitHub */
+  .diff-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .diff-stat-add {
+    color: #1a7f37;
+  }
+
+  .diff-stat-del {
+    color: #cf222e;
+  }
+
+  .diff-stat-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    min-width: 60px;
+    background: #e5e7eb;
+  }
+
+  .diff-stat-bar .bar-add {
+    background: #1a7f37;
+    border-radius: 4px 0 0 4px;
+  }
+
+  .diff-stat-bar .bar-del {
+    background: #cf222e;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .info-label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+
+  .info-value {
+    font-size: 0.88rem;
+    color: #1e293b;
+    font-weight: 600;
+  }
+
+  .info-card .badge { font-weight: 600; }
+
+  .info-card .row > div {
+    padding: 0.5rem 0;
+  }
+
+  /* Scrollbar for dark code editor */
+  .code-editor-body::-webkit-scrollbar,
+  .diff-editor-body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .code-editor-body::-webkit-scrollbar-track,
+  .diff-editor-body::-webkit-scrollbar-track {
+    background: #0d1117;
+  }
+
+  .code-editor-body::-webkit-scrollbar-thumb,
+  .diff-editor-body::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 4px;
+  }
+
+  .code-editor-body::-webkit-scrollbar-thumb:hover,
+  .diff-editor-body::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+  }
+
+  /* ── Mobile Responsive ── */
+  @media (max-width: 767.98px) {
+    .info-card .card-body {
+      padding: 1rem;
+    }
+
+    .info-card .row > div {
+      padding: 0.35rem 0;
+    }
+
+    .info-icon {
+      width: 30px;
+      height: 30px;
+      font-size: 0.85rem;
+      border-radius: 8px;
+    }
+
+    .info-label {
+      font-size: 0.6rem;
+    }
+
+    .info-value {
+      font-size: 0.78rem;
+    }
+
+    .diff-stats {
+      font-size: 0.72rem;
+      gap: 0.4rem;
+    }
+
+    .diff-stat-bar {
+      min-width: 40px;
+      height: 6px;
+    }
+
+    .code-editor-header,
+    .diff-editor-header {
+      padding: 0.5rem 0.75rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .code-editor-filename {
+      font-size: 0.7rem;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .code-editor-body pre {
+      font-size: 0.72rem;
+      padding: 0.75rem;
+      line-height: 1.5;
+    }
+
+    .diff-editor-body {
+      font-size: 0.72rem;
+      max-height: 350px;
+    }
+
+    .code-editor-body {
+      max-height: 350px;
+    }
+
+    .line-numbers {
+      padding: 0.75rem 0.35rem 0.75rem 0.5rem;
+      font-size: 0.72rem;
+    }
+
+    .diff-line-num {
+      display: none;
+    }
+
+    /* Stack info card items into 2x2 grid on mobile */
+    .info-card .row > div.col-md-3 {
+      width: 50%;
+      flex: 0 0 50%;
+      max-width: 50%;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .info-card .row > div.col-md-3 {
+      width: 100%;
+      flex: 0 0 100%;
+      max-width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <!-- Header - Consistent with Project Theme -->
+    <div class="page-hero mb-4">
+        <div>
+            <div class="hero-badge mb-2">
+                <i class="bi bi-file-diff"></i>
+                AI Developer - Request #{{ change.request.id }}
+            </div>
+            <h3 class="hero-title">
+                <i class="bi bi-code me-2 text-primary"></i> {{ change.file_path }}
+            </h3>
+            <p class="hero-subtitle">Code diff view for the proposed changes.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'ai_developer_request_detail' change.request.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <!-- File Info -->
+    <div class="info-card mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-3">
+                    <div class="info-item">
+                        <div class="info-icon icon-status">
+                            <i class="bi bi-eye"></i>
+                        </div>
+                        <div>
+                            <div class="info-label">Status</div>
+                            <div class="info-value">
+                                <span class="badge bg-{{ change.status_color }}">{{ change.get_status_display }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="info-item">
+                        <div class="info-icon icon-type">
+                            <i class="bi bi-{% if change.change_type == 'add' %}plus-circle{% elif change.change_type == 'delete' %}dash-circle{% else %}pencil-square{% endif %}"></i>
+                        </div>
+                        <div>
+                            <div class="info-label">Change Type</div>
+                            <div class="info-value">
+                                {% if change.change_type == 'add' %}
+                                File baru ditambahkan
+                                {% elif change.change_type == 'delete' %}
+                                File dihapus
+                                {% else %}
+                                File dimodifikasi
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="info-item">
+                        <div class="info-icon icon-changes">
+                            <i class="bi bi-plus-slash-minus"></i>
+                        </div>
+                        <div>
+                            <div class="info-label">Perubahan</div>
+                            <div class="diff-stats">
+                                <span class="diff-stat-add">+{{ additions }} baris</span>
+                                <span class="diff-stat-del">-{{ deletions }} baris</span>
+                                {% if additions|add:deletions > 0 %}
+                                <div class="diff-stat-bar">
+                                    <div class="bar-add" style="width:{% widthratio additions additions|add:deletions 100 %}%;"></div>
+                                    <div class="bar-del" style="width:{% widthratio deletions additions|add:deletions 100 %}%;"></div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="info-item">
+                        <div class="info-icon icon-backup">
+                            <i class="bi bi-archive"></i>
+                        </div>
+                        <div>
+                            <div class="info-label">Backup</div>
+                            <div class="info-value">
+                                {% if change.backup_path %}
+                                <span style="color:#10b981;"><i class="bi bi-check-circle-fill"></i> Tersimpan</span>
+                                {% elif change.status == 'applied' %}
+                                <span style="color:#f59e0b;"><i class="bi bi-exclamation-triangle"></i> Belum ada</span>
+                                {% else %}
+                                <span style="color:#94a3b8;font-weight:400;font-size:0.82rem;">Belum di-apply</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% if change.review_comment %}
+            <div class="mt-3 p-3" style="background:#f8fafc;border-radius:10px;border:1px solid rgba(148,163,184,0.15);">
+                <div style="font-size:0.75rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:0.35rem;">Review Comment</div>
+                <p class="mb-0" style="color:#334155;font-size:0.88rem;">{{ change.review_comment }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Diff View -->
+    <div class="diff-editor mb-4">
+        <div class="diff-editor-header">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <div class="code-editor-dots">
+                <span class="dot-red"></span>
+                <span class="dot-yellow"></span>
+                <span class="dot-green"></span>
+              </div>
+              <span class="code-editor-filename">{{ change.file_path }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <span class="diff-stat-add" style="font-size:0.75rem;font-weight:600;">+{{ additions }}</span>
+              <span class="diff-stat-del" style="font-size:0.75rem;font-weight:600;">-{{ deletions }}</span>
+              <span style="color:#8b949e;font-size:0.75rem;"><i class="bi bi-file-diff"></i> Diff</span>
+            </div>
+        </div>
+        <div class="diff-editor-body" id="diff-viewer">
+            {% for line in diff_lines %}
+                {% if line|slice:":1" == "+" and line|slice:":3" != "+++" %}
+                <div class="diff-line diff-line-add">
+                    <div class="diff-line-num">{{ forloop.counter }}</div>
+                    <div class="diff-line-content"><span class="diff-marker">+</span>{{ line|slice:"1:" }}</div>
+                </div>
+                {% elif line|slice:":1" == "-" and line|slice:":3" != "---" %}
+                <div class="diff-line diff-line-del">
+                    <div class="diff-line-num">{{ forloop.counter }}</div>
+                    <div class="diff-line-content"><span class="diff-marker">-</span>{{ line|slice:"1:" }}</div>
+                </div>
+                {% elif line|slice:":2" == "@@" %}
+                <div class="diff-line diff-line-hunk">
+                    <div class="diff-line-num"></div>
+                    <div class="diff-line-content">{{ line }}</div>
+                </div>
+                {% elif line|slice:":3" == "+++" or line|slice:":3" == "---" %}
+                <div class="diff-line diff-line-meta">
+                    <div class="diff-line-num"></div>
+                    <div class="diff-line-content">{{ line }}</div>
+                </div>
+                {% else %}
+                <div class="diff-line diff-line-ctx">
+                    <div class="diff-line-num">{{ forloop.counter }}</div>
+                    <div class="diff-line-content"> {{ line }}</div>
+                </div>
+                {% endif %}
+            {% empty %}
+                <div style="padding:2rem;text-align:center;color:#8b949e;">
+                    <i class="bi bi-check-circle" style="font-size:2rem;display:block;margin-bottom:0.5rem;"></i>
+                    Tidak ada diff tersedia
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- New Code -->
+    {% if change.new_code %}
+    <div class="code-editor">
+        <div class="code-editor-header">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <div class="code-editor-dots">
+                <span class="dot-red"></span>
+                <span class="dot-yellow"></span>
+                <span class="dot-green"></span>
+              </div>
+              <span class="code-editor-filename">{{ change.file_path }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <span id="code-lang-badge" style="background:#21262d;color:#8b949e;font-size:0.68rem;padding:0.15rem 0.5rem;border-radius:4px;font-family:'SF Mono',Monaco,monospace;text-transform:uppercase;letter-spacing:0.03em;"></span>
+              <button class="code-editor-copy" onclick="copyCode()">
+                  <i class="bi bi-clipboard"></i> Copy
+              </button>
+            </div>
+        </div>
+        <div class="code-editor-body">
+            <div class="code-with-lines">
+                <div class="line-numbers" id="line-numbers"></div>
+                <div class="code-content">
+                    <pre><code id="new-code">{{ change.new_code }}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/django.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+<script>
+// Syntax highlighting
+document.addEventListener('DOMContentLoaded', function() {
+    const codeEl = document.getElementById('new-code');
+    if (codeEl) {
+        // Detect language from file extension
+        const filePath = '{{ change.file_path }}';
+        let lang = 'plaintext';
+        let langLabel = 'TXT';
+        if (filePath.endsWith('.py')) { lang = 'python'; langLabel = 'Python'; }
+        else if (filePath.endsWith('.html') || filePath.endsWith('.htm')) { lang = 'xml'; langLabel = 'HTML'; }
+        else if (filePath.endsWith('.js')) { lang = 'javascript'; langLabel = 'JavaScript'; }
+        else if (filePath.endsWith('.css')) { lang = 'css'; langLabel = 'CSS'; }
+        else if (filePath.endsWith('.json')) { lang = 'json'; langLabel = 'JSON'; }
+        else if (filePath.endsWith('.sql')) { lang = 'sql'; langLabel = 'SQL'; }
+        else if (filePath.endsWith('.sh')) { lang = 'bash'; langLabel = 'Shell'; }
+        else if (filePath.endsWith('.yml') || filePath.endsWith('.yaml')) { lang = 'yaml'; langLabel = 'YAML'; }
+
+        // Show language badge
+        const langBadge = document.getElementById('code-lang-badge');
+        if (langBadge) langBadge.textContent = langLabel;
+
+        codeEl.className = 'language-' + lang;
+        codeEl.textContent = codeEl.textContent;
+        hljs.highlightElement(codeEl);
+
+        // Generate line numbers
+        const lines = codeEl.textContent.split('\n');
+        const lineNums = document.getElementById('line-numbers');
+        if (lineNums) {
+            lineNums.innerHTML = lines.map((_, i) =>
+                '<span class="line-num">' + (i + 1) + '</span>'
+            ).join('');
+        }
+    }
+});
+
+function copyCode() {
+    const code = document.getElementById('new-code');
+    if (code) {
+        navigator.clipboard.writeText(code.textContent).then(() => {
+            const btn = document.querySelector('.code-editor-copy');
+            btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+            setTimeout(() => {
+                btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+            }, 2000);
+        });
+    }
+}
+</script>
+{% endblock %}
