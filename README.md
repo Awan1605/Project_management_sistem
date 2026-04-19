@@ -34,14 +34,26 @@ Arva adalah aplikasi **Project Management** berbasis web yang menggabungkan **Ka
 - Full AJAX (tanpa reload halaman)
 
 ## 🤖 AI Integration
-### Supported Providers
-| Provider | Status |
-|----------|--------|
-| Gemini | ✅ |
-| OpenAI | ✅ |
-| Ollama | ✅ |
-| DeepSeek | ✅ |
-| Claude | ✅ |
+### ☁️ Cloud API Providers
+  | Provider | Model Examples | Status |
+  |----------|----------------|--------|
+  | **Google Gemini** | Gemini 2.0 Flash, Gemini 1.5 Pro, Gemini 1.5 Flash | ✅ |
+  | **DeepSeek** | DeepSeek-Chat, DeepSeek-Coder | ✅ |
+  | **Claude (Anthropic)** | Claude 3.5 Sonnet, Claude 3 Opus | ✅ |
+  | **OpenAI** | GPT-4o, GPT-4 Turbo, GPT-3.5 | ✅ |
+
+### 🖥️ Local AI (Ollama — Multi Vendor)
+  | Model | Vendor | Status |
+  |-------|--------|--------|
+  | Llama 3 | Meta | ✅ |
+  | Mistral | Mistral AI | ✅ |
+  | Gemma | Google | ✅ |
+  | Qwen | Alibaba | ✅ |
+  | Phi-3 | Microsoft | ✅ |
+  | CodeLlama | Meta | ✅ |
+  | + model lainnya via Ollama | — | ✅ |
+
+> 💡 Ollama memungkinkan menjalankan berbagai model AI secara lokal tanpa internet. Semua model yang tersedia di [ollama.com/library](https://ollama.com/library) dapat digunakan.
 
 ### Capabilities
 - **AI Priority Queue** — analisis prioritas otomatis
@@ -50,12 +62,12 @@ Arva adalah aplikasi **Project Management** berbasis web yang menggabungkan **Ka
 
 ---
 ## 🛠️ Tech Stack
-| Layer | Technology |
-|-------|------------|
-| Backend | Django |
-| Database | MySQL |
-| Frontend | HTML, CSS, JavaScript |
-| Interaction | jQuery + AJAX |
+  | Layer | Technology |
+  |-------|------------|
+  | Backend | Django |
+  | Database | MySQL |
+  | Frontend | HTML, CSS, JavaScript |
+  | Interaction | jQuery + AJAX |
 
 ---
 ## ⚙️ Installation
