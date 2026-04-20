@@ -148,8 +148,13 @@ function addMessage(role, content, time) {
 /**
  * Send a message to the AI
  */
+let isSending = false; // Flag untuk mencegah double submit
 async function sendMessage(event) {
     event.preventDefault();
+    event.stopPropagation();
+    
+    // Cegah double submit
+    if (isSending) return;
     
     const input = document.getElementById('chat-input');
     if (!input) return;
@@ -157,6 +162,7 @@ async function sendMessage(event) {
     const message = input.value.trim();
     if (!message) return;
     
+    isSending = true;
     input.value = '';
     
     const now = new Date();
@@ -187,6 +193,8 @@ async function sendMessage(event) {
     } catch (error) {
         hideTyping();
         addMessage('assistant', 'Maaf, terjadi kesalahan koneksi. Silakan coba lagi.', dateTimeStr);
+    } finally {
+        isSending = false;
     }
 }
 
