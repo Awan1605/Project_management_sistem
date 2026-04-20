@@ -174,37 +174,7 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
-<script>
-// Immediate markdown parsing for server-rendered messages
-// This runs before ai_chat.js to ensure quick rendering
-(function() {
-    function parseExistingMessages() {
-        if (typeof marked !== 'undefined') {
-            marked.setOptions({
-                breaks: true,
-                gfm: true,
-                headerIds: false,
-                mangle: false
-            });
-            document.querySelectorAll('.markdown-content').forEach(function(el) {
-                // Baca dari innerHTML langsung (sudah ter-render oleh Django)
-                // Hindari data-content agar emoji tidak ter-escape
-                if (el.getAttribute('data-parsed') !== 'true') {
-                    let content = el.innerHTML;
-                    if (content && content.trim()) {
-                        el.innerHTML = marked.parse(content);
-                        el.setAttribute('data-parsed', 'true');
-                    }
-                }
-            });
-        } else {
-            setTimeout(parseExistingMessages, 50);
-        }
-    }
-    parseExistingMessages();
-})();
-</script>
-<script src="{% static 'arva/js/ai_chat.js' %}?v=202604191500"></script>
+<script src="{% static 'arva/js/ai_chat.js' %}?v=202604201600"></script>
 {% endblock %}
 
 {% endif %}
