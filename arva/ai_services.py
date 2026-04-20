@@ -38,6 +38,15 @@ try:
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+    OpenAI = None
+
+if not OPENAI_AVAILABLE:
+    try:
+        import openai
+        OpenAI = openai.OpenAI
+        OPENAI_AVAILABLE = True
+    except (ImportError, AttributeError):
+        pass
 
 # Import Google GenAI untuk provider Gemini
 try:
@@ -47,6 +56,7 @@ try:
 except ImportError:
     GENAI_AVAILABLE = False
     genai = None
+    types = None
 
 # Import Anthropic untuk provider Qoder/Claude
 try:
@@ -158,7 +168,9 @@ class BaseAIService:
         days_until_due = None
         urgency_indicator = ""
         if task.due_date:
-            days_until_due = (task.due_date - timezone.localdate()).days
+            # Pastikan perbandingan date vs date (bukan datetime)
+            due_date = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
+            days_until_due = (due_date - timezone.localdate()).days
             if days_until_due < 0:
                 urgency_indicator = "OVERDUE"
             elif days_until_due == 0:
@@ -406,13 +418,14 @@ class AIService(BaseAIService):
             analysis = self.analyze_task(task)
             if 'error' not in analysis:
                 # Boost priority for overdue tasks
-                if task.due_date and task.due_date < timezone.localdate():
+                due_date = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
+                if task.due_date and due_date < timezone.localdate():
                     # Overdue tasks get minimum score of 85 (Critical)
                     current_score = analysis.get('priority_score', 0)
                     boosted_score = max(current_score, 85)
                     analysis['priority_score'] = boosted_score
                     analysis['priority_level'] = 'Critical'
-                    days_overdue = (timezone.localdate() - task.due_date).days
+                    days_overdue = (timezone.localdate() - due_date).days
                     analysis['reasoning'] = f"[TERLAMBAT {days_overdue} HARI] " + analysis.get('reasoning', '')
                 results.append(analysis)
         
@@ -516,11 +529,17 @@ class AIChatService(BaseAIService):
         
         # Urutkan: Overdue dulu (paling terlambat), lalu hari ini, lalu mendatang
         tasks_list = list(tasks)
-        overdue = [t for t in tasks_list if t.due_date and t.due_date < timezone.localdate()]
+        
+        # Helper untuk mendapatkan date (handle datetime atau date)
+        def get_date(d):
+            return d.date() if hasattr(d, 'date') else d
+        
+        today_date = timezone.localdate()
+        overdue = [t for t in tasks_list if t.due_date and get_date(t.due_date) < today_date]
         overdue.sort(key=lambda t: t.due_date)  # Paling terlambat dulu
         
-        today = [t for t in tasks_list if t.due_date and t.due_date == timezone.localdate()]
-        upcoming = [t for t in tasks_list if not t.due_date or t.due_date > timezone.localdate()]
+        today = [t for t in tasks_list if t.due_date and get_date(t.due_date) == today_date]
+        upcoming = [t for t in tasks_list if not t.due_date or get_date(t.due_date) > today_date]
         upcoming.sort(key=lambda t: t.due_date if t.due_date else timezone.now())
         
         sorted_tasks = overdue + today + upcoming
@@ -530,7 +549,8 @@ class AIChatService(BaseAIService):
             # Info deadline dengan format jelas
             deadline_info = ""
             if task.due_date:
-                days_until = (task.due_date - timezone.localdate()).days
+                due = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
+                days_until = (due - timezone.localdate()).days
                 if days_until < 0:
                     deadline_info = f"TERLAMBAT {abs(days_until)} HARI"
                 elif days_until == 0:
@@ -650,7 +670,8 @@ class AIChatService(BaseAIService):
             
             # Deadline
             if task.due_date:
-                days_until = (task.due_date - timezone.localdate()).days
+                due = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
+                days_until = (due - timezone.localdate()).days
                 if days_until < 0:
                     task_info += f"\n   Deadline: TERLAMBAT {abs(days_until)} HARI ({task.due_date})"
                 elif days_until == 0:
@@ -736,7 +757,6 @@ class AIChatService(BaseAIService):
         
         try:
             # Deteksi apakah user bertanya tentang task
-            # Perluas keyword untuk menangkap berbagai variasi pertanyaan tentang task
             task_keywords = [
                 'tugas', 'kerjakan', 'prioritas', 'deadline', 'project', 
                 'pekerjaan', 'kerja', 'apa yang harus', 'berapa banyak',
@@ -755,14 +775,31 @@ class AIChatService(BaseAIService):
                 
                 # Jika user bertanya detail tentang task spesifik, cari task tersebut
                 if is_detail_query:
-                    # Ekstrak nama task dari pesan (asumsikan nama task ada setelah keyword)
+                    # Ekstrak nama task dari pesan
                     task_name = self._extract_task_name(message)
+                    specific_context = None
+                    
                     if task_name:
                         specific_context = self._get_specific_task_context(user, task_name)
                         
-                        # Jika task ditemukan, berikan penjelasan detail
-                        if not specific_context.startswith('Tidak ditemukan'):
-                            system_prompt = f"""KAMU ADALAH AI TASK ASSISTANT. Jelaskan detail task berikut dengan jelas dan mudah dipahami.
+                        # Jika tidak ditemukan, coba dengan kata kunci lebih pendek (1-2 kata pertama)
+                        if specific_context.startswith('Tidak ditemukan'):
+                            short_name = ' '.join(task_name.split()[:2])
+                            if short_name != task_name:
+                                specific_context = self._get_specific_task_context(user, short_name)
+                        
+                        # Masih tidak ditemukan, coba tiap kata satu per satu
+                        if specific_context.startswith('Tidak ditemukan'):
+                            for word in task_name.split():
+                                if len(word) > 3:  # skip kata pendek
+                                    result = self._get_specific_task_context(user, word)
+                                    if not result.startswith('Tidak ditemukan'):
+                                        specific_context = result
+                                        break
+                    
+                    # Jika task ditemukan, berikan penjelasan detail
+                    if specific_context and not specific_context.startswith('Tidak ditemukan'):
+                        system_prompt = f"""KAMU ADALAH AI TASK ASSISTANT. Jelaskan detail task berikut dengan jelas dan mudah dipahami.
 
 {specific_context}
 
@@ -785,9 +822,10 @@ Format Jawaban:
 
 💡 REKOMENDASI:
 [Berikan saran langkah selanjutnya]"""
-                        else:
-                            # Task tidak ditemukan
-                            return specific_context + "\n\n💡 Tips: Gunakan kata kunci yang lebih umum atau periksa daftar tugas Anda dengan bertanya 'ada tugas apa saja?'"
+                    else:
+                        # Task tidak ditemukan - fallback ke daftar semua task
+                        tasks_context = self._get_user_tasks_context(user)
+                        return f"Maaf, task yang Anda maksud tidak ditemukan.\n\n💡 Tips: Gunakan kata kunci yang tepat. Berikut daftar tugas Anda saat ini:\n\n{tasks_context}"
                 
                 # Query umum tentang task (bukan detail spesifik)
                 else:
@@ -848,56 +886,79 @@ Assistant:"""
                         full_prompt += f"\nAssistant: {msg['content']}"
                 full_prompt += "\nAssistant:"
             
-            # Panggil API sesuai tipe client
-            if self.client_type == 'openai':
-                # OpenAI-compatible API (OpenClaw, DeepSeek, Ollama)
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": message}
-                ]
+            # Panggil API sesuai tipe client (dengan retry untuk error sementara)
+            import time
+            last_error = None
+            max_retries = 3
+            
+            for attempt in range(max_retries):
+                try:
+                    if self.client_type == 'openai':
+                        # OpenAI-compatible API (OpenClaw, DeepSeek, Ollama)
+                        messages = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": message}
+                        ]
+                        
+                        # Tambah riwayat chat jika ada (maks 3 pesan)
+                        if chat_history:
+                            for msg in chat_history[-3:]:
+                                messages.append({"role": msg['role'], "content": msg['content']})
+                        
+                        response = self.client.chat.completions.create(
+                            model=self.model_name,
+                            messages=messages,
+                            temperature=self.temperature,
+                            max_tokens=self.max_tokens
+                        )
+                        return response.choices[0].message.content.strip()
+                        
+                    elif self.client_type == 'anthropic':
+                        # Anthropic Claude API
+                        messages = []
+                        
+                        # Tambah riwayat chat jika ada
+                        if chat_history:
+                            for msg in chat_history[-5:]:
+                                messages.append({"role": msg['role'], "content": msg['content']})
+                        
+                        # Tambah pesan saat ini
+                        messages.append({"role": "user", "content": full_prompt})
+                        
+                        response = self.client.messages.create(
+                            model=self.model_name,
+                            max_tokens=min(self.max_tokens, 4096),
+                            temperature=self.temperature,
+                            system=system_prompt,
+                            messages=messages
+                        )
+                        return response.content[0].text.strip()
+                        
+                    else:
+                        # Google Gemini API
+                        response = self.client.models.generate_content(
+                            model=self.model_name,
+                            contents=full_prompt
+                        )
+                        return response.text.strip()
                 
-                # Tambah riwayat chat jika ada (maks 3 pesan)
-                if chat_history:
-                    for msg in chat_history[-3:]:
-                        messages.append({"role": msg['role'], "content": msg['content']})
-                
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=messages,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens
-                )
-                return response.choices[0].message.content.strip()
-                
-            elif self.client_type == 'anthropic':
-                # Anthropic Claude API (Qoder)
-                messages = []
-                
-                # Tambah riwayat chat jika ada
-                if chat_history:
-                    for msg in chat_history[-5:]:
-                        messages.append({"role": msg['role'], "content": msg['content']})
-                
-                # Tambah pesan saat ini
-                messages.append({"role": "user", "content": full_prompt})
-                
-                response = self.client.messages.create(
-                    model=self.model_name,
-                    max_tokens=min(self.max_tokens, 4096),
-                    temperature=self.temperature,
-                    system=system_prompt,
-                    messages=messages
-                )
-                return response.content[0].text.strip()
-                
-            else:
-                # Google Gemini API
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=full_prompt
-                )
-                return response.text.strip()
-
+                except Exception as e:
+                    last_error = e
+                    err_str = str(e)
+                    # Cek apakah ini error sementara (503, overload, timeout)
+                    is_temporary = any(x in err_str for x in ['503', 'UNAVAILABLE', 'overloaded', 'timeout', 'rate limit', '429', 'temporarily'])
+                    if is_temporary and attempt < max_retries - 1:
+                        # Tunggu sebentar lalu coba lagi (2s, 4s)
+                        time.sleep(2 * (attempt + 1))
+                        continue
+                    break
+            
+            # Semua retry gagal
+            err_str = str(last_error) if last_error else 'Unknown error'
+            if '503' in err_str or 'UNAVAILABLE' in err_str or 'overloaded' in err_str:
+                return "⚠️ Server AI sedang sibuk. Mohon coba lagi dalam 1-2 menit."
+            return f"Maaf, terjadi kesalahan: {err_str}. Silakan coba lagi."
+        
         except Exception as e:
             return f"Maaf, terjadi kesalahan: {str(e)}. Silakan coba lagi."
     

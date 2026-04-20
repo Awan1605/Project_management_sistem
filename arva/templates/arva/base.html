@@ -13,10 +13,12 @@
   <link rel="icon" href="{{ settings.favicon_url }}" type="image/png">
   <link rel="stylesheet" href="{% static 'css/bootstrap-5.3.3.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/bootstrap-icons-1.10.5.min.css' %}">
+  <!-- Preload font icons untuk mencegah FOIT (Flash of Invisible Text) -->
+  <link rel="preload" href="{% static 'fonts/bootstrap-icons-1.10.5.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/fonts-manrope.css' %}">
   <link rel="stylesheet" href="{% static 'css/jquery-ui-1.13.2.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/sweetalert2-11.min.css' %}">
-  <link rel="stylesheet" href="{% static 'arva/css/arva.css' %}?v=202604181800">
+  <link rel="stylesheet" href="{% static 'arva/css/arva.css' %}?v=202604191200">
   {% if user.is_authenticated %}
     {% if active_layout == 'sidebar' %}
       <link rel="stylesheet" href="{% static 'arva/css/layout/sidebar.css' %}">
@@ -27,6 +29,16 @@
   
   <!-- Dynamic theme variables - rendered by Django -->
   <style>
+    /* Fallback untuk Bootstrap Icons */
+    @font-face {
+      font-family: 'bootstrap-icons';
+      src: url("{% static 'fonts/bootstrap-icons-1.10.5.woff2' %}") format("woff2"),
+           url("{% static 'fonts/bootstrap-icons-1.10.5.woff' %}") format("woff");
+      font-display: block;
+      font-style: normal;
+      font-weight: 400;
+    }
+    
     :root {
       --primary-color: {{ settings.primary_color|default:'#09affe' }};
       --navbar-bg: {{ settings.navbar_bg|default:'rgba(255,255,255,0.8)' }};
@@ -258,6 +270,30 @@
 <script src="{% static 'js/bootstrap.bundle-5.3.3.min.js' %}"></script>
 <script src="{% static 'js/sweetalert2-11.min.js' %}"></script>
 <script src="{% static 'arva/js/arva.js' %}?v=202604181700"></script>
+<!-- Pastikan Bootstrap Icons font sudah terload, fallback jika belum -->
+<script>
+(function() {
+  // Periksa apakah font Bootstrap Icons sudah terload
+  var testEl = document.createElement('span');
+  testEl.className = 'bi bi-check';
+  testEl.style.cssText = 'position:absolute;top:-9999px;left:-9999px;font-size:20px';
+  document.body.appendChild(testEl);
+  
+  // Jika font belum load (lebar 0 atau default), paksa reload font
+  setTimeout(function() {
+    var style = window.getComputedStyle(testEl);
+    var fontFamily = style.getPropertyValue('font-family');
+    if (!fontFamily || fontFamily.indexOf('bootstrap-icons') === -1) {
+      // Font belum terload, inject ulang
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '{% static "css/bootstrap-icons-1.10.5.min.css" %}';
+      document.head.appendChild(link);
+    }
+    document.body.removeChild(testEl);
+  }, 500);
+})();
+</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

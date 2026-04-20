@@ -271,7 +271,8 @@ def user_performance(request):
             # Fallback ke updated_at jika tidak ada log spesifik ke Done
             completed_date = task.updated_at.date()
         
-        if completed_date <= task.due_date:
+        due = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
+        if completed_date <= due:
             on_time_count += 1
     
     # Jika tidak ada task dengan due date yang selesai, tampilkan 100% (default)
@@ -344,7 +345,8 @@ def user_performance(request):
                     else:
                         completed_date = task.updated_at.date()
                     
-                    if completed_date <= task.due_date:
+                    due = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
+                    if completed_date <= due:
                         user_on_time += 1
                 user_ontime = round((user_on_time / user_completed_with_due_count * 100), 1)
             else:

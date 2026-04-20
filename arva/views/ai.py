@@ -86,7 +86,8 @@ def ai_priority_queue(request):
                 days_until = None
                 due_status = 'none'
                 if task.due_date:
-                    days_until = (task.due_date - today).days
+                    due = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
+                    days_until = (due - today).days
                     if days_until < 0:
                         due_status = 'overdue'
                     elif days_until <= 2:

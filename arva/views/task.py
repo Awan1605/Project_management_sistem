@@ -490,8 +490,10 @@ def task_inline_update(request, task_id):
         task.start_date = parsed_start
         if parsed_start:
             task.start_date_tbd = False
-        if project.is_project and parsed_start and task.due_date and task.due_date < parsed_start:
-            return JsonResponse({'success': False, 'error': 'End Date cannot be earlier than Start Date.'}, status=400)
+        if project.is_project and parsed_start and task.due_date:
+            due = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
+            if due < parsed_start:
+                return JsonResponse({'success': False, 'error': 'End Date cannot be earlier than Start Date.'}, status=400)
         changed = True
         desc = "Start date updated"
     elif field == 'start_date_tbd':

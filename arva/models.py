@@ -25,6 +25,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from .utils import get_date
 
 
 def user_avatar_path(instance, filename):
@@ -423,17 +424,21 @@ class Task(models.Model):
 
     @property
     def is_overdue(self):
-        return bool(self.due_date and self.due_date < timezone.localdate())
+        if not self.due_date:
+            return False
+        return get_date(self.due_date) < timezone.localdate()
 
     @property
     def is_due_today(self):
-        return bool(self.due_date and self.due_date == timezone.localdate())
+        if not self.due_date:
+            return False
+        return get_date(self.due_date) == timezone.localdate()
 
     @property
     def is_due_soon(self):
         if not self.due_date:
             return False
-        return 0 <= (self.due_date - timezone.localdate()).days <= 2
+        return 0 <= (get_date(self.due_date) - timezone.localdate()).days <= 2
 
     @property
     def checklist_percent(self):

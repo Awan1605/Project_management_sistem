@@ -4,12 +4,32 @@ Utilitas Arviga Project Manager
 Fungsi-fungsi pembantu yang dipakai di berbagai modul:
 - is_user_online: Cek apakah user sedang online
 - EmailThread: Kirim email di thread terpisah (non-blocking)
+- get_date: Konversi datetime/date ke date untuk perbandingan aman
 """
 
-from datetime import timedelta
+from datetime import timedelta, date
 from django.utils.timezone import now
 from threading import Thread
 from django.core.mail import send_mail
+
+
+def get_date(d):
+    """Konversi datetime atau date ke date untuk perbandingan yang aman.
+    
+    Fungsi ini menangani perbedaan tipe antara datetime.datetime dan datetime.date
+    yang sering menyebabkan error: '<' not supported between instances.
+    
+    Args:
+        d: datetime.datetime, datetime.date, atau None
+        
+    Returns:
+        datetime.date atau None jika input None
+    """
+    if d is None:
+        return None
+    if hasattr(d, 'date'):
+        return d.date()
+    return d
 
 
 def is_user_online(last_activity):
