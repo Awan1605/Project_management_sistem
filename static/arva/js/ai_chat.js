@@ -169,7 +169,7 @@ async function sendMessage(event) {
     const dateTimeStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + 
                         now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     
-    addMessage('user', message, dateTimeStr);
+    // Tampilkan pesan user secara temporary (akan di-replace dengan data dari server)
     showTyping();
     
     try {
@@ -186,6 +186,9 @@ async function sendMessage(event) {
         hideTyping();
         
         if (data.success) {
+            // Tampilkan KEDUA pesan (user + AI) dari response server
+            // Ini memastikan data yang ditampilkan sesuai dengan yang ada di database
+            addMessage('user', data.user_message.content, data.user_message.created_at);
             addMessage('assistant', data.ai_message.content, data.ai_message.created_at);
         } else {
             addMessage('assistant', 'Maaf, terjadi kesalahan: ' + (data.error || 'Unknown error'), dateTimeStr);
@@ -206,7 +209,6 @@ async function askTodayWork() {
     const dateTimeStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + 
                         now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     
-    addMessage('user', 'Apa yang harus saya kerjakan hari ini?', dateTimeStr);
     showTyping();
     
     try {
@@ -215,6 +217,8 @@ async function askTodayWork() {
         hideTyping();
         
         if (data.success) {
+            // Tampilkan pesan user + AI response
+            addMessage('user', 'Apa yang harus saya kerjakan hari ini?', dateTimeStr);
             addMessage('assistant', data.message.content, data.message.created_at);
         } else {
             addMessage('assistant', 'Maaf, terjadi kesalahan: ' + (data.error || 'Unknown error'), dateTimeStr);

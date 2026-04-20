@@ -356,10 +356,10 @@ def ai_chat(request):
         messages.error(request, "AI Chat Assistant is currently disabled by administrator.")
         return redirect('project_list')
     
-    # Ambil riwayat chat user (privat)
+    # Ambil riwayat chat user (privat) - urutkan berdasarkan waktu
     chat_messages = AIChatMessage.objects.filter(
         user=request.user
-    ).order_by('created_at')[:50]
+    ).order_by('created_at')[:100]  # Increase limit to show more history
     
     return render(request, 'arva/ai_chat.html', {
         'chat_messages': chat_messages,
@@ -372,8 +372,9 @@ def ai_chat(request):
 def ai_chat_send(request):
     """Kirim pesan ke AI dan dapatkan respons.
     
-    Menyimpan pesan user dan respons AI ke database.
-    Menggunakan 2 pesan terakhir sebagai konteks untuk efisiensi token.
+    HANYA menyimpan respons AI ke database.
+    Pesan user TIDAK disimpan untuk mencegah duplikasi setelah refresh.
+    Pesan user ditampilkan real-time oleh JavaScript.
     """
     from ..models import AISettings
     ai_settings = AISettings.get_current()
@@ -390,7 +391,7 @@ def ai_chat_send(request):
         return JsonResponse({'success': False, 'error': 'Message is empty'})
     
     try:
-        # Simpan pesan user
+        # Simpan pesan user ke database (untuk riwayat setelah refresh)
         user_msg = AIChatMessage.objects.create(
             user=request.user,
             role='user',
@@ -449,9 +450,16 @@ def ai_chat_clear(request):
 def ai_chat_today_work(request):
     """Dapatkan rekomendasi AI untuk pekerjaan hari ini.
     
-    Menyimpan rekomendasi sebagai pesan AI dalam riwayat chat.
+    Menyimpan pesan user dan rekomendasi sebagai pesan AI dalam riwayat chat.
     """
     try:
+        # Simpan pesan user
+        user_msg = AIChatMessage.objects.create(
+            user=request.user,
+            role='user',
+            content='Apa yang harus saya kerjakan hari ini?'
+        )
+        
         ai_service = get_ai_chat_service()
         recommendation = ai_service.get_work_recommendation(request.user)
         
@@ -464,6 +472,11 @@ def ai_chat_today_work(request):
         
         return JsonResponse({
             'success': True,
+            'user_message': {
+                'id': user_msg.id,
+                'content': user_msg.content,
+                'created_at': user_msg.created_at.strftime('%d %b %Y %H:%M')
+            },
             'message': {
                 'id': ai_msg.id,
                 'content': ai_msg.content,
