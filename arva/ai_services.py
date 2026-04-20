@@ -826,24 +826,24 @@ ATURAN PENTING:
 2. Soroti hal-hal penting: deadline, prioritas, status
 3. Jika ada checklist, jelaskan progressnya
 4. Berikan rekomendasi langkah selanjutnya jika relevan
-5. BOLEH gunakan emoji untuk mempercantik jawaban
+5. JANGAN gunakan emoji sama sekali
 6. JANGAN tambahkan informasi di luar data yang diberikan
 
 Format Jawaban:
-📝 PENJELASAN TASK:
+**PENJELASAN TASK:**
 [Berikan penjelasan lengkap tentang task ini dalam paragraf]
 
-📊 STATUS SAAT INI:
+**STATUS SAAT INI:**
 - Status: [Status task]
 - Progress: [Jika ada checklist]
 - Deadline: [Info deadline]
 
-💡 REKOMENDASI:
+**REKOMENDASI:**
 [Berikan saran langkah selanjutnya]"""
                     else:
                         # Task tidak ditemukan - fallback ke daftar semua task
                         tasks_context = self._get_user_tasks_context(user)
-                        return f"Maaf, task yang Anda maksud tidak ditemukan.\n\n💡 Tips: Gunakan kata kunci yang tepat. Berikut daftar tugas Anda saat ini:\n\n{tasks_context}"
+                        return f"Maaf, task yang Anda maksud tidak ditemukan.\n\n**Tips:** Gunakan kata kunci yang tepat. Berikut daftar tugas Anda saat ini:\n\n{tasks_context}"
                 
                 # Query umum tentang task (bukan detail spesifik)
                 else:
@@ -868,23 +868,23 @@ ATURAN PENTING:
 4. Analisa berdasarkan: deadline (overdue paling penting), status, prioritas
 5. Format daftar: "- [Nama Tugas] - [Status] - [Deadline]"
 6. Pilih TOP 2 PRIORITAS (yang paling TERLAMBAT/overdue)
-7. BOLEH gunakan emoji untuk mempercantik jawaban
+7. JANGAN gunakan emoji sama sekali
 8. JANGAN tambahkan informasi di luar data yang diberikan
 
 Format Jawaban:
-📋 ANDA MEMILIKI {task_count} TUGAS AKTIF:
+**ANDA MEMILIKI {task_count} TUGAS AKTIF:**
 - [Tugas 1] - [Status] - [Deadline]
 - [Tugas 2] - [Status] - [Deadline]
 (List semua tugas)
 
-🎯 PRIORITAS UTAMA:
+**PRIORITAS UTAMA:**
 1. [Tugas Prioritas 1]
    Alasan: [Kenapa harus dikerjakan dulu - berdasarkan deadline/status]
 
 2. [Tugas Prioritas 2]  
    Alasan: [Kenapa harus dikerjakan kedua]
 
-📌 URUTAN PENGERJAAN:
+**URUTAN PENGERJAAN:**
 Selesaikan [Prioritas 1] -> Lanjut ke [Prioritas 2] -> Kemudian [tugas lainnya]"""
             else:
                 system_prompt = "Kamu adalah AI Assistant untuk manajemen tugas. Jawab dalam Bahasa Indonesia."
