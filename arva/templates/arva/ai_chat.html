@@ -84,7 +84,7 @@
                             {% if msg.role == 'user' %}
                                 {{ msg.content|linebreaksbr }}
                             {% else %}
-                                <span class="markdown-content" data-content="{{ msg.content|force_escape }}"></span>
+                                <span class="markdown-content" data-parsed="false">{{ msg.content }}</span>
                             {% endif %}
                         </div>
                     </div>
@@ -187,15 +187,14 @@
                 mangle: false
             });
             document.querySelectorAll('.markdown-content').forEach(function(el) {
-                let content = el.getAttribute('data-content');
-                if (content && !el.getAttribute('data-parsed')) {
-                    // Decode HTML entities (e.g., &amp; -> &, &lt; -> <)
-                    const textarea = document.createElement('textarea');
-                    textarea.innerHTML = content;
-                    content = textarea.value;
-                    
-                    el.innerHTML = marked.parse(content);
-                    el.setAttribute('data-parsed', 'true');
+                // Baca dari innerHTML langsung (sudah ter-render oleh Django)
+                // Hindari data-content agar emoji tidak ter-escape
+                if (el.getAttribute('data-parsed') !== 'true') {
+                    let content = el.innerHTML;
+                    if (content && content.trim()) {
+                        el.innerHTML = marked.parse(content);
+                        el.setAttribute('data-parsed', 'true');
+                    }
                 }
             });
         } else {
@@ -205,7 +204,7 @@
     parseExistingMessages();
 })();
 </script>
-<script src="{% static 'arva/js/ai_chat.js' %}"></script>
+<script src="{% static 'arva/js/ai_chat.js' %}?v=202604191500"></script>
 {% endblock %}
 
 {% endif %}

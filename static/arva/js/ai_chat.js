@@ -16,17 +16,14 @@ function initMarkdownParsing() {
             mangle: false
         });
         
-        // Parse existing AI messages
+        // Parse existing AI messages - baca dari innerHTML agar emoji tidak hilang
         document.querySelectorAll('.markdown-content').forEach(function(el) {
-            let content = el.getAttribute('data-content');
-            if (content && !el.getAttribute('data-parsed')) {
-                // Decode HTML entities (e.g., &amp; -> &, &lt; -> <)
-                const textarea = document.createElement('textarea');
-                textarea.innerHTML = content;
-                content = textarea.value;
-                
-                el.innerHTML = marked.parse(content);
-                el.setAttribute('data-parsed', 'true');
+            if (el.getAttribute('data-parsed') !== 'true') {
+                let content = el.innerHTML;
+                if (content && content.trim()) {
+                    el.innerHTML = marked.parse(content);
+                    el.setAttribute('data-parsed', 'true');
+                }
             }
         });
     } else {

@@ -779,6 +779,11 @@ class AIChatService(BaseAIService):
                     task_name = self._extract_task_name(message)
                     specific_context = None
                     
+                    # Kata yang diabaikan saat pencarian
+                    stop_words = {'bantu', 'jelaskan', 'detail', 'tentang', 'task', 'tugas',
+                                  'apa', 'itu', 'ini', 'yang', 'saya', 'untuk', 'tolong',
+                                  'coba', 'bisa', 'dong', 'ya', 'kan', 'deh', 'nih'}
+                    
                     if task_name:
                         specific_context = self._get_specific_task_context(user, task_name)
                         
@@ -791,11 +796,24 @@ class AIChatService(BaseAIService):
                         # Masih tidak ditemukan, coba tiap kata satu per satu
                         if specific_context.startswith('Tidak ditemukan'):
                             for word in task_name.split():
-                                if len(word) > 3:  # skip kata pendek
+                                if len(word) > 3 and word.lower() not in stop_words:
                                     result = self._get_specific_task_context(user, word)
                                     if not result.startswith('Tidak ditemukan'):
                                         specific_context = result
                                         break
+                    
+                    # Jika task_name kosong atau masih tidak ditemukan,
+                    # coba cari dari semua kata bermakna dalam pesan
+                    if not specific_context or specific_context.startswith('Tidak ditemukan'):
+                        words_in_msg = [
+                            w for w in message.lower().split()
+                            if len(w) > 3 and w not in stop_words
+                        ]
+                        for word in words_in_msg:
+                            result = self._get_specific_task_context(user, word)
+                            if not result.startswith('Tidak ditemukan'):
+                                specific_context = result
+                                break
                     
                     # Jika task ditemukan, berikan penjelasan detail
                     if specific_context and not specific_context.startswith('Tidak ditemukan'):
