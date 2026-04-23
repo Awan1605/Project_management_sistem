@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # Django Web Application
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./media:/app/media
+      - ./attachments:/app/media/attachments
+      - ./data/rag_chromadb:/app/.rag_chromadb
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - kanban-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=kanban_db
+      - POSTGRES_USER=kanban_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-kanban_password_change_me}
+    ports:
+      - "5432:5432"
+    networks:
+      - kanban-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kanban_user -d kanban_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Redis Cache (Optional)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - kanban-network
+    restart: unless-stopped
+    profiles:
+      - with-cache
+
+  # Nginx Reverse Proxy (Optional - for production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./staticfiles:/app/staticfiles:ro
+      - ./media:/app/media:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+    networks:
+      - kanban-network
+    restart: unless-stopped
+    profiles:
+      - with-nginx
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  kanban-network:
+    driver: bridge

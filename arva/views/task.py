@@ -271,13 +271,20 @@ def task_update(request, task_id):
 @login_required
 @require_POST
 def task_delete(request, task_id):
-    """Hapus task (hanya admin project yang bisa)."""
+    """Hapus task (admin project ATAU task creator bisa)."""
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
         return closed_project_error()
-    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+    
+    # Check permission: admin project ATAU creator task
+    role = get_role(request.user, project)
+    is_admin = role == ProjectMember.ROLE_ADMIN
+    is_creator = task.created_by == request.user if hasattr(task, 'created_by') else False
+    
+    if not is_admin and not is_creator:
+        return HttpResponseForbidden("Forbidden: Only project admins or task creators can delete tasks")
+    
     title = task.title
     task.delete()
     ActivityLog.objects.create(

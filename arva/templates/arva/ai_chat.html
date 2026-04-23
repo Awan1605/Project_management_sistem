@@ -73,7 +73,15 @@
                 {% for msg in chat_messages %}
                 <div class="message-item {% if msg.role == 'user' %}user{% endif %}">
                     <div class="message-avatar-modern {% if msg.role == 'user' %}user{% else %}ai{% endif %}">
-                        <i class="fas {% if msg.role == 'user' %}fa-user{% else %}fa-robot{% endif %}"></i>
+                        {% if msg.role == 'user' %}
+                            {% if request.user.userprofile.avatar_url %}
+                            <img src="{{ request.user.userprofile.avatar_url }}" alt="{{ request.user.username }}" class="message-avatar-img">
+                            {% else %}
+                            <i class="fas fa-user"></i>
+                            {% endif %}
+                        {% else %}
+                            <i class="fas fa-robot"></i>
+                        {% endif %}
                     </div>
                     <div class="message-wrapper">
                         <div class="message-meta-modern">

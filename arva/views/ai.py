@@ -391,18 +391,19 @@ def ai_chat_send(request):
         return JsonResponse({'success': False, 'error': 'Message is empty'})
     
     try:
+        # Ambil riwayat chat untuk konteks SEBELUM menyimpan pesan baru
+        # agar pesan saat ini tidak terduplikasi di history
+        chat_history = list(AIChatMessage.objects.filter(
+            user=request.user
+        ).order_by('-created_at')[:4].values('role', 'content'))
+        chat_history.reverse()
+        
         # Simpan pesan user ke database (untuk riwayat setelah refresh)
         user_msg = AIChatMessage.objects.create(
             user=request.user,
             role='user',
             content=message
         )
-        
-        # Ambil riwayat chat untuk konteks - BATASI 2 pesan untuk efisiensi token
-        chat_history = list(AIChatMessage.objects.filter(
-            user=request.user
-        ).order_by('-created_at')[:2].values('role', 'content'))
-        chat_history.reverse()
         
         # Dapatkan respons AI
         ai_service = get_ai_chat_service()

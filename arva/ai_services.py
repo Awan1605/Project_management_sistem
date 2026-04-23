@@ -268,7 +268,7 @@ Respond ONLY with the JSON, no other text."""
     def _parse_json_response(self, response_text: str) -> Dict:
         """Parse respons JSON dari AI, menangani code block markdown.
         
-        AI sering mengembalikan JSON dalam blok markdown code (```json ... ```).
+        AI sering mengembalikan JSON dalam blok kode (``json ... ```).
         Method ini mengekstrak JSON dari dalam blok tersebut jika ada.
         
         Args:
@@ -493,493 +493,227 @@ class AIChatService(BaseAIService):
         # Inisialisasi client via method base class
         self.client, self.client_type = self._init_client(ai_settings)
     
-    def _get_user_tasks_context(self, user) -> str:
-        """Ambil konteks task user yang diformat untuk AI.
-        
-        Mengambil 5 task paling mendesak dan mengurutkannya:
-        1. Overdue (paling terlambat dulu)
-        2. Hari ini
-        3. Mendatang
-        
-        Format ringkas untuk efisiensi token.
-        
-        Args:
-            user: User yang task-nya akan diambil
-            
-        Returns:
-            String konteks task yang terformat
-        """
-        from .models import Task, ChecklistItem
-        
-        # Ambil 5 task paling mendesak
-        tasks = Task.objects.filter(
-            is_archived=False
-        ).filter(
-            models.Q(assignees=user) | models.Q(project__owner=user)
-        ).exclude(
-            task_list__name__iexact='Done'
-        ).select_related(
-            'project', 'task_list'
-        ).prefetch_related(
-            'checklist_items'
-        ).order_by('due_date')[:5]
-        
-        if not tasks:
-            return "Tidak ada tugas yang sedang aktif untuk user ini."
-        
-        # Urutkan: Overdue dulu (paling terlambat), lalu hari ini, lalu mendatang
-        tasks_list = list(tasks)
-        
-        # Helper untuk mendapatkan date (handle datetime atau date)
-        def get_date(d):
-            return d.date() if hasattr(d, 'date') else d
-        
-        today_date = timezone.localdate()
-        overdue = [t for t in tasks_list if t.due_date and get_date(t.due_date) < today_date]
-        overdue.sort(key=lambda t: t.due_date)  # Paling terlambat dulu
-        
-        today = [t for t in tasks_list if t.due_date and get_date(t.due_date) == today_date]
-        upcoming = [t for t in tasks_list if not t.due_date or get_date(t.due_date) > today_date]
-        upcoming.sort(key=lambda t: t.due_date if t.due_date else timezone.now())
-        
-        sorted_tasks = overdue + today + upcoming
-        
-        context_parts = []
-        for i, task in enumerate(sorted_tasks, 1):
-            # Info deadline dengan format jelas
-            deadline_info = ""
-            if task.due_date:
-                due = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
-                days_until = (due - timezone.localdate()).days
-                if days_until < 0:
-                    deadline_info = f"TERLAMBAT {abs(days_until)} HARI"
-                elif days_until == 0:
-                    deadline_info = "HARI INI"
-                else:
-                    deadline_info = f"{days_until} hari lagi"
-            
-            # Bangun info task - SANGAT SINGKAT untuk kecepatan
-            task_info = f"{i}. {task.title}"
-            task_info += f"\n   Status: {task.task_list.name}"
-            if deadline_info:
-                task_info += f"\n   Deadline: {deadline_info}"
-            
-            # Tambah deskripsi hanya jika pendek
-            if task.description and len(task.description) < 100:
-                task_info += f"\n   Info: {task.description}"
-            
-            # Tambah checklist hanya jika sangat pendek (hemat token)
-            checklist = task.checklist_items.all()
-            if checklist and len(checklist) <= 2:
-                task_info += "\n   Steps:"
-                for item in checklist:
-                    status = "✓" if item.is_done else "○"
-                    task_info += f"\n      {status} {item.content}"
-            
-            context_parts.append(task_info)
-        
-        return "\n\n".join(context_parts)
-    
-    def _extract_task_name(self, message: str) -> str:
-        """Ekstrak nama task dari pesan user.
-        
-        Mencoba menemukan nama task setelah keyword seperti 'task', 'tugas', etc.
-        
-        Args:
-            message: Pesan dari user
-            
-        Returns:
-            String nama task yang diekstrak, atau empty string jika tidak ditemukan
-        """
-        import re
+    def chat(self, user, message: str, chat_history: List[Dict] = None) -> str:
+        """Proses pesan chat dan kembalikan respons AI menggunakan RAG."""
+        import logging
+        logger = logging.getLogger(__name__)
         
         message_lower = message.lower()
         
-        # Pattern umum: "... task [nama] ..." atau "... tugas [nama] ..."
-        patterns = [
-            r'task\s+["\']?([^"\']+)["\']?',
-            r'tugas\s+["\']?([^"\']+)["\']?',
-            r'jelaskan\s+(?:task\s+|tugas\s+)?["\']?([^"\']+)["\']?',
-            r'detail\s+(?:task\s+|tugas\s+)?["\']?([^"\']+)["\']?',
-            r'apa\s+itu\s+(?:task\s+|tugas\s+)?["\']?([^"\']+)["\']?',
+        # Step 1: Intent Detection - SEMANTIC (bukan keyword matching)
+        # Gunakan cosine similarity dengan contoh queries
+        conversational_examples = [
+            "hai", "hello", "terima kasih", "ok", "sip",
+            "selamat pagi", "selamat siang", "selamat sore",
+            "apa kabar", "how are you"
         ]
         
-        for pattern in patterns:
-            match = re.search(pattern, message_lower)
-            if match:
-                # Ambil group 1 (nama task) dan bersihkan
-                task_name = match.group(1).strip()
-                # Hapus kata-kata umum di akhir
-                task_name = re.sub(r'\s+(saya|ini|itu|yang)\s*$', '', task_name)
-                return task_name
-        
-        # Jika tidak match pattern, ambil kata-kata setelah keyword
-        keywords = ['task', 'tugas', 'jelaskan', 'detail', 'apa itu']
-        for keyword in keywords:
-            if keyword in message_lower:
-                # Ambil text setelah keyword
-                idx = message_lower.find(keyword) + len(keyword)
-                remaining = message[idx:].strip()
-                # Ambil beberapa kata pertama sebagai nama task
-                words = remaining.split()[:5]  # Max 5 kata
-                if words:
-                    return ' '.join(words)
-        
-        return ""
-    
-    def _get_specific_task_context(self, user, task_name_query: str) -> str:
-        """Cari dan ambil detail task spesifik berdasarkan nama.
-        
-        Mencari task yang cocok dengan query nama (partial match).
-        
-        Args:
-            user: User yang mencari task
-            task_name_query: Nama atau keyword task yang dicari
+        # Cek apakah pesan sangat pendek (< 4 kata) dan mirip conversational
+        words = message.split()
+        if len(words) <= 4:
+            # Untuk pesan pendek, cek similarity dengan conversational examples
+            from .rag_knowledge import get_rag_knowledge_base
+            rag_kb = get_rag_knowledge_base()
             
-        Returns:
-            String detail task yang terformat, atau pesan tidak ditemukan
-        """
-        from .models import Task, ChecklistItem
-        
-        # Cari task yang cocok dengan query (case insensitive, partial match)
-        tasks = Task.objects.filter(
-            is_archived=False
-        ).filter(
-            models.Q(assignees=user) | models.Q(project__owner=user)
-        ).filter(
-            models.Q(title__icontains=task_name_query) | 
-            models.Q(description__icontains=task_name_query)
-        ).select_related(
-            'project', 'task_list', 'created_by'
-        ).prefetch_related(
-            'checklist_items', 'assignees'
-        ).order_by('-created_at')[:3]  # Ambil max 3 task yang paling cocok
-        
-        if not tasks:
-            return f"Tidak ditemukan task dengan nama '{task_name_query}'. Coba periksa ejaan atau gunakan kata kunci lain."
-        
-        context_parts = []
-        for i, task in enumerate(tasks, 1):
-            # Info dasar task
-            task_info = f"📌 TASK #{i}: {task.title}"
-            
-            # Status dan Lokasi
-            task_info += f"\n   Status: {task.task_list.name}"
-            if task.project:
-                task_info += f"\n   Project: {task.project.name}"
-            
-            # Deadline
-            if task.due_date:
-                due = task.due_date.date() if hasattr(task.due_date, 'date') else task.due_date
-                days_until = (due - timezone.localdate()).days
-                if days_until < 0:
-                    task_info += f"\n   Deadline: TERLAMBAT {abs(days_until)} HARI ({task.due_date})"
-                elif days_until == 0:
-                    task_info += f"\n   Deadline: HARI INI ({task.due_date})"
-                else:
-                    task_info += f"\n   Deadline: {days_until} hari lagi ({task.due_date})"
-            else:
-                task_info += "\n   Deadline: Tidak ditentukan"
-            
-            # Prioritas
-            if task.priority:
-                priority_map = {'p0': 'URGENT', 'p1': 'HIGH', 'p2': 'MEDIUM', 'p3': 'LOW'}
-                priority_label = priority_map.get(task.priority, task.priority.upper())
-                task_info += f"\n   Prioritas: {priority_label}"
-            
-            # Deskripsi lengkap
-            if task.description:
-                task_info += f"\n\n   📝 DESKRIPSI:\n   {task.description}"
-            
-            # Assignees
-            assignees = list(task.assignees.all())
-            if assignees:
-                assignee_names = ', '.join([u.username for u in assignees])
-                task_info += f"\n\n   👥 ASSIGNED TO: {assignee_names}"
-            
-            # Checklist
-            checklist = task.checklist_items.all()
-            if checklist:
-                task_info += f"\n\n   ✅ CHECKLIST ({checklist.filter(is_done=True).count()}/{checklist.count()} selesai):"
-                for item in checklist:
-                    status = "✓" if item.is_done else "○"
-                    task_info += f"\n      {status} {item.content}"
-            
-            # Cover color jika ada
-            if task.cover_color:
-                task_info += f"\n\n   🎨 Label Warna: {task.cover_color}"
-            
-            context_parts.append(task_info)
-        
-        return "\n\n" + "\n\n".join(context_parts)
-    
-    def _build_system_prompt(self, user) -> str:
-        """Bangun system prompt dengan konteks user.
-        
-        Jika ada custom prompt di pengaturan AI, gunakan itu.
-        Jika tidak, gunakan prompt default yang ringkas.
-        
-        Args:
-            user: User untuk konteks
-            
-        Returns:
-            String system prompt
-        """
-        from .models import AISettings
-        
-        ai_settings = AISettings.get_current()
-        if ai_settings.chat_system_prompt:
-            # Gunakan custom prompt dengan konteks minimal
-            return ai_settings.chat_system_prompt.format(
-                username=user.username,
-                full_name=user.get_full_name() or user.username,
-                tasks_context="Lihat aplikasi untuk detail tugas"
-            )
-        else:
-            # Prompt default - SANGAT SINGKAT untuk kecepatan maksimal
-            return "AI Task Assistant. Jawab singkat dalam Bahasa Indonesia."
-    
-    def chat(self, user, message: str, chat_history: List[Dict] = None) -> str:
-        """Proses pesan chat dan kembalikan respons AI.
-        
-        Mendeteksi apakah user bertanya tentang task, dan jika ya,
-        menyertakan konteks task saat ini dalam prompt.
-        
-        Args:
-            user: User yang mengirim pesan
-            message: Isi pesan dari user
-            chat_history: Opsional, riwayat chat untuk konteks
-            
-        Returns:
-            String respons dari AI
-        """
-        from .models import AISettings
-        
-        try:
-            # Deteksi apakah user bertanya tentang task
-            task_keywords = [
-                'tugas', 'kerjakan', 'prioritas', 'deadline', 'project', 
-                'pekerjaan', 'kerja', 'apa yang harus', 'berapa banyak',
-                'ada berapa', 'list tugas', 'daftar tugas', 'task',
-                'yang belum', 'yang harus', 'yang perlu'
-            ]
-            is_task_query = any(keyword in message.lower() for keyword in task_keywords)
-            
-            # Deteksi apakah user bertanya detail tentang task spesifik
-            # Contoh: "jelaskan task public hotspot", "apa itu task X", "detail task Y"
-            detail_keywords = ['jelaskan', 'detail', 'apa itu', 'bagaimana', 'kurang paham', 'gak ngerti', 'gak paham']
-            is_detail_query = any(keyword in message.lower() for keyword in detail_keywords)
-            
-            # Bangun system prompt dengan konteks hanya untuk query tentang task
-            if is_task_query or is_detail_query:
-                
-                # Jika user bertanya detail tentang task spesifik, cari task tersebut
-                if is_detail_query:
-                    # Ekstrak nama task dari pesan
-                    task_name = self._extract_task_name(message)
-                    specific_context = None
-                    
-                    # Kata yang diabaikan saat pencarian
-                    stop_words = {'bantu', 'jelaskan', 'detail', 'tentang', 'task', 'tugas',
-                                  'apa', 'itu', 'ini', 'yang', 'saya', 'untuk', 'tolong',
-                                  'coba', 'bisa', 'dong', 'ya', 'kan', 'deh', 'nih'}
-                    
-                    if task_name:
-                        specific_context = self._get_specific_task_context(user, task_name)
-                        
-                        # Jika tidak ditemukan, coba dengan kata kunci lebih pendek (1-2 kata pertama)
-                        if specific_context.startswith('Tidak ditemukan'):
-                            short_name = ' '.join(task_name.split()[:2])
-                            if short_name != task_name:
-                                specific_context = self._get_specific_task_context(user, short_name)
-                        
-                        # Masih tidak ditemukan, coba tiap kata satu per satu
-                        if specific_context.startswith('Tidak ditemukan'):
-                            for word in task_name.split():
-                                if len(word) > 3 and word.lower() not in stop_words:
-                                    result = self._get_specific_task_context(user, word)
-                                    if not result.startswith('Tidak ditemukan'):
-                                        specific_context = result
-                                        break
-                    
-                    # Jika task_name kosong atau masih tidak ditemukan,
-                    # coba cari dari semua kata bermakna dalam pesan
-                    if not specific_context or specific_context.startswith('Tidak ditemukan'):
-                        words_in_msg = [
-                            w for w in message.lower().split()
-                            if len(w) > 3 and w not in stop_words
-                        ]
-                        for word in words_in_msg:
-                            result = self._get_specific_task_context(user, word)
-                            if not result.startswith('Tidak ditemukan'):
-                                specific_context = result
-                                break
-                    
-                    # Jika task ditemukan, berikan penjelasan detail
-                    if specific_context and not specific_context.startswith('Tidak ditemukan'):
-                        system_prompt = f"""KAMU ADALAH AI TASK ASSISTANT. Jelaskan detail task berikut dengan jelas dan mudah dipahami.
-
-{specific_context}
-
-ATURAN PENTING:
-1. Jelaskan task dengan bahasa yang mudah dipahami
-2. Soroti hal-hal penting: deadline, prioritas, status
-3. Jika ada checklist, jelaskan progressnya
-4. Berikan rekomendasi langkah selanjutnya jika relevan
-5. JANGAN gunakan emoji sama sekali
-6. JANGAN tambahkan informasi di luar data yang diberikan
-
-Format Jawaban:
-**PENJELASAN TASK:**
-[Berikan penjelasan lengkap tentang task ini dalam paragraf]
-
-**STATUS SAAT INI:**
-- Status: [Status task]
-- Progress: [Jika ada checklist]
-- Deadline: [Info deadline]
-
-**REKOMENDASI:**
-[Berikan saran langkah selanjutnya]"""
-                    else:
-                        # Task tidak ditemukan - fallback ke daftar semua task
-                        tasks_context = self._get_user_tasks_context(user)
-                        return f"Maaf, task yang Anda maksud tidak ditemukan.\n\n**Tips:** Gunakan kata kunci yang tepat. Berikut daftar tugas Anda saat ini:\n\n{tasks_context}"
-                
-                # Query umum tentang task (bukan detail spesifik)
-                else:
-                    tasks_context = self._get_user_tasks_context(user)
-                    # Hitung jumlah task yang sebenarnya
-                    task_lines = [t for t in tasks_context.split('\n\n') if t.strip() and not t.startswith('Tidak ada')]
-                    task_count = len(task_lines)
-                    
-                    # Jika tidak ada task, berikan respons yang jelas
-                    if task_count == 0:
-                        return "Saat ini Anda tidak memiliki tugas yang aktif. Semua tugas sudah selesai atau belum ada tugas yang diassign."
-                    
-                    system_prompt = f"""KAMU ADALAH AI TASK ASSISTANT. Berikan informasi tugas secara AKURAT berdasarkan data berikut.
-
-DATA TUGAS ({task_count} tugas aktif):
-{tasks_context}
-
-ATURAN PENTING:
-1. SELALU sebutkan JUMLAH TOTAL tugas di awal: "Anda memiliki {task_count} tugas aktif"
-2. Jika user bertanya "berapa banyak", jawab dengan jumlah yang tepat: {task_count} tugas
-3. Jika user bertanya "apa yang harus dikerjakan", berikan DAFTAR LENGKAP + PRIORITAS
-4. Analisa berdasarkan: deadline (overdue paling penting), status, prioritas
-5. Format daftar: "- [Nama Tugas] - [Status] - [Deadline]"
-6. Pilih TOP 2 PRIORITAS (yang paling TERLAMBAT/overdue)
-7. JANGAN gunakan emoji sama sekali
-8. JANGAN tambahkan informasi di luar data yang diberikan
-
-Format Jawaban:
-**ANDA MEMILIKI {task_count} TUGAS AKTIF:**
-- [Tugas 1] - [Status] - [Deadline]
-- [Tugas 2] - [Status] - [Deadline]
-(List semua tugas)
-
-**PRIORITAS UTAMA:**
-1. [Tugas Prioritas 1]
-   Alasan: [Kenapa harus dikerjakan dulu - berdasarkan deadline/status]
-
-2. [Tugas Prioritas 2]  
-   Alasan: [Kenapa harus dikerjakan kedua]
-
-**URUTAN PENGERJAAN:**
-Selesaikan [Prioritas 1] -> Lanjut ke [Prioritas 2] -> Kemudian [tugas lainnya]"""
-            else:
-                system_prompt = "Kamu adalah AI Assistant untuk manajemen tugas. Jawab dalam Bahasa Indonesia."
-            
-            # Bangun konteks percakapan untuk API
-            full_prompt = f"""{system_prompt}
-
-User: {message}
-
-Assistant:"""
-            
-            # Tambah riwayat chat hanya untuk non-task query (hemat token)
-            if chat_history and not is_task_query:
-                for msg in chat_history[-2:]:
-                    if msg['role'] == 'user':
-                        full_prompt += f"\nUser: {msg['content']}"
-                    else:
-                        full_prompt += f"\nAssistant: {msg['content']}"
-                full_prompt += "\nAssistant:"
-            
-            # Panggil API sesuai tipe client (dengan retry untuk error sementara)
-            import time
-            last_error = None
-            max_retries = 3
-            
-            for attempt in range(max_retries):
+            if rag_kb:
                 try:
-                    if self.client_type == 'openai':
-                        # OpenAI-compatible API (OpenClaw, DeepSeek, Ollama)
-                        messages = [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": message}
-                        ]
-                        
-                        # Tambah riwayat chat jika ada (maks 3 pesan)
-                        if chat_history:
-                            for msg in chat_history[-3:]:
-                                messages.append({"role": msg['role'], "content": msg['content']})
-                        
-                        response = self.client.chat.completions.create(
-                            model=self.model_name,
-                            messages=messages,
-                            temperature=self.temperature,
-                            max_tokens=self.max_tokens
+                    # Generate embedding untuk user message
+                    message_embedding = rag_kb._generate_embedding(message)
+                    
+                    # Hitung similarity dengan conversational examples
+                    import numpy as np
+                    max_similarity = 0
+                    
+                    for example in conversational_examples:
+                        example_embedding = rag_kb._generate_embedding(example)
+                        # Cosine similarity
+                        similarity = np.dot(message_embedding, example_embedding) / (
+                            np.linalg.norm(message_embedding) * np.linalg.norm(example_embedding)
                         )
-                        return response.choices[0].message.content.strip()
-                        
-                    elif self.client_type == 'anthropic':
-                        # Anthropic Claude API
-                        messages = []
-                        
-                        # Tambah riwayat chat jika ada
-                        if chat_history:
-                            for msg in chat_history[-5:]:
-                                messages.append({"role": msg['role'], "content": msg['content']})
-                        
-                        # Tambah pesan saat ini
-                        messages.append({"role": "user", "content": full_prompt})
-                        
-                        response = self.client.messages.create(
-                            model=self.model_name,
-                            max_tokens=min(self.max_tokens, 4096),
-                            temperature=self.temperature,
-                            system=system_prompt,
-                            messages=messages
-                        )
-                        return response.content[0].text.strip()
-                        
-                    else:
-                        # Google Gemini API
-                        response = self.client.models.generate_content(
-                            model=self.model_name,
-                            contents=full_prompt
-                        )
-                        return response.text.strip()
-                
+                        max_similarity = max(max_similarity, similarity)
+                    
+                    # Jika similarity > 0.7, anggap conversational
+                    is_conversational = max_similarity > 0.7
+                    
+                    logger.info(f"[AI Chat] Semantic similarity: {max_similarity:.3f} | Conversational: {is_conversational}")
+                    
                 except Exception as e:
-                    last_error = e
-                    err_str = str(e)
-                    # Cek apakah ini error sementara (503, overload, timeout)
-                    is_temporary = any(x in err_str for x in ['503', 'UNAVAILABLE', 'overloaded', 'timeout', 'rate limit', '429', 'temporarily'])
-                    if is_temporary and attempt < max_retries - 1:
-                        # Tunggu sebentar lalu coba lagi (2s, 4s)
-                        time.sleep(2 * (attempt + 1))
-                        continue
-                    break
-            
-            # Semua retry gagal
-            err_str = str(last_error) if last_error else 'Unknown error'
-            if '503' in err_str or 'UNAVAILABLE' in err_str or 'overloaded' in err_str:
-                return "⚠️ Server AI sedang sibuk. Mohon coba lagi dalam 1-2 menit."
-            return f"Maaf, terjadi kesalahan: {err_str}. Silakan coba lagi."
+                    logger.error(f"[AI Chat] Semantic intent detection failed: {e}")
+                    # Fallback: always use RAG jika detection gagal
+                    is_conversational = False
+            else:
+                # Jika RAG tidak tersedia, gunakan heuristic sederhana
+                is_conversational = any(kw in message_lower for kw in conversational_examples)
+        else:
+            # Pesan panjang (> 4 kata) = selalu data query, gunakan RAG
+            is_conversational = False
+
+        # Step 2: RAG Context Retrieval
+        context = ""
+        if not is_conversational:
+            try:
+                from .rag_search import get_rag_search
+                rag_search = get_rag_search()
+                if rag_search:
+                    context = rag_search.build_context(
+                        query=message,
+                        user=user,
+                        max_results=5
+                    )
+                    logger.info(f"[AI Chat] RAG context retrieved: {len(context)} chars")
+            except Exception as e:
+                logger.error(f"[RAG] Context retrieval failed: {e}")
         
+        # Step 3: Build prompt - DENGAN INSTRUKSI ANTI-HALLUCINATION
+        if context:
+            from django.utils import timezone
+            today = timezone.localdate()
+            
+            # Format context menjadi lebih mudah dibaca AI
+            user_prompt = f"""Pertanyaan user: {message}
+
+TANGGAL HARI INI: {today} (JANGAN gunakan tanggal lain!)
+
+Berikut adalah data tugas dan proyek user dari database:
+{context}
+
+PENTING - INSTRUKSI:
+1. Jawab HANYA berdasarkan data di atas - JANGGAN buat data baru
+2. JANGGAN pernah menyebutkan tanggal "asumsi" - gunakan TANGGAL HARI INI yang diberikan
+3. Jika user bertanya tentang "tugas saya", HANYA tampilkan tugas dimana assignee = user yang login
+4. Hitung dengan akurat berdasarkan data yang ada
+5. JANGGAN mengatakan "dari X tugas yang terdaftar" jika data tidak menunjukkan jumlah pasti
+6. Gunakan bahasa Indonesia
+7. JANGGAN menambahkan informasi yang tidak ada di context
+
+ATURAN PRIORITAS (untuk pertanyaan "apa yang harus dikerjakan" atau sejenisnya):
+- PRIORITAS #1 (URGENT): Tugas yang SUDAH LEWAT DEADLINE dan statusnya belum Done
+- PRIORITAS #2 (HIGH): Tugas yang deadline-nya dalam 3 hari ke depan
+- PRIORITAS #3 (MEDIUM): Tugas yang statusnya To Do dengan deadline > 3 hari
+- SANGAT DILARANG: Menampilkan tugas yang statusnya sudah Done - JANGGAN sebutkan sama sekali!
+
+URUTAN JAWABAN:
+1. Tampilkan HANYA tugas yang belum Done (To Do atau In Progress)
+2. Urutkan dari yang paling urgent (overdue) ke yang kurang urgent
+3. JANGGAN PERNAH menyebutkan tugas Done dalam jawaban - filter out sepenuhnya
+4. Jelaskan MENGAPA tugas tertentu jadi prioritas (overdue, deadline dekat, dll)
+5. Berikan rekomendasi tindakan yang jelas
+
+ATURAN UNTUK PERTANYAAN TENTANG DOKUMEN/ATTACHMENT:
+- Jika user bertanya tentang "dokumen", "file", "attachment", "lampiran" pada task tertentu
+- Cek bagian "Attachments:" di context data
+- Jika ada attachments, sebutkan SEMUA nama file dan detailnya
+- Jika ada bagian "--- Content from [filename] ---", itu adalah ISI DOKUMEN yang sudah di-extract
+- JAWAB pertanyaan user berdasarkan isi dokumen tersebut (summary, detail, spesifik info)
+- Jika attachments "No attachments", beri tahu user bahwa task tersebut belum punya dokumen
+- JANGGAN bilang "saya tidak bisa mengakses" - data sudah tersedia di context!
+
+"""
+
+        else:
+            user_prompt = f"""User Question: {message}
+
+The system has no relevant data for this query. Respond in Indonesian."""
+        
+        # Step 4: Call AI provider (single prompt, no system prompt)
+        try:
+            return self._call_ai_provider(user_prompt)
         except Exception as e:
             return f"Maaf, terjadi kesalahan: {str(e)}. Silakan coba lagi."
+    
+    def _call_ai_provider(self, prompt: str) -> str:
+        """Call AI provider based on client type (without system prompt)"""
+        import time
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                if self.client_type == 'openai':
+                    return self._call_openai(prompt)
+                elif self.client_type == 'anthropic':
+                    return self._call_anthropic(prompt)
+                else:
+                    return self._call_gemini(prompt)
+            except Exception as e:
+                err_str = str(e)
+                is_temporary = any(x in err_str for x in ['503', 'UNAVAILABLE', 'overloaded', 'timeout', 'rate limit', '429', 'temporarily'])
+                if is_temporary and attempt < max_retries - 1:
+                    time.sleep(2 * (attempt + 1))
+                    continue
+                raise
+    
+    def _call_ai_provider_with_system(self, user_prompt: str, system_prompt: str) -> str:
+        """Call AI provider with BOTH system prompt and user prompt"""
+        import time
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                if self.client_type == 'openai':
+                    return self._call_openai_with_system(user_prompt, system_prompt)
+                elif self.client_type == 'anthropic':
+                    return self._call_anthropic_with_system(user_prompt, system_prompt)
+                else:
+                    # Gemini doesn't have system prompt, prepend it to user prompt
+                    full_prompt = f"{system_prompt}\n\n{user_prompt}"
+                    return self._call_gemini(full_prompt)
+            except Exception as e:
+                err_str = str(e)
+                is_temporary = any(x in err_str for x in ['503', 'UNAVAILABLE', 'overloaded', 'timeout', 'rate limit', '429', 'temporarily'])
+                if is_temporary and attempt < max_retries - 1:
+                    time.sleep(2 * (attempt + 1))
+                    continue
+                raise
+    
+    def _call_openai(self, prompt: str) -> str:
+        """Call OpenAI-compatible API"""
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            max_tokens=self.max_tokens
+        )
+        return response.choices[0].message.content.strip()
+    
+    def _call_openai_with_system(self, user_prompt: str, system_prompt: str) -> str:
+        """Call OpenAI-compatible API with system prompt"""
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=self.temperature,
+            max_tokens=self.max_tokens
+        )
+        return response.choices[0].message.content.strip()
+    
+    def _call_gemini(self, prompt: str) -> str:
+        """Call Google Gemini API"""
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=prompt
+        )
+        return response.text.strip()
+    
+    def _call_anthropic(self, prompt: str) -> str:
+        """Call Anthropic Claude"""
+        response = self.client.messages.create(
+            model=self.model_name,
+            max_tokens=self.max_tokens,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.content[0].text.strip()
+    
+    def _call_anthropic_with_system(self, user_prompt: str, system_prompt: str) -> str:
+        """Call Anthropic Claude with system prompt"""
+        response = self.client.messages.create(
+            model=self.model_name,
+            max_tokens=self.max_tokens,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}]
+        )
+        return response.content[0].text.strip()
     
     def get_work_recommendation(self, user) -> str:
         """Dapatkan rekomendasi AI untuk pekerjaan hari ini.
