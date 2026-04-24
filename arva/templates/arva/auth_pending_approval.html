@@ -1,0 +1,54 @@
+{% extends "arva/base.html" %}
+
+{% block title %}Menunggu Verifikasi - {{ settings.site_name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="card shadow-lg border-0">
+        <div class="card-body p-5 text-center">
+          <!-- Icon -->
+          <div class="mb-4">
+            <i class="bi bi-hourglass-split text-warning" style="font-size: 4rem;"></i>
+          </div>
+
+          <!-- Title -->
+          <h3 class="fw-bold mb-3">Menunggu Verifikasi</h3>
+          
+          <!-- Message -->
+          <p class="text-muted mb-4">
+            Akun Anda dengan email <strong>{{ email }}</strong> berhasil dibuat, 
+            tetapi perlu diverifikasi oleh admin sebelum dapat login.
+          </p>
+
+          <!-- Info Box -->
+          <div class="alert alert-info text-start">
+            <h6 class="fw-semibold mb-2">
+              <i class="bi bi-info-circle me-1"></i> Apa yang harus dilakukan?
+            </h6>
+            <ul class="mb-0 small">
+              <li>Tunggu admin memverifikasi akun Anda</li>
+              <li>Anda akan mendapat email notifikasi setelah akun diverifikasi</li>
+              <li>Setelah diverifikasi, silakan login kembali</li>
+            </ul>
+          </div>
+
+          <!-- Actions -->
+          <div class="d-grid gap-2 mt-4">
+            <a href="{% url 'login' %}" class="btn btn-primary">
+              <i class="bi bi-box-arrow-in-right me-1"></i> Kembali ke Login
+            </a>
+          </div>
+
+          <!-- Help -->
+          <div class="mt-4 small text-muted">
+            Butuh bantuan? Hubungi 
+            <a href="mailto:{{ settings.support_email }}">{{ settings.support_email }}</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -128,6 +128,16 @@ class UserProfile(models.Model):
         choices=LAYOUT_CHOICES,
         default=LAYOUT_SIDEBAR,
     )
+    
+    # Google OAuth verification
+    is_verified = models.BooleanField(
+        default=True,
+        help_text="User sudah diverifikasi oleh admin"
+    )
+    pending_approval = models.BooleanField(
+        default=False,
+        help_text="User menunggu approval dari admin (Google OAuth signup)"
+    )
 
     def __str__(self):
         return f"{self.user.username} Profile"

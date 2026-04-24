@@ -164,3 +164,15 @@ def _get_priority_level(score):
         return 'Medium'
     else:
         return 'Low'
+
+
+def is_admin(user):
+    """Cek apakah user adalah admin/superuser.
+    
+    Args:
+        user: User object
+    
+    Returns:
+        bool: True jika user adalah superuser atau staff
+    """
+    return user.is_authenticated and (user.is_superuser or user.is_staff)

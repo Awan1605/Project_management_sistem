@@ -106,7 +106,7 @@
       <div class="d-flex align-items-center gap-2 justify-content-end mt-1">
         <span class="small text-muted">Reporter: {{ task.created_by.username|default:"-" }}</span>
         {% for label in task.labels.all|slice:":2" %}
-          <span class="label-chip bg-light text-dark border">{{ label.name }}</span>
+          <span class="label-chip" style="background-color: #{{ label.color }}; color: #ffffff;">{{ label.name }}</span>
         {% endfor %}
         <span class="small text-muted">{% if task.due_date %}{{ task.due_date|date:"d M Y" }}{% else %}No due{% endif %}</span>
       </div>

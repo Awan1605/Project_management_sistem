@@ -121,9 +121,9 @@
       {% endif %}
 
       {% if task.labels.exists %}
-      <div class="mt-2">
+      <div class="mt-2 d-flex flex-wrap gap-1">
         {% for label in task.labels.all %}
-        <span class="label-chip bg-{{ label.color }} text-light me-1">{{ label.name }}</span>
+        <span class="label-chip" style="background-color: #{{ label.color }}; color: #ffffff;">{{ label.name }}</span>
         {% endfor %}
       </div>
       {% endif %}

@@ -41,12 +41,18 @@ def fetch_google_avatar(sender, instance, created, **kwargs):
     
     Dijalankan saat SocialAccount (akun Google) baru dibuat.
     Foto profil diambil dari extra_data Google dan disimpan ke file lokal.
+    User juga di-set sebagai pending approval.
     """
     if not created:
         return
 
     user = instance.user
     profile = user.userprofile
+
+    # Set user sebagai pending approval (perlu verifikasi admin)
+    profile.is_verified = False
+    profile.pending_approval = True
+    profile.save()
 
     picture_url = instance.extra_data.get("picture")
     if picture_url:

@@ -102,6 +102,9 @@ urlpatterns = [
     # MANAJEMEN USER
     # ============================================================
     path('users/', views.user_list, name='user_list'),
+    path('users/pending/', views.pending_users, name='pending_users'),
+    path('users/<int:user_id>/approve/', views.approve_user, name='approve_user'),
+    path('users/<int:user_id>/reject/', views.reject_user, name='reject_user'),
     path('users/create/', views.create_user_system, name='create_user_system'),
     path('users/<int:user_id>/edit/', views.user_edit, name='user_edit'),
     path('users/<int:user_id>/toggle-active/', views.user_toggle_active, name='user_toggle_active'),

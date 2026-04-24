@@ -618,9 +618,16 @@ def user_list(request):
         candidates = [dt for dt in candidates if dt is not None]
         u.last_activity_at = max(candidates) if candidates else None
 
+    # Hitung user yang pending approval
+    pending_user_count = User.objects.filter(
+        userprofile__pending_approval=True,
+        userprofile__is_verified=False
+    ).count()
+
     return render(request, 'arva/user_list.html', {
         'users': users,
         'query': q,
+        'pending_user_count': pending_user_count,
     })
 
 

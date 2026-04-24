@@ -105,6 +105,12 @@ from .user import (
     project_member_remove,
 )
 
+from .approval import (
+    pending_users,
+    approve_user,
+    reject_user,
+)
+
 from .ai import (
     ai_priority_queue,
     ai_priority_refresh,

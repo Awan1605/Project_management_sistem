@@ -659,11 +659,16 @@
 }
 
 .label-chip {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   padding: 3px 8px;
-  border-radius: 6px;
-  font-weight: 500;
-  display: inline-block;
+  border-radius: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  border: none;
 }
 
 .due-overdue {
@@ -1010,6 +1015,39 @@
   border-radius: 12px;
   box-shadow: var(--shadow);
   margin-bottom: 20px;
+}
+
+.label-selector-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.label-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid;
+  transition: all 0.2s ease;
+  user-select: none;
+  min-width: 80px;
+  text-align: center;
+}
+
+.label-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  opacity: 0.85;
+}
+
+.label-badge:active {
+  transform: translateY(0);
 }
 
 .cover-color-box {

@@ -1437,7 +1437,7 @@ $(function() {
       });
   });
 
-  $(document).on('submit', '#add-list-form', function(e) {
+  $(document).on('submit', '.add-list-form-inline', function(e) {
     e.preventDefault();
     const $form = $(this);
     const projectId = $form.data('project-id');
@@ -1449,7 +1449,8 @@ $(function() {
       data: $form.serialize(),
       success: function(resp) {
         if (resp.success) {
-          $(resp.html).insertBefore($('.add-list-column'));
+          // Insert the new list before the add-list-column in the same group
+          $(resp.html).insertBefore($form.closest('.add-list-column'));
           $form[0].reset();
           initSortable();
         }

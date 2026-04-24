@@ -112,9 +112,9 @@
 
   <div class="flex-grow-1 me-3">
     <input type="text" id="task-view-title" class="form-control border-0 bg-transparent fw-bold" value="{{ task.title }}" {% if view_only or project_is_closed %}disabled{% endif %}>
-    <div class="mt-2">
+    <div class="mt-2 d-flex flex-wrap gap-1">
       {% for label in task.labels.all %}
-      <span class="label-chip bg-{{ label.color }} text-light me-1">{{ label.name }}</span>
+      <span class="label-chip" style="background-color: #{{ label.color }}; color: #ffffff;">{{ label.name }}</span>
       {% empty %}
       <small class="text-muted">There are no label yet.</small>
       {% endfor %}
@@ -275,7 +275,7 @@
 
     <div class="sidebar-box">
       <h6 class="fw-semibold">Labels</h6>
-      <select id="task-view-labels" class="form-select" multiple
+      <select id="task-view-labels" class="form-select" multiple size="5"
         {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
         {% for label in labels %}
           <option value="{{ label.id }}" {% if label in task.labels.all %}selected{% endif %}>

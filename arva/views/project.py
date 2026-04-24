@@ -22,11 +22,12 @@ from datetime import timedelta
 from ..models import (
     Project, ProjectMember, SubProject, Task, ActivityLog, TaskList,
 )
-from ..forms import ProjectForm, TaskForm, CommentForm, AttachmentForm, ChecklistItemForm, ProjectMemberForm
+from ..forms import ProjectForm, TaskForm, CommentForm, AttachmentForm, ChecklistItemForm, ProjectMemberForm, TaskListForm
 
 from .helpers import (
     get_accessible_projects_queryset,
     get_user_project_or_404,
+    get_project_subproject_or_404,
     get_role,
     require_role,
     is_project_locked,

@@ -25,6 +25,7 @@ from ..utils import EmailThread
 from .helpers import (
     get_accessible_projects_queryset,
     get_user_project_or_404,
+    get_project_subproject_or_404,
     get_role,
     require_role,
     is_project_locked,

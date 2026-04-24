@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 30px;
+    }
+    .header {
+      text-align: center;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #09affe;
+    }
+    .header h1 {
+      color: #09affe;
+      margin: 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 30px 0;
+    }
+    .content h2 {
+      color: #333;
+      font-size: 20px;
+      margin-bottom: 15px;
+    }
+    .content p {
+      margin: 10px 0;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 30px;
+      background: #09affe;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: 600;
+      margin: 20px 0;
+    }
+    .button:hover {
+      background: #0899e0;
+    }
+    .footer {
+      text-align: center;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 Selamat! Akun Anda Telah Diverifikasi</h1>
+    </div>
+    
+    <div class="content">
+      <h2>Halo {{ username }}!</h2>
+      
+      <p>Kabar baik! Akun Anda di <strong>{{ site_name }}</strong> telah berhasil diverifikasi oleh admin.</p>
+      
+      <p>Anda sekarang dapat login dan menggunakan semua fitur yang tersedia.</p>
+      
+      <div style="text-align: center;">
+        <a href="{{ login_url }}" class="button">
+          Login Sekarang →
+        </a>
+      </div>
+      
+      <p style="margin-top: 30px;">
+        <strong>Yang bisa Anda lakukan:</strong>
+      </p>
+      <ul>
+        <li>Melihat dan mengelola project</li>
+        <li>Berpartisipasi dalam task kanban</li>
+        <li>Berkolaborasi dengan tim</li>
+        <li>Menggunakan AI Assistant untuk bantuan</li>
+      </ul>
+      
+      <p>Jika Anda memiliki pertanyaan, jangan ragu untuk menghubungi tim support kami.</p>
+    </div>
+    
+    <div class="footer">
+      <p>&copy; 2026 {{ site_name }}. All rights reserved.</p>
+      <p>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</p>
+    </div>
+  </div>
+</body>
+</html>
