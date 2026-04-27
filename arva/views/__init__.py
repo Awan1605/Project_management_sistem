@@ -66,6 +66,7 @@ from .subproject import (
 from .task import (
     task_create,
     task_view,
+    task_detail,
     task_update,
     task_delete,
     task_move,

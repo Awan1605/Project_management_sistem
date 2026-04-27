@@ -159,9 +159,9 @@
 
     <div class="mt-3 d-flex justify-content-between align-items-center task-actions">
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary btn-sm btn-view-task">
+        <a href="{% url 'task_detail' task.id %}" class="btn btn-outline-primary btn-sm btn-view-task">
           <i class="bi bi-eye"></i>
-        </button>
+        </a>
         {% if not project.is_closed and user_role == 'admin' or not project.is_closed and user_role == 'member' %}
         <button class="btn btn-outline-secondary btn-sm btn-quick-move-task" data-task-id="{{ task.id }}" data-project-id="{{ project.id }}">
           <i class="bi bi-arrow-left-right"></i>

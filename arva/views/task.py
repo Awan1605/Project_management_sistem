@@ -237,6 +237,59 @@ def task_view(request, task_id):
 
 
 @login_required
+def task_detail(request, task_id):
+    """Tampilkan detail task sebagai halaman penuh (bukan modal)."""
+    task = get_object_or_404(
+        Task.objects.select_related('created_by', 'created_by__userprofile'),
+        id=task_id
+    )
+    project = get_user_project_or_404(request.user, task.project.id)
+    role = get_role(request.user, project)
+    users = User.objects.all()
+    labels = Label.objects.all()
+    projects = Project.objects.filter(
+        Q(owner=request.user) | Q(memberships__user=request.user)
+    ).distinct().order_by('name')
+    project_lists = TaskList.objects.filter(
+        project=project,
+        sub_project=task.sub_project if task.sub_project else None,
+        is_archived=False
+    ).order_by('position')
+    subprojects = project.subprojects.order_by('created_at')
+    colors = ["primary", "success", "danger", "warning", "info", "dark", ""]
+    comments = task.comments.filter(parent__isnull=True)
+
+    if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
+        return HttpResponseForbidden("Forbidden")
+
+    total = task.checklist_total
+    done = task.checklist_done
+    percent = int((done / total) * 100) if total > 0 else 0
+
+    view_only = bool(is_project_locked(project) or not (role == "admin" or request.user in task.assignees.all()))
+
+    return render(request, 'arva/task_detail.html', {
+        'task': task,
+        'project': project,
+        'project_is_project': project.is_project,
+        'user_role': role,
+        'users': users,
+        'labels': labels,
+        'projects': projects,
+        'project_lists': project_lists,
+        'subprojects': subprojects,
+        'selected_subproject': task.sub_project,
+        'colors': colors,
+        'checklist_total': total,
+        'checklist_done': done,
+        'checklist_percent': percent,
+        'root_comments': comments,
+        "view_only": view_only,
+        'project_is_closed': is_project_locked(project),
+    })
+
+
+@login_required
 @require_POST
 def task_update(request, task_id):
     """Update task yang sudah ada."""

@@ -1690,7 +1690,13 @@ $(function() {
     });
   });
 
-  $(document).on('click', '.btn-view-task', function() {
+  $(document).on('click', '.btn-view-task', function(e) {
+    // Jika element adalah <a> tag, biarkan browser navigasi ke halaman task detail
+    if (this.tagName === 'A') {
+      return;
+    }
+    // Fallback untuk element non-anchor (legacy)
+    e.preventDefault();
     const target = $(this).closest('[data-task-id]');
     const taskId = target.data('task-id');
     if (!taskId) return;

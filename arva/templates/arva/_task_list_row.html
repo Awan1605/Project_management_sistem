@@ -1,4 +1,4 @@
-<div class="task-list-row btn-view-task"
+<a href="{% url 'task_detail' task.id %}" class="task-list-row btn-view-task text-decoration-none"
      data-task-id="{{ task.id }}"
      data-title="{{ task.title|lower }}"
      data-status="{% if task.project.is_project %}{{ task.status|default:'-'|lower }}{% else %}{{ task.task_list.name|lower }}{% endif %}"
@@ -6,7 +6,6 @@
      data-updated="{{ task.updated_at|date:'Y-m-d H:i:s' }}"
      {% if task.project.is_project %}data-structured="1"{% endif %}
      tabindex="0"
-     role="button"
      aria-label="Open task {{ task.title }}">
   <div class="task-row-main">
     <div class="task-row-title">{{ task.title }}</div>
@@ -122,4 +121,4 @@
     <span class="activity-dot"></span>
     <small class="text-muted">{{ task.updated_at|timesince }} ago</small>
   </div>
-</div>
+</a>
