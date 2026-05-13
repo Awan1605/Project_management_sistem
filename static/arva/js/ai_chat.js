@@ -125,10 +125,26 @@ function addMessage(role, content, time) {
         }
     }
     
+    // Get user avatar if available
+    let avatarHtml;
+    if (isUser) {
+        // Try to get user avatar from the data attribute on chat-messages
+        const chatMessages = document.getElementById('chat-messages');
+        const userAvatarUrl = chatMessages ? chatMessages.getAttribute('data-user-avatar') : null;
+        
+        if (userAvatarUrl) {
+            avatarHtml = `<img src="${userAvatarUrl}" alt="User" class="message-avatar-img">`;
+        } else {
+            avatarHtml = `<i class="fas fa-user"></i>`;
+        }
+    } else {
+        avatarHtml = `<i class="fas fa-robot"></i>`;
+    }
+    
     const html = `
         <div class="message-item ${isUser ? 'user' : ''}">
             <div class="message-avatar-modern ${isUser ? 'user' : 'ai'}">
-                <i class="fas ${isUser ? 'fa-user' : 'fa-robot'}"></i>
+                ${avatarHtml}
             </div>
             <div class="message-wrapper">
                 <div class="message-meta-modern">

@@ -454,7 +454,7 @@ body {
     display: flex;
     gap: 12px;
     margin-bottom: 20px;
-    align-items: flex-end;
+    align-items: flex-start;
 }
 
 .message-item.user {

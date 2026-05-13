@@ -3,7 +3,7 @@
 {% block title %}AI Assistant - Arva{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'arva/css/pages/ai_chat.css' %}">
+<link rel="stylesheet" href="{% static 'arva/css/pages/ai_chat.css' %}?v=20260513002">
 {% endblock %}
 
 {% block content %}
@@ -67,7 +67,7 @@
         </div>
 
         <!-- Messages Area -->
-        <div class="messages-modern" id="chat-messages">
+        <div class="messages-modern" id="chat-messages" {% if request.user.userprofile.avatar_url %}data-user-avatar="{{ request.user.userprofile.avatar_url }}"{% endif %}>
 
             {% if chat_messages %}
                 {% for msg in chat_messages %}
@@ -182,7 +182,7 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
-<script src="{% static 'arva/js/ai_chat.js' %}?v=202604201750"></script>
+<script src="{% static 'arva/js/ai_chat.js' %}?v=20260513001"></script>
 {% endblock %}
 
 {% endif %}
