@@ -141,7 +141,7 @@ Access the application at `http://127.0.0.1:8000`
 5. Configure a reverse proxy (Nginx, Apache)
 6. Set up proper database backups
 
-See `settings-hosting.py` for hosting-specific configurations.
+See `deploy/settings-hosting.py` for hosting-specific configurations.
 
 ## Project Structure
 

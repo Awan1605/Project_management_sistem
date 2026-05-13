@@ -156,6 +156,7 @@ class AIDeveloperServiceV2:
     FORBIDDEN_FILES = [
         'settings.py',
         'settings-hosting.py',
+        'deploy/settings-hosting.py',
         '.env',
         'db.sqlite3',
         'manage.py',

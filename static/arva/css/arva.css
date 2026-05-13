@@ -808,6 +808,16 @@
   flex-wrap: wrap;
 }
 
+/* Right-aligned view-mode bar: small "VIEW" label + segmented toggle. */
+.view-mode-bar {
+  /* Aligns and spaces the inline label with the segmented control. */
+}
+.view-mode-label {
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
 .view-switcher .btn {
   border: 0;
   border-radius: 9px;
@@ -956,6 +966,17 @@
   border-radius: 10px !important;
 }
 
+/* Side-by-side date range in the regular task view (non-project) */
+.task-date-range {
+  flex-wrap: wrap;
+}
+.task-date-field {
+  min-width: 140px;
+}
+.task-date-field .form-control {
+  border-radius: 10px !important;
+}
+
 .section-box {
   background: var(--card-bg, #ffffff);
   padding: 16px;
@@ -969,6 +990,36 @@
   min-height: 88px;
   overflow: hidden;
   line-height: 1.5;
+}
+
+/* Plain (borderless) description textarea — reads like prose, hints editability on hover/focus. */
+.task-desc-plain {
+  display: block;
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  outline: none;
+}
+.task-desc-plain::placeholder {
+  color: #94a3b8;
+  font-style: italic;
+}
+.task-desc-plain:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.035);
+}
+.task-desc-plain:focus:not(:disabled) {
+  background: #fff;
+  border-color: rgba(9, 175, 255, 0.55);
+  box-shadow: 0 0 0 0.15rem rgba(9, 175, 255, 0.15);
+}
+.task-desc-plain:disabled {
+  cursor: default;
+  opacity: 0.85;
 }
 
 #task-view-checklist {

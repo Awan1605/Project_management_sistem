@@ -39,14 +39,13 @@ db.sqlite3-journal
 *.sqlite3
 
 # Django Migrations (auto-generated, jangan di-commit)
-# KECUALI migration awal (0001_initial.py) dan __init__.py
+# Hanya __init__.py yang dibutuhkan agar Django mengenali package migrations
 arva/migrations/*
 !arva/migrations/__init__.py
-!arva/migrations/0001_initial.py
 
 # Django Settings (environment-specific)
 arviga/settings.py
-settings-hosting.py
+deploy/settings-hosting.py
 
 # --- Environment Variables (SENSITIF - JANGAN DI-COMMIT!) ---
 .env
@@ -101,12 +100,12 @@ models/*.gguf
 *.gguf
 
 # --- Deployment Scripts (Environment-specific) ---
-setup-hosting.sh
-start_ngrok.py
-local_ai_server.py
-setup_local_ai.py
-test_ai_settings.py
-check_models.py
+deploy/setup-hosting.sh
+tools/start_ngrok.py
+tools/local_ai_server.py
+tools/setup_local_ai.py
+tools/test_ai_settings.py
+tools/check_models.py
 
 # --- Screenshots & Documentation Images ---
 *.png

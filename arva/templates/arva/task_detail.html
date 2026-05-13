@@ -3,28 +3,37 @@
 
 {% block title %}{{ task.title }} - {{ project.name }}{% endblock %}
 
-{% block content %}
-<div class="container-fluid py-4">
-  <nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="{% url 'project_list' %}">Projects</a></li>
-      <li class="breadcrumb-item"><a href="{% url 'project_detail' project.id %}">{{ project.name }}</a></li>
-      <li class="breadcrumb-item active" aria-current="page">{{ task.title|truncatechars:40 }}</li>
-    </ol>
-  </nav>
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'arva/css/pages/task_detail.css' %}?v=202605131200">
+  {# Reuse structured task view styles (title-plain, meta-grid, priority/status chips) from project_detail.css #}
+  <link rel="stylesheet" href="{% static 'arva/css/pages/project_detail.css' %}?v=202605131800">
+{% endblock %}
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0 fw-bold">
-      <i class="bi bi-kanban me-2 text-primary"></i>Task Detail
-    </h4>
-    <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left me-1"></i>Back to Project
-    </a>
+{% block content %}
+<div class="container my-4">
+  <div class="page-hero mb-4">
+    <div>
+      <div class="hero-badge mb-2">
+        <i class="bi bi-card-checklist"></i>
+        Task Detail
+      </div>
+      <h3 class="hero-title">
+        <i class="bi bi-card-checklist me-2 text-primary"></i> {{ task.title|truncatechars:60 }}
+      </h3>
+      <p class="hero-subtitle">Project: {{ project.name }}</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-secondary btn-sm cta-btn" title="Back">
+        <i class="bi bi-arrow-left"></i> Back to Project
+      </a>
+    </div>
   </div>
 
   <div class="card shadow-sm border-0">
     <div class="card-body p-4">
-      {% include "arva/_task_view.html" %}
+      <div id="task-view-body" data-task-id="{{ task.id }}">
+        {% include "arva/_task_view.html" %}
+      </div>
     </div>
   </div>
 </div>

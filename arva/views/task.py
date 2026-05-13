@@ -559,8 +559,9 @@ def task_inline_update(request, task_id):
         desc = "Start date updated"
     elif field == 'start_date_tbd':
         is_tbd = str(value).lower() in {'1', 'true', 'on', 'yes'}
-        if project.is_project and not is_tbd and not task.start_date:
-            return JsonResponse({'success': False, 'error': 'Start Date is required or mark it as TBD.'}, status=400)
+        # Allow free toggling in both directions for a smooth inline UX.
+        # Model-level clean() still enforces 'date OR tbd' on full-form save,
+        # so transient states here are safe.
         task.start_date_tbd = is_tbd
         if is_tbd:
             task.start_date = None

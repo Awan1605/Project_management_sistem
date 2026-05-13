@@ -7,7 +7,7 @@
         <span class="badge bg-light text-dark border ms-1">{{ task_list.sub_project.name }}</span>
       {% endif %} {% endcomment %}
     </span>
-    {% if user_role == 'admin' and not project.is_closed %}
+    {% if user_role == 'admin' %}
       <div class="d-flex">
         <button class="list-action-btn btn-list-archive" title="Archive list">
           <i class="bi bi-archive"></i>
@@ -30,7 +30,7 @@
     {% endfor %}
   </div>
 
-  {% if not project.is_closed and user_role == 'admin' or not project.is_closed and user_role == 'member' %}
+  {% if user_role == 'admin' or user_role == 'member' %}
     {% if project.is_project %}
       <button type="button" class="btn btn-sm btn-primary w-100 mt-2 btn-list-add-task" data-default-list-id="{{ task_list.id }}">
         <i class="bi bi-plus-lg me-1"></i>Add Task

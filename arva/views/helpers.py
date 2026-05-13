@@ -101,8 +101,13 @@ def require_role(user, project, allowed_roles):
 
 def is_project_locked(project):
     """Cek apakah project sedang terkunci (ditutup).
-    Project terkunci = project bertipe structured DAN status closed."""
-    return bool(project.is_project and project.is_closed)
+
+    Catatan: lock status ditutup sengaja dinonaktifkan agar task di real
+    project yang ditutup tetap dapat diedit/dihapus/diarsipkan/di-drag-drop,
+    sama seperti pada project biasa. Status 'Closed' tetap ditampilkan
+    sebagai penanda, namun tidak lagi memblokir perubahan task.
+    """
+    return False
 
 
 def closed_project_error():

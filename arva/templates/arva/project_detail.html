@@ -3,7 +3,7 @@
 {% block title %}{{ project.name }}{% endblock %}
 
 {% block extra_css %}
-  <link rel="stylesheet" href="{% static 'arva/css/pages/project_detail.css' %}?v=202604191200">
+  <link rel="stylesheet" href="{% static 'arva/css/pages/project_detail.css' %}?v=202605132100">
 {% endblock %}
 
 {% block content %}
@@ -85,16 +85,11 @@
             {% endif %}
           </div>
         {% endif %}
-        {% if project.is_project and project.is_closed %}
-          <div class="alert alert-warning py-2 px-3 mt-2 mb-0">
-            <i class="bi bi-lock-fill me-1"></i>This project is closed. Tasks are view-only until re-opened.
-          </div>
-        {% endif %}
 
         {% if subprojects or user_role == 'admin' %}
-        <div class="mt-3 d-flex flex-wrap align-items-end gap-2">
-          <div class="flex-grow-1 project-subproject-select-wrap">
-            <label class="form-label small text-muted mb-1">Sub-project</label>
+        <div class="subproject-toolbar mt-3">
+          <div class="subproject-select-group">
+            <label class="form-label small text-muted mb-1" for="subproject-select">Sub-project</label>
             <select id="subproject-select" class="form-select form-select-sm" data-project-id="{{ project.id }}">
               {% if subprojects %}
                 <option value="all" {% if task_scope == 'all' %}selected{% endif %}>All Tasks</option>
@@ -110,42 +105,39 @@
           </div>
 
           {% if user_role == 'admin' and not project_is_locked %}
-          <button class="btn btn-sm btn-outline-primary" id="btn-open-subproject-modal">
-            <i class="bi bi-plus-lg me-1"></i>Add Sub-project
-          </button>
-          {% if selected_subproject %}
-          <button class="btn btn-sm btn-outline-secondary" id="btn-edit-subproject"
-            data-subproject-id="{{ selected_subproject.id }}"
-            data-subproject-name="{{ selected_subproject.name }}"
-            data-subproject-description="{{ selected_subproject.description|default:''|escape }}">
-            <i class="bi bi-pencil me-1"></i>Edit
-          </button>
-          {% endif %}
-          {% if selected_subproject %}
-          <button class="btn btn-sm btn-outline-danger" id="btn-delete-subproject" data-subproject-id="{{ selected_subproject.id }}">
-            <i class="bi bi-trash me-1"></i>Delete
-          </button>
-          {% endif %}
+          <div class="subproject-action-group">
+            <button class="btn btn-sm btn-outline-primary" id="btn-open-subproject-modal">
+              <i class="bi bi-plus-lg me-1"></i>Add Sub-project
+            </button>
+            {% if selected_subproject %}
+            <button class="btn btn-sm btn-outline-secondary" id="btn-edit-subproject"
+              data-subproject-id="{{ selected_subproject.id }}"
+              data-subproject-name="{{ selected_subproject.name }}"
+              data-subproject-description="{{ selected_subproject.description|default:''|escape }}">
+              <i class="bi bi-pencil me-1"></i>Edit
+            </button>
+            <button class="btn btn-sm btn-outline-danger" id="btn-delete-subproject" data-subproject-id="{{ selected_subproject.id }}">
+              <i class="bi bi-trash me-1"></i>Delete
+            </button>
+            {% endif %}
+          </div>
           {% endif %}
         </div>
         {% endif %}
 
         {% if user_role == 'admin' %}
-        <div class="mt-3 small project-actions">
-          <a href="{% url 'project_activity' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
-            <i class="bi bi-activity me-1"></i>Activity Log
+        <div class="mt-3 project-actions">
+          <a href="{% url 'project_activity' project.id %}" class="project-action-chip">
+            <i class="bi bi-activity"></i><span>Activity Log</span>
           </a>
-
-          <a href="{% url 'subproject_list' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
-            <i class="bi bi-diagram-3 me-1"></i>Sub-projects
+          <a href="{% url 'subproject_list' project.id %}" class="project-action-chip">
+            <i class="bi bi-diagram-3"></i><span>Sub-projects</span>
           </a>
-
-          <a href="{% url 'project_archive' project.id %}" class="text-primary me-4 text-decoration-none fw-semibold">
-            <i class="bi bi-archive me-1"></i>Archive
+          <a href="{% url 'project_archive' project.id %}" class="project-action-chip">
+            <i class="bi bi-archive"></i><span>Archive</span>
           </a>
-
-          <a href="{% url 'project_members' project.id %}" class="text-primary text-decoration-none fw-semibold">
-            <i class="bi bi-people me-1"></i>Team & Roles
+          <a href="{% url 'project_members' project.id %}" class="project-action-chip">
+            <i class="bi bi-people"></i><span>Team &amp; Roles</span>
           </a>
         </div>
         {% endif %}
@@ -169,18 +161,20 @@
   </div>
 </div>
 
-<div class="card shadow-sm border-0 h-100 mb-3">
+<div class="card shadow-sm border-0 h-100 mb-3 task-filter-card">
   <div class="card-body">
-    <form id="task-filter-form" class="row g-3">
+    <form id="task-filter-form" class="task-filter-toolbar">
       <input type="hidden" name="page" id="task-filter-page" value="{{ filter_values.page|default:'1' }}">
       <input type="hidden" name="per_page" id="task-filter-per-page" value="{{ filter_values.per_page|default:'25' }}">
 
-      <div class="col-lg-3 col-md-6">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search for task title..." value="{{ filter_values.q }}">
+      <div class="tf-field tf-field-wide">
+        <i class="bi bi-search tf-field-icon"></i>
+        <input type="text" name="q" class="form-control form-control-sm tf-input" placeholder="Search for task title..." value="{{ filter_values.q }}">
       </div>
 
-      <div class="col-lg-2 col-md-6">
-        <select name="assignee" class="form-select form-select-sm">
+      <div class="tf-field">
+        <i class="bi bi-person-check tf-field-icon"></i>
+        <select name="assignee" class="form-select form-select-sm tf-input">
           <option value="">Assignee</option>
           {% for u in users %}
           <option value="{{ u.id }}" {% if filter_values.assignee == u.id|stringformat:'s' %}selected{% endif %}>{{ u.username }}</option>
@@ -188,12 +182,14 @@
         </select>
       </div>
 
-      <div class="col-lg-3 col-md-6">
-        <input type="text" name="assignee_q" class="form-control form-control-sm" placeholder="Search assignee (username/email)" value="{{ filter_values.assignee_q }}">
+      <div class="tf-field tf-field-wide">
+        <i class="bi bi-people tf-field-icon"></i>
+        <input type="text" name="assignee_q" class="form-control form-control-sm tf-input" placeholder="Search assignee (username / email)" value="{{ filter_values.assignee_q }}">
       </div>
 
-      <div class="col-lg-2 col-md-6">
-        <select name="status" class="form-select form-select-sm">
+      <div class="tf-field">
+        <i class="bi bi-flag tf-field-icon"></i>
+        <select name="status" class="form-select form-select-sm tf-input">
           {% if project.is_project %}
             <option value="">Task Status</option>
             {% for status_value, status_label in structured_status_options %}
@@ -209,8 +205,9 @@
       </div>
 
       {% if project.is_project %}
-      <div class="col-lg-1 col-md-6">
-        <select name="priority" class="form-select form-select-sm">
+      <div class="tf-field">
+        <i class="bi bi-exclamation-diamond tf-field-icon"></i>
+        <select name="priority" class="form-select form-select-sm tf-input">
           <option value="">Priority</option>
           {% for priority_value, priority_label in structured_priority_options %}
           <option value="{{ priority_value }}" {% if filter_values.priority == priority_value %}selected{% endif %}>{{ priority_label }}</option>
@@ -218,8 +215,9 @@
         </select>
       </div>
       {% else %}
-      <div class="col-lg-1 col-md-6">
-        <select name="label" class="form-select form-select-sm">
+      <div class="tf-field">
+        <i class="bi bi-tags tf-field-icon"></i>
+        <select name="label" class="form-select form-select-sm tf-input">
           <option value="">Label</option>
           {% for label in task_form.fields.labels.queryset %}
           <option value="{{ label.id }}" {% if filter_values.label == label.id|stringformat:'s' %}selected{% endif %}>{{ label.name }}</option>
@@ -228,8 +226,9 @@
       </div>
       {% endif %}
 
-      <div class="col-lg-1 col-md-6">
-        <input type="date" name="due" class="form-control form-control-sm" value="{{ filter_values.due }}">
+      <div class="tf-field">
+        <i class="bi bi-calendar-event tf-field-icon"></i>
+        <input type="date" name="due" class="form-control form-control-sm tf-input" value="{{ filter_values.due }}">
       </div>
 
     </form>

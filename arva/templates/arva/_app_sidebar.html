@@ -17,7 +17,7 @@
     <i class="bi bi-folder2-open"></i>
     <span class="sidebar-label">Projects</span>
   </a>
-  <a href="{% url 'my_cards' %}" title="Tasks" class="sidebar-link {% if current == 'my_cards' or current == 'project_detail' or current == 'project_activity' or current == 'project_archive' or current == 'project_members' %}active{% endif %}">
+  <a href="{% url 'my_cards' %}" title="Tasks" class="sidebar-link {% if current == 'my_cards' or current == 'project_detail' or current == 'project_activity' or current == 'project_archive' or current == 'project_members' or current == 'task_detail' or current == 'task_view' %}active{% endif %}">
     <i class="bi bi-kanban"></i>
     <span class="sidebar-label">Tasks</span>
   </a>
@@ -38,9 +38,9 @@
     <i class="bi bi-code-square"></i>
     <span class="sidebar-label">AI Developer</span>
   </a>
-  <a href="{% url 'user_performance' %}?t={% now 'U' %}" title="User Performance" class="sidebar-link {% if current == 'user_performance' %}active{% endif %}">
-    <i class="bi bi-graph-up"></i>
-    <span class="sidebar-label">User Performance</span>
+  <a href="{% url 'user_performance' %}?t={% now 'U' %}" title="Dashboard" class="sidebar-link {% if current == 'user_performance' %}active{% endif %}">
+    <i class="bi bi-speedometer2"></i>
+    <span class="sidebar-label">Dashboard</span>
   </a>
   {% endif %}
   

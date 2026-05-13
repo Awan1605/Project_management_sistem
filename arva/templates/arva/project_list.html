@@ -39,28 +39,11 @@
     </div>
   </div>
 
-  {% if closed_projects %}
-  <div class="card shadow-sm border-0 mb-3">
-    <div class="card-body py-2">
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
-          <i class="bi bi-lock-fill me-1"></i>Closed Projects
-        </span>
-        {% for project in closed_projects %}
-          <a href="{% url 'project_detail' project.id %}{% if project.subprojects.exists %}?sub=all{% endif %}" class="badge bg-light text-dark border text-decoration-none">
-            {{ project.name }}
-          </a>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-  {% endif %}
+  {% comment %} Closed Projects strip removed per product decision — closed projects are still accessible via the archive page. {% endcomment %}
 
-  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div class="text-muted">Switch between task and table views.</div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-      {% include "arva/_view_toggle_tabs.html" with toggle_id="projectViewTabs" storage_key="arva_project_view" left_target="#project-card-view" left_label="Card View" left_icon="bi-grid-3x3-gap" right_target="#project-table-view" right_label="Table View" right_icon="bi-table" default_active="left" aria_label="Project view mode" %}
-    </div>
+  <div class="view-mode-bar d-flex justify-content-end align-items-center mb-3 flex-wrap gap-2">
+    <span class="view-mode-label small text-muted text-uppercase fw-semibold">View</span>
+    {% include "arva/_view_toggle_tabs.html" with toggle_id="projectViewTabs" storage_key="arva_project_view" left_target="#project-card-view" left_label="Card" left_icon="bi-grid-3x3-gap" right_target="#project-table-view" right_label="Table" right_icon="bi-table" default_active="left" aria_label="Project view mode" %}
   </div>
 
   <div class="cards-shell">

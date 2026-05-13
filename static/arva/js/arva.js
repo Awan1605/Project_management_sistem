@@ -1567,7 +1567,12 @@ $(function() {
     });
   });
 
-  function inlineUpdate(taskId, field, value, onSuccess) {
+  function inlineUpdate(taskId, field, value, onSuccess, onError) {
+    if (!taskId) {
+      showError('Task ID not found on page. Please reload and try again.');
+      if (typeof onError === 'function') onError();
+      return;
+    }
     $.post({
       url: `/task/${taskId}/inline-update/`,
       data: {
@@ -1581,16 +1586,29 @@ $(function() {
             card.replaceWith(resp.html);
           }
           if (typeof onSuccess === 'function') onSuccess();
+        } else {
+          showError(resp.error || `Update failed for field "${field}".`);
+          if (typeof onError === 'function') onError();
         }
       },
       error: function(xhr) {
-        if (xhr.status === 403) {
-          showError('You do not have access to make this change.');
-        } else if (xhr.status === 400 && xhr.responseJSON?.error) {
-          showError(xhr.responseJSON.error);
+        const serverMsg = xhr.responseJSON?.error || xhr.responseJSON?.detail;
+        if (xhr.status === 0) {
+          showError(`Network error while saving "${field}". Check your connection and try again.`);
+        } else if (xhr.status === 401) {
+          showError('Your session has expired. Please log in again.');
+        } else if (xhr.status === 403) {
+          showError(serverMsg || `Access denied: you cannot edit "${field}" on this task.`);
+        } else if (xhr.status === 404) {
+          showError(`Task not found (ID: ${taskId}). It may have been deleted.`);
+        } else if (xhr.status === 400) {
+          showError(serverMsg || `Invalid value for "${field}". Please check your input.`);
+        } else if (xhr.status >= 500) {
+          showError(serverMsg || `Server error (${xhr.status}) while saving "${field}". Please try again.`);
         } else {
-          showError('Failed to save changes.');
+          showError(serverMsg || `Failed to save "${field}" (HTTP ${xhr.status}).`);
         }
+        if (typeof onError === 'function') onError();
       }
     });
   }
@@ -1617,56 +1635,85 @@ $(function() {
   }
 
   $(document).on('change', '#task-view-title', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     inlineUpdate(taskId, 'title', $(this).val(), function() {
       loadTaskView(taskId);
     });
   });
 
   $(document).on('change', '#task-view-desc', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     inlineUpdate(taskId, 'description', $(this).val(), function() {
       loadTaskView(taskId);
     });
   });
 
   $(document).on('change', '#task-view-due', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     inlineUpdate(taskId, 'due_date', $(this).val(), function() {
       loadTaskView(taskId);
     });
   });
 
   $(document).on('change', '#task-view-priority', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     inlineUpdate(taskId, 'priority', $(this).val(), function() {
       loadTaskView(taskId);
     });
   });
 
   $(document).on('change', '#task-view-status', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     inlineUpdate(taskId, 'status', $(this).val(), function() {
       loadTaskView(taskId);
     });
   });
 
   $(document).on('change', '#task-view-start-date', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     inlineUpdate(taskId, 'start_date', $(this).val(), function() {
       loadTaskView(taskId);
     });
   });
 
   $(document).on('change', '#task-view-start-date-tbd', function() {
-    const taskId = $('#taskViewModal').data('task-id');
-    inlineUpdate(taskId, 'start_date_tbd', this.checked ? '1' : '0', function() {
-      loadTaskView(taskId);
-    });
+    const taskId = getCurrentTaskId();
+    const checkbox = this;
+    const wasChecked = !checkbox.checked; // previous state (flipped by click)
+    const isChecked = checkbox.checked;
+    const $pill = $(checkbox).closest('.tbd-pill');
+    const $dateInput = $('#task-view-start-date');
+
+    // Instant visual feedback on the pill + date input.
+    $pill.toggleClass('is-active', isChecked);
+    if (isChecked) {
+      $dateInput.val('').prop('disabled', true);
+    } else {
+      $dateInput.prop('disabled', false);
+    }
+
+    inlineUpdate(
+      taskId,
+      'start_date_tbd',
+      isChecked ? '1' : '0',
+      function() {
+        loadTaskView(taskId);
+      },
+      function() {
+        // Rollback UI if backend rejects so state stays consistent.
+        checkbox.checked = wasChecked;
+        $pill.toggleClass('is-active', wasChecked);
+        if (wasChecked) {
+          $dateInput.prop('disabled', true);
+        } else {
+          $dateInput.prop('disabled', false);
+        }
+      }
+    );
   });
 
   $(document).on('change', '#task-view-assignees', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     const raw = $(this).val();
     const values = Array.isArray(raw) ? raw.join(',') : (raw || '');
     inlineUpdate(taskId, 'assignees', values, function() {
@@ -1675,7 +1722,7 @@ $(function() {
   });
 
   $(document).on('change', '#task-view-labels', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     const values = $(this).val() ? $(this).val().join(',') : '';
     inlineUpdate(taskId, 'labels', values, function() {
       loadTaskView(taskId);
@@ -1683,7 +1730,7 @@ $(function() {
   });
 
   $(document).on('click', '.cover-color-box', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     const color = $(this).data('color');
     inlineUpdate(taskId, 'cover_color', color, () => {
       loadTaskView(taskId);
@@ -1709,19 +1756,31 @@ $(function() {
     loadTaskView(taskId);
   });
 
+  function getCurrentTaskId() {
+    // Prefer modal context first (board/list view), then standalone task detail page.
+    return $('#taskViewModal').data('task-id') || $('#task-view-body').data('task-id');
+  }
+
   function loadTaskView(taskId) {
+    if (!taskId) {
+      showError('Task ID missing. Cannot reload task view.');
+      return;
+    }
     $.get(`/task/${taskId}/view/`, function(resp) {
       if (resp.success) {
         $('#task-view-body').html(resp.html);
-        autoResizeTextareas($('#taskViewModal'));
+        const scope = $('#taskViewModal').length ? $('#taskViewModal') : $('#task-view-body');
+        autoResizeTextareas(scope);
       } else {
         $('#task-view-body').html('<div class="text-danger">You are not allowed to view this task.</div>');
       }
     }).fail(function(xhr) {
       if (xhr.status === 403) {
         $('#task-view-body').html('<div class="text-danger">You are not allowed to view this task.</div>');
+      } else if (xhr.status === 404) {
+        $('#task-view-body').html(`<div class="text-danger">Task not found (ID: ${taskId}).</div>`);
       } else {
-        $('#task-view-body').html('<div class="text-danger">Failed to load task.</div>');
+        $('#task-view-body').html(`<div class="text-danger">Failed to load task (HTTP ${xhr.status}).</div>`);
       }
     });
   }
@@ -1893,7 +1952,7 @@ $(function() {
   });
 
   $(document).on('click', '#btn-add-comment', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     if (!taskId) return;
 
     const content = $('#task-view-comment-input').val().trim();
@@ -1947,7 +2006,7 @@ $(function() {
     const commentId = $(this).data('id');
     const container = $(this).closest('.reply-form');
     const content = container.find('.reply-input').val().trim();
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
 
     if (!content) return;
 
@@ -1976,7 +2035,7 @@ $(function() {
     if (!await showConfirm("Delete this comment?", "Delete comment")) return;
 
     const commentId = $(this).data("id");
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
 
     $.post({
       url: `/comment/${commentId}/delete/`,
@@ -1998,7 +2057,7 @@ $(function() {
   });
 
   $(document).on('click', '#btn-add-checkitem', async function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     if (!taskId) return;
 
     const content = await showPrompt('Checklist item name:', 'Add checklist');
@@ -2029,7 +2088,7 @@ $(function() {
   $(document).on('change', '#task-view-checklist .checklist-toggle', function() {
     const li = $(this).closest('li');
     const itemId = li.data('id');
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     if (!taskId || !itemId) return;
 
     $.post({
@@ -2050,7 +2109,7 @@ $(function() {
   });
 
   $(document).on('change', '#task-view-upload', function() {
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
     if (!taskId) return;
 
     const fileInput = this;
@@ -2239,7 +2298,7 @@ $(function() {
     input.on('blur keydown', function(e) {
       if (e.type === "blur" || e.key === "Enter") {
 
-        const taskId = $('#taskViewModal').data('task-id');
+            const taskId = getCurrentTaskId();
         const itemId = li.data('id');
         const newContent = input.val().trim();
 
@@ -2266,7 +2325,7 @@ $(function() {
 
     const li = $(this).closest("li");
     const itemId = li.data("id");
-    const taskId = $('#taskViewModal').data('task-id');
+        const taskId = getCurrentTaskId();
 
     $.post({
       url: `/checklist/${itemId}/delete/`,

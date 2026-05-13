@@ -1,29 +1,20 @@
 {% if project_is_project %}
 <div class="task-structured-shell">
-  <section class="task-structured-section task-structured-header mb-3">
-    <div class="task-structured-header-main">
-      <label class="form-label small text-muted mb-1">Task Name</label>
-      <input type="text" id="task-view-title" class="form-control form-control-lg fw-semibold" value="{{ task.title }}" {% if view_only or project_is_closed %}disabled{% endif %}>
-    </div>
-    <div class="task-structured-header-status">
-      <label class="form-label small text-muted mb-1">Status</label>
-      <select id="task-view-status" class="form-select" {% if view_only or project_is_closed %}disabled{% endif %}>
-        <option value="-" {% if task.status == '-' %}selected{% endif %}>-</option>
-        <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-        <option value="done" {% if task.status == 'done' %}selected{% endif %}>Done</option>
-        <option value="infeasible" {% if task.status == 'infeasible' %}selected{% endif %}>Infeasible</option>
-      </select>
-    </div>
+  <section class="task-structured-section task-structured-header-plain mb-3">
+    <input type="text" id="task-view-title" class="task-title-plain" value="{{ task.title }}" spellcheck="false" placeholder="Task name…" {% if view_only or project_is_closed %}disabled{% endif %}>
   </section>
 
   <section class="task-structured-section mb-3">
-    <h6 class="fw-semibold mb-2">Metadata</h6>
+    <h6 class="fw-semibold mb-3">Metadata</h6>
     <div class="task-structured-meta-grid">
       <div>
-        <label class="form-label small text-muted mb-1">Reporter</label>
-        <div class="small fw-semibold">
-          {{ task.created_by.username|default:"-" }}
-        </div>
+        <label class="form-label small text-muted mb-1">Status</label>
+        <select id="task-view-status" class="form-select form-select-sm" {% if view_only or project_is_closed %}disabled{% endif %}>
+          <option value="-" {% if task.status == '-' %}selected{% endif %}>-</option>
+          <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+          <option value="done" {% if task.status == 'done' %}selected{% endif %}>Done</option>
+          <option value="infeasible" {% if task.status == 'infeasible' %}selected{% endif %}>Infeasible</option>
+        </select>
       </div>
       <div>
         <label class="form-label small text-muted mb-1">Priority</label>
@@ -36,18 +27,20 @@
         </select>
       </div>
       <div>
-        <label class="form-label small text-muted mb-1">Assignee</label>
-        <div class="small mb-1 d-inline-flex align-items-center">
-          {% with primary_assignee=task.assignees.first %}
-            {% if primary_assignee %}
-              {{ primary_assignee.username }}
-            {% elif project.pm_assignee %}
-              PM: {{ project.pm_assignee.username }}
-            {% else %}
-              <i class="bi bi-person me-1"></i>Unassigned
-            {% endif %}
-          {% endwith %}
+        <label class="form-label small text-muted mb-1">Reporter</label>
+        <div class="task-meta-static reporter-chip">
+          {% if task.created_by.userprofile.avatar or task.created_by.userprofile.avatar_icon %}
+            <img src="{{ task.created_by.userprofile.avatar_url }}" class="assignee-avatar" alt="{{ task.created_by.username }}">
+          {% elif task.created_by %}
+            <span class="assignee-avatar-fallback">{{ task.created_by.username|first|upper }}</span>
+          {% else %}
+            <span class="assignee-avatar-fallback reporter-avatar-empty">—</span>
+          {% endif %}
+          <span class="reporter-name text-truncate">{{ task.created_by.username|default:"-" }}</span>
         </div>
+      </div>
+      <div>
+        <label class="form-label small text-muted mb-1">Assignee</label>
         <select id="task-view-assignees" class="form-select form-select-sm" {% if view_only or project_is_closed %}disabled{% endif %}>
           <option value="">Select assignee</option>
           {% for u in users %}
@@ -56,12 +49,14 @@
         </select>
       </div>
       <div>
-        <label class="form-label small text-muted mb-1">Start Date</label>
-        <input type="date" id="task-view-start-date" class="form-control form-control-sm" value="{{ task.start_date|date:'Y-m-d' }}" {% if view_only or project_is_closed %}disabled{% endif %}>
-        <div class="form-check mt-1">
-          <input class="form-check-input" type="checkbox" id="task-view-start-date-tbd" {% if task.start_date_tbd %}checked{% endif %} {% if view_only or project_is_closed %}disabled{% endif %}>
-          <label class="form-check-label small" for="task-view-start-date-tbd" title="To Be Determined">TBD (To Be Determined)</label>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label class="form-label small text-muted mb-0" for="task-view-start-date">Start Date</label>
+          <label class="tbd-pill {% if task.start_date_tbd %}is-active{% endif %}" title="To Be Determined">
+            <input type="checkbox" id="task-view-start-date-tbd" {% if task.start_date_tbd %}checked{% endif %} {% if view_only or project_is_closed %}disabled{% endif %}>
+            <span>TBD</span>
+          </label>
         </div>
+        <input type="date" id="task-view-start-date" class="form-control form-control-sm" value="{{ task.start_date|date:'Y-m-d' }}" {% if view_only or project_is_closed or task.start_date_tbd %}disabled{% endif %}>
       </div>
       <div>
         <label class="form-label small text-muted mb-1">End Date</label>
@@ -72,7 +67,7 @@
 
   <section class="task-structured-section mb-3">
     <h6 class="fw-semibold mb-2">Description</h6>
-    <textarea id="task-view-desc" class="form-control task-desc-input" rows="3" data-autoresize="true" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description }}</textarea>
+    <textarea id="task-view-desc" class="task-desc-input task-desc-plain" rows="3" data-autoresize="true" placeholder="Add a description…" spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description }}</textarea>
   </section>
 
   <section class="task-structured-section mb-3">
@@ -111,7 +106,7 @@
 <div class="d-flex justify-content-between align-items-start mb-3">
 
   <div class="flex-grow-1 me-3">
-    <input type="text" id="task-view-title" class="form-control border-0 bg-transparent fw-bold" value="{{ task.title }}" {% if view_only or project_is_closed %}disabled{% endif %}>
+    <input type="text" id="task-view-title" class="form-control border-0 bg-transparent fw-bold" value="{{ task.title }}" spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>
     <div class="mt-2 d-flex flex-wrap gap-1">
       {% for label in task.labels.all %}
       <span class="label-chip" style="background-color: #{{ label.color }}; color: #ffffff;">{{ label.name }}</span>
@@ -133,7 +128,16 @@
       <option value="high" {% if task.priority == 'high' %}selected{% endif %}>High (Legacy)</option>
       <option value="critical" {% if task.priority == 'critical' %}selected{% endif %}>Critical (Legacy)</option>
     </select>
-    <input type="date" id="task-view-due" class="form-control form-control-sm due-input" value="{{ task.due_date|date:'Y-m-d' }}" {% if view_only or project_is_closed %}disabled{% endif %}>
+    <div class="task-date-range d-flex flex-row gap-2 justify-content-end">
+      <div class="task-date-field">
+        <label class="form-label small text-muted mb-1 text-start d-block" for="task-view-start-date">Start Date</label>
+        <input type="date" id="task-view-start-date" class="form-control form-control-sm" value="{{ task.start_date|date:'Y-m-d' }}" {% if view_only or project_is_closed %}disabled{% endif %}>
+      </div>
+      <div class="task-date-field">
+        <label class="form-label small text-muted mb-1 text-start d-block" for="task-view-due">End Date</label>
+        <input type="date" id="task-view-due" class="form-control form-control-sm due-input" value="{{ task.due_date|date:'Y-m-d' }}" {% if view_only or project_is_closed %}disabled{% endif %}>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -142,7 +146,7 @@
   <div class="col-md-8">
     <div class="section-box">
       <h6 class="fw-semibold mb-2">Description</h6>
-      <textarea id="task-view-desc" class="form-control task-desc-input" rows="2" data-autoresize="true" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description }}</textarea>
+      <textarea id="task-view-desc" class="task-desc-input task-desc-plain" rows="2" data-autoresize="true" placeholder="Add a description…" spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description }}</textarea>
     </div>
 
     <div class="section-box">
