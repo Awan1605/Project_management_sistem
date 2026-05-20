@@ -113,11 +113,13 @@
                 </tr>
               </thead>
 
-              <tbody>
+              <tbody data-task-results-sort="status-created-desc" data-task-results-item="tr[data-user-id]">
                 {% for u in users %}
                 <tr data-user-id="{{ u.id }}"
                     data-username="{{ u.username|lower }}"
                     data-email="{{ u.email|lower }}"
+                    data-task-sort-created="{{ u.date_joined|date:'U' }}"
+                    data-task-sort-done="0"
                     data-active="{{ u.is_active|yesno:'active,inactive' }}"
                     data-staff="{{ u.is_staff|yesno:'staff,non-staff' }}"
                     data-last-activity="{{ u.last_activity_at|date:'Y-m-d H:i' }}"
@@ -197,13 +199,15 @@
         </div>
 
         <div class="tab-pane fade card-density-compact" id="user-card-view" role="tabpanel" aria-labelledby="user-card-tab" tabindex="0">
-          <div class="cards-grid">
-            {% for u in users %}
-              <div class="user-card"
-                   data-user-id="{{ u.id }}"
-                   data-username="{{ u.username|lower }}"
-                   data-email="{{ u.email|lower }}"
-                   data-active="{{ u.is_active|yesno:'active,inactive' }}"
+	          <div class="cards-grid" data-task-results-sort="status-created-desc" data-task-results-item=".user-card[data-user-id]">
+	            {% for u in users %}
+	              <div class="user-card"
+	                   data-user-id="{{ u.id }}"
+	                   data-username="{{ u.username|lower }}"
+	                   data-email="{{ u.email|lower }}"
+	                   data-task-sort-created="{{ u.date_joined|date:'U' }}"
+	                   data-task-sort-done="0"
+	                   data-active="{{ u.is_active|yesno:'active,inactive' }}"
                    data-staff="{{ u.is_staff|yesno:'staff,non-staff' }}">
                 <div class="user-card-header">
                   <img src="{{ u.userprofile.avatar_url }}" class="avatar-sm">

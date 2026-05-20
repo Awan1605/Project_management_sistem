@@ -68,6 +68,7 @@
           </select>
         </div>
         <div class="page-pagination-right">
+          <select id="project-order" class="form-select form-select-sm" aria-label="Project order"></select>
           <span id="project-page-summary" class="small text-muted"></span>
           <div class="btn-group btn-group-sm" role="group" aria-label="Project pagination controls">
             <button type="button" class="btn btn-outline-secondary" id="project-page-prev"><i class="bi bi-chevron-left"></i></button>
@@ -78,7 +79,10 @@
 
       <div class="tab-content" id="projectViewContent">
         <div class="tab-pane fade show active card-density-compact" id="project-card-view" role="tabpanel" aria-labelledby="project-card-tab" tabindex="0">
-          <div id="project-list" class="row g-4">
+          <div id="project-list"
+               class="row g-4"
+               data-task-results-sort="status-created-desc"
+               data-task-results-item=".project-card-item[data-name]">
             {% for project in projects %}
             {% include "arva/_project_item.html" with project=project %}
             {% empty %}
@@ -124,7 +128,7 @@
                   <th class="text-end">Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody data-task-results-sort="status-created-desc" data-task-results-item="tr[data-name]">
                 {% for project in projects %}
                 <tr
                   class="{% if project.is_project %}project-table-row--project{% endif %}"
@@ -132,6 +136,8 @@
                   data-owner="{{ project.owner.username|default:project.owner|lower }}"
                   data-description="{{ project.description|default:''|lower }}"
                   data-created="{{ project.created_at|date:'Y-m-d' }}"
+                  data-task-sort-created="{{ project.created_at|date:'U' }}"
+                  data-task-sort-done="{% if project.is_project and project.is_closed %}1{% else %}0{% endif %}"
                   data-progress="{{ project.progress.percent }}"
                 >
                   <td>

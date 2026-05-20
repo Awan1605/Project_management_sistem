@@ -604,7 +604,7 @@ def user_list(request):
         last_comment_at=Max('comment__created_at'),
         last_action_at=Max('activitylog__created_at'),
         last_presence_at=Max('useractivity__last_activity'),
-    ).order_by('username')
+    ).order_by('-date_joined', '-id')
     if q:
         users = users.filter(
             Q(username__icontains=q) |

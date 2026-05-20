@@ -1975,10 +1975,32 @@ body {
   padding: 0.2rem 0.5rem;
 }
 
+/* Keep project-detail list controls on a single row */
+#task-list-pagination-controls .page-pagination-right {
+  flex-wrap: nowrap;
+}
+
+#task-list-pagination-controls .page-pagination-right > * {
+  flex: 0 0 auto;
+}
+
+#task-list-page-summary {
+  white-space: nowrap;
+}
+
+#task-list-order {
+  min-width: 200px;
+}
+
 @media (max-width: 767.98px) {
   .page-pagination-right {
     width: 100%;
     justify-content: space-between;
+  }
+
+  #task-list-pagination-controls .page-pagination-right {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

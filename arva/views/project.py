@@ -77,10 +77,17 @@ def project_list(request):
     - Project yang sudah ditutup
     """
     accessible_projects = get_accessible_projects_queryset(request.user)
-    projects = accessible_projects.annotate(last_task_activity=Max('tasks__updated_at')).prefetch_related(
+    projects = accessible_projects.annotate(
+        last_task_activity=Max('tasks__updated_at'),
+        _sort_done=Case(
+            When(is_project=True, is_closed=True, then=1),
+            default=0,
+            output_field=IntegerField(),
+        ),
+    ).prefetch_related(
         'subprojects',
         'memberships__user',
-    ).distinct().order_by('-created_at')
+    ).distinct().order_by('_sort_done', '-created_at', '-id')
     closed_projects = projects.filter(is_project=True, is_closed=True)
     admin_projects = Project.objects.filter(owner=request.user).distinct().order_by('name')
     online_cutoff = now() - timedelta(minutes=1)

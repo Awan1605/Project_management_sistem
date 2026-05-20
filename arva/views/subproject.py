@@ -35,7 +35,7 @@ def subproject_list(request, pk):
     if role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER, ProjectMember.ROLE_VIEWER]:
         return HttpResponseForbidden("Forbidden")
 
-    subprojects = project.subprojects.all().order_by('created_at')
+    subprojects = project.subprojects.all().order_by('-created_at')
     admin_projects = Project.objects.filter(owner=request.user).distinct().order_by('name')
     return render(request, 'arva/subproject_list.html', {
         'project': project,

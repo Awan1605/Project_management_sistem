@@ -5,6 +5,8 @@
      data-owner="{{ project.owner.username|default:project.owner|lower }}"
      data-description="{{ project.description|default:''|lower }}"
      data-created="{{ project.created_at|date:'Y-m-d' }}"
+     data-task-sort-created="{{ project.created_at|date:'U' }}"
+     data-task-sort-done="{% if project.is_project and project.is_closed %}1{% else %}0{% endif %}"
      data-progress="{{ project.progress.percent }}">
   <div class="card shadow-sm h-100 project-card position-relative card-shell-rounded {% if project.is_project %}project-card--project{% endif %}">
 

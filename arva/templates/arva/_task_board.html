@@ -172,6 +172,15 @@
               <i class="bi bi-chevron-right"></i>
             </button>
           </div>
+          <select id="task-list-order" class="form-select form-select-sm" aria-label="Task order">
+            <option value="default" selected>Default order</option>
+            <option value="updated_desc">Recently updated</option>
+            <option value="updated_asc">Oldest updated</option>
+            <option value="due_asc">Due date (soonest)</option>
+            <option value="due_desc">Due date (latest)</option>
+            <option value="title_asc">Title (A-Z)</option>
+            <option value="title_desc">Title (Z-A)</option>
+          </select>
           {% if not project.is_closed and user_role == 'admin' or not project.is_closed and user_role == 'member' %}
             <button type="button" class="btn btn-primary btn-sm compact-add-btn btn-list-add-task">
               <i class="bi bi-plus-lg me-1"></i>Add Task

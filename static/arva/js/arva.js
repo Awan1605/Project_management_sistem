@@ -266,6 +266,79 @@ $(function() {
     });
   }
 
+  function parseSortDateValue(raw) {
+    if (raw === undefined || raw === null) return 0;
+    const text = String(raw).trim();
+    if (!text) return 0;
+    if (/^\d+$/.test(text)) {
+      const num = Number(text);
+      return Number.isFinite(num) ? num : 0;
+    }
+    const parsed = Date.parse(text);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function getCollectionItemSortValue(item, key) {
+    if (!item || !item.dataset) return '';
+    const dataset = item.dataset;
+    if (key === 'updated') {
+      return dataset.updated || dataset.lastActivity || dataset.lastLogin || dataset.taskSortCreated || dataset.created || '';
+    }
+    if (key === 'due') {
+      return dataset.due || dataset.dueDate || '';
+    }
+    if (key === 'title') {
+      return dataset.title || dataset.name || dataset.username || dataset.email || '';
+    }
+    if (key === 'project') {
+      return dataset.project || dataset.owner || dataset.name || '';
+    }
+    if (key === 'created') {
+      return dataset.created || dataset.joined || dataset.taskSortCreated || '';
+    }
+    return dataset[key] || '';
+  }
+
+  function compareCollectionItemsByOrder(a, b, orderValue) {
+    const value = String(orderValue || 'default').trim().toLowerCase();
+    if (!value || value === 'default') return 0;
+    const match = value.match(/^(.+?)_(asc|desc)$/);
+    if (!match) return 0;
+    const key = match[1];
+    const dir = match[2] === 'asc' ? 1 : -1;
+    const dateLikeKeys = new Set(['updated', 'due', 'created', 'joined', 'last_activity', 'last_login']);
+
+    const aValRaw = getCollectionItemSortValue(a, key);
+    const bValRaw = getCollectionItemSortValue(b, key);
+    if (dateLikeKeys.has(key)) {
+      const aVal = parseSortDateValue(aValRaw);
+      const bVal = parseSortDateValue(bValRaw);
+      if (aVal < bVal) return -1 * dir;
+      if (aVal > bVal) return 1 * dir;
+      return 0;
+    }
+
+    const aVal = String(aValRaw || '').toLowerCase();
+    const bVal = String(bValRaw || '').toLowerCase();
+    if (aVal < bVal) return -1 * dir;
+    if (aVal > bVal) return 1 * dir;
+    return 0;
+  }
+
+  function getDefaultOrderOptions() {
+    return [
+      { value: 'default', label: 'Default order' },
+      { value: 'updated_desc', label: 'Recently updated' },
+      { value: 'updated_asc', label: 'Oldest updated' },
+      { value: 'due_asc', label: 'Due date (soonest)' },
+      { value: 'due_desc', label: 'Due date (latest)' },
+      { value: 'title_asc', label: 'Title (A-Z)' },
+      { value: 'title_desc', label: 'Title (Z-A)' },
+      { value: 'project_asc', label: 'Project (A-Z)' },
+      { value: 'project_desc', label: 'Project (Z-A)' },
+    ];
+  }
+
   applyTaskResultsSort();
 
   function normalizeMentionQuery(rawValue) {
@@ -1360,7 +1433,7 @@ $(function() {
     if (root.dataset.initialized === '1') return;
     root.dataset.initialized = '1';
 
-    const state = { page: 1, perPage: 10 };
+    const state = { page: 1, perPage: 10, order: 'default' };
     const findEl = (selector) => root.querySelector(selector) || document.querySelector(selector);
     const searchInput = config.searchInputSelector ? findEl(config.searchInputSelector) : null;
     const perPageSelect = config.perPageSelector ? findEl(config.perPageSelector) : null;
@@ -1369,6 +1442,7 @@ $(function() {
     const countLabel = config.countLabelSelector ? findEl(config.countLabelSelector) : null;
     const summaryLabel = config.summarySelector ? findEl(config.summarySelector) : null;
     const paginationControls = config.paginationControlsSelector ? findEl(config.paginationControlsSelector) : null;
+    const orderSelect = config.orderSelectSelector ? findEl(config.orderSelectSelector) : null;
     const tableBody = config.tableBodySelector ? findEl(config.tableBodySelector) : null;
     const emptyTableRow = config.emptyTableRowSelector ? findEl(config.emptyTableRowSelector) : null;
     const cardItems = config.cardSelector ? Array.from(root.querySelectorAll(config.cardSelector)) : [];
@@ -1388,9 +1462,12 @@ $(function() {
         const parsedPerPage = parseInt(parsed.perPage, 10);
         if (Number.isInteger(parsedPage) && parsedPage > 0) state.page = parsedPage;
         if ([10, 25, 50, 100].includes(parsedPerPage)) state.perPage = parsedPerPage;
+        const parsedOrder = String(parsed.order || 'default').trim().toLowerCase();
+        state.order = parsedOrder || 'default';
       } catch (e) {
         state.page = 1;
         state.perPage = 10;
+        state.order = 'default';
       }
     }
 
@@ -1409,6 +1486,11 @@ $(function() {
       const filterValues = getFilterValues();
       const filteredCards = cardItems.filter((item) => config.matchesFilters(item, filterValues));
       const filteredRows = getTableRows().filter((item) => config.matchesFilters(item, filterValues));
+      if (state.order && state.order !== 'default') {
+        filteredCards.sort((a, b) => compareCollectionItemsByOrder(a, b, state.order));
+        filteredRows.sort((a, b) => compareCollectionItemsByOrder(a, b, state.order));
+      }
+
       const totalItems = filteredCards.length || filteredRows.length;
       const totalPages = Math.max(1, Math.ceil(totalItems / state.perPage));
       state.page = Math.max(1, Math.min(state.page, totalPages));
@@ -1438,6 +1520,9 @@ $(function() {
       if (perPageSelect && String(state.perPage) !== perPageSelect.value) {
         perPageSelect.value = String(state.perPage);
       }
+      if (orderSelect && orderSelect.value !== state.order) {
+        orderSelect.value = state.order;
+      }
       saveState();
     }
 
@@ -1453,23 +1538,63 @@ $(function() {
       sorted.forEach((row) => tableBody.appendChild(row));
     }
 
+    function resetToDefaultOrder() {
+      root.querySelectorAll(config.sortButtonSelector || '.sort-btn').forEach((btn) => {
+        btn.dataset.sortDir = '';
+        btn.classList.remove('active');
+      });
+      applyTaskResultsSort(tableBody || root);
+      applyTaskResultsSort(root);
+      state.page = 1;
+      state.order = 'default';
+      apply();
+    }
+
     root.querySelectorAll(config.sortButtonSelector || '.sort-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const key = btn.dataset.sortKey;
-        const current = btn.dataset.sortDir || 'desc';
-        const nextDir = current === 'asc' ? 'desc' : 'asc';
+        const current = btn.dataset.sortDir || '';
+        const nextDir = current === '' ? 'asc' : (current === 'asc' ? 'desc' : '');
 
         root.querySelectorAll(config.sortButtonSelector || '.sort-btn').forEach((other) => {
           other.dataset.sortDir = '';
           other.classList.remove('active');
         });
 
-        btn.dataset.sortDir = nextDir;
-        btn.classList.add('active');
-        sortTable(key, nextDir);
+        if (nextDir) {
+          btn.dataset.sortDir = nextDir;
+          btn.classList.add('active');
+          sortTable(key, nextDir);
+        } else {
+          applyTaskResultsSort(tableBody || root);
+          applyTaskResultsSort(root);
+        }
         apply();
       });
     });
+
+    if (paginationControls) {
+      const actionsHost = paginationControls.querySelector('.page-pagination-right') || paginationControls;
+      if (actionsHost && orderSelect && !orderSelect.dataset.orderOptionsReady) {
+        const options = config.orderOptions || getDefaultOrderOptions();
+        orderSelect.innerHTML = '';
+        options.forEach((opt) => {
+          const option = document.createElement('option');
+          option.value = opt.value;
+          option.textContent = opt.label;
+          orderSelect.appendChild(option);
+        });
+        orderSelect.dataset.orderOptionsReady = '1';
+      }
+    }
+
+    if (orderSelect) {
+      orderSelect.addEventListener('change', () => {
+        state.order = (orderSelect.value || 'default').toLowerCase();
+        state.page = 1;
+        apply();
+      });
+    }
 
     [searchInput, ...extraFilters].forEach((control) => {
       if (!control) return;
@@ -1506,6 +1631,7 @@ $(function() {
     }
 
     loadState();
+    applyTaskResultsSort(tableBody || root);
     apply();
   }
 
@@ -1515,6 +1641,7 @@ $(function() {
       storageKey: 'arva_project_list_paging',
       searchInputSelector: '#project-search',
       perPageSelector: '#project-per-page',
+      orderSelectSelector: '#project-order',
       prevButtonSelector: '#project-page-prev',
       nextButtonSelector: '#project-page-next',
       countLabelSelector: '#project-count',
@@ -1587,6 +1714,7 @@ $(function() {
       storageKey: 'arva_subproject_list_paging',
       searchInputSelector: '#subproject-search',
       perPageSelector: '#subproject-per-page',
+      orderSelectSelector: '#subproject-order',
       prevButtonSelector: '#subproject-page-prev',
       nextButtonSelector: '#subproject-page-next',
       countLabelSelector: '#subproject-count',
@@ -1627,6 +1755,7 @@ $(function() {
       searchInputSelector: '#mycards-search',
       extraFilterSelectors: ['#mycards-priority', '#mycards-due'],
       perPageSelector: '#mycards-per-page',
+      orderSelectSelector: '#mycards-order',
       prevButtonSelector: '#mycards-page-prev',
       nextButtonSelector: '#mycards-page-next',
       countLabelSelector: '#mycards-count',
@@ -1746,6 +1875,16 @@ $(function() {
       sorted.forEach((row) => tableBody.appendChild(row));
     }
 
+    function resetToDefaultOrder() {
+      document.querySelectorAll('.sort-btn').forEach((btn) => {
+        btn.dataset.sortDir = '';
+        btn.classList.remove('active');
+      });
+      applyTaskResultsSort(tableBody);
+      applyTaskResultsSort(document.getElementById('user-card-view'));
+      applyFilters();
+    }
+
     [searchInput, activeSelect, staffSelect].forEach((control) => {
       if (!control) return;
       control.addEventListener('input', applyFilters);
@@ -1755,17 +1894,26 @@ $(function() {
     document.querySelectorAll('.sort-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const key = btn.dataset.sortKey;
-        const current = btn.dataset.sortDir || 'desc';
-        const nextDir = current === 'asc' ? 'desc' : 'asc';
+        const current = btn.dataset.sortDir || '';
+        const nextDir = current === '' ? 'asc' : (current === 'asc' ? 'desc' : '');
         document.querySelectorAll('.sort-btn').forEach((other) => {
           other.dataset.sortDir = '';
           other.classList.remove('active');
         });
-        btn.dataset.sortDir = nextDir;
-        btn.classList.add('active');
-        sortTable(key, nextDir);
+        if (nextDir) {
+          btn.dataset.sortDir = nextDir;
+          btn.classList.add('active');
+          sortTable(key, nextDir);
+        } else {
+          applyTaskResultsSort(tableBody);
+          applyTaskResultsSort(document.getElementById('user-card-view'));
+        }
+        applyFilters();
       });
     });
+    const userPagination = document.getElementById('user-pagination-controls');
+    applyTaskResultsSort(tableBody);
+    applyTaskResultsSort(document.getElementById('user-card-view'));
     applyFilters();
   }
 
@@ -1986,14 +2134,52 @@ $(function() {
       return value;
     }
 
+    function applyTaskListOrder(orderValue) {
+      const root = getBoardRoot();
+      const body = root?.querySelector('#task-list-body');
+      if (!body) return;
+      const value = String(orderValue || 'default').trim().toLowerCase();
+      if (!value || value === 'default') {
+        applyTaskResultsSort(body);
+        sortState.key = '';
+        sortState.dir = '';
+        document.querySelectorAll('.task-list-sort').forEach((btn) => btn.classList.remove('active'));
+        return;
+      }
+      const match = value.match(/^(.+?)_(asc|desc)$/);
+      if (!match) return;
+      const key = match[1];
+      const dir = match[2];
+      sortState.key = key;
+      sortState.dir = dir;
+      const rows = Array.from(body.querySelectorAll('.task-list-row'));
+      rows.sort((a, b) => {
+        const av = getSortValue(a, key);
+        const bv = getSortValue(b, key);
+        if (av < bv) return dir === 'asc' ? -1 : 1;
+        if (av > bv) return dir === 'asc' ? 1 : -1;
+        return 0;
+      }).forEach((row) => body.appendChild(row));
+      document.querySelectorAll('.task-list-sort').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.sortKey === key);
+      });
+    }
+
     function sortListRows(key) {
       const root = getBoardRoot();
       const body = root?.querySelector('#task-list-body');
       if (!body) return;
       const rows = Array.from(body.querySelectorAll('.task-list-row'));
-      const nextDir = sortState.key === key && sortState.dir === 'asc' ? 'desc' : 'asc';
-      sortState.key = key;
+      const isSameKey = sortState.key === key;
+      const nextDir = !isSameKey ? 'asc' : (sortState.dir === 'asc' ? 'desc' : (sortState.dir === 'desc' ? '' : 'asc'));
+      sortState.key = nextDir ? key : '';
       sortState.dir = nextDir;
+      if (!nextDir) {
+        applyTaskListOrder('default');
+        const orderSelect = document.getElementById('task-list-order');
+        if (orderSelect) orderSelect.value = 'default';
+        return;
+      }
       rows.sort((a, b) => {
         const av = getSortValue(a, key);
         const bv = getSortValue(b, key);
@@ -2004,6 +2190,15 @@ $(function() {
       document.querySelectorAll('.task-list-sort').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.sortKey === key);
       });
+      const orderSelect = document.getElementById('task-list-order');
+      if (orderSelect) {
+        const optionValue = `${key}_${nextDir}`;
+        if (Array.from(orderSelect.options).some((opt) => opt.value === optionValue)) {
+          orderSelect.value = optionValue;
+        } else {
+          orderSelect.value = 'default';
+        }
+      }
     }
 
     window.applyProjectBoardViewMode = function() {
@@ -2011,6 +2206,23 @@ $(function() {
       applyMode(saved);
     };
     window.applyProjectBoardViewMode();
+
+    const taskListOrderSelect = document.getElementById('task-list-order');
+    if (taskListOrderSelect) {
+      const savedOrder = localStorage.getItem('arva_project_detail_list_order') || 'default';
+      if (Array.from(taskListOrderSelect.options).some((opt) => opt.value === savedOrder)) {
+        taskListOrderSelect.value = savedOrder;
+      } else {
+        taskListOrderSelect.value = 'default';
+      }
+      applyTaskListOrder(taskListOrderSelect.value);
+    }
+
+    $(document).on('change', '#task-list-order', function() {
+      const selected = ($(this).val() || 'default').toString();
+      localStorage.setItem('arva_project_detail_list_order', selected);
+      applyTaskListOrder(selected);
+    });
 
     const projectPrivateInput = document.getElementById('project-edit-private');
     const projectSharingFields = document.querySelectorAll('.project-edit-sharing-fields');
@@ -2151,11 +2363,17 @@ $(function() {
         } else {
           if (resp.html) {
             const col = document.querySelector(`.task-column[data-list-id="${resp.task_list_id}"]`);
-            if (col) col.insertAdjacentHTML('beforeend', resp.html);
+            if (col) {
+              col.insertAdjacentHTML('beforeend', resp.html);
+              applyTaskResultsSort(col);
+            }
           }
           if (resp.list_row_html) {
             const body = document.getElementById('task-list-body');
-            if (body) body.insertAdjacentHTML('beforeend', resp.list_row_html);
+            if (body) {
+              body.insertAdjacentHTML('beforeend', resp.list_row_html);
+              applyTaskResultsSort(body);
+            }
           }
         }
         const modalEl = document.getElementById('listTaskCreateModal');
@@ -2206,6 +2424,7 @@ $(function() {
       success: function(resp) {
         if (resp.success) {
           $('#project-list').prepend(resp.html);
+          applyTaskResultsSort(document.getElementById('projectViewContent'));
           $('#projectModal').modal('hide');
           $form[0].reset();
           $('#id_is_private').trigger('change');
@@ -2551,6 +2770,7 @@ $(function() {
         if (resp.success) {
           const column = $form.closest('.board-list').find('.task-column');
           column.append(resp.html);
+          applyTaskResultsSort(column.get(0));
           checkEmptyState(column);
           checkEmptyState($(resp.target));
           $form[0].reset();
@@ -3364,23 +3584,33 @@ $(function() {
         if (resp.success) {
           $('#createUserModal').modal('hide');
           if ($('#user-table').length) {
+            const now = new Date();
+            const joinedDateIso = now.toISOString().slice(0, 10);
+            const joinedDateHuman = now.toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            });
+            const joinedEpoch = Math.floor(now.getTime() / 1000);
             $('#user-table tbody').append(`
                         <tr data-user-id="${resp.user.id}"
                             data-username="${(resp.user.username || '').toLowerCase()}"
                             data-email="${(resp.user.email || '').toLowerCase()}"
+                            data-task-sort-created="${joinedEpoch}"
+                            data-task-sort-done="0"
                             data-active="active"
                             data-staff="non-staff"
                             data-last-activity=""
                             data-last-login=""
-                            data-joined=""
+                            data-joined="${joinedDateIso}"
                             data-status="never">
                           <td>${resp.user.username}</td>
                           <td>${resp.user.email}</td>
                           <td><span class="badge bg-success">Yes</span></td>
                           <td><span class="badge bg-secondary">No</span></td>
                           <td>-</td>
-                          <td></td>
-                          <td></td>
+                          <td>-</td>
+                          <td>${joinedDateHuman}</td>
                           <td><span class="status-pill status-never">Never</span></td>
                           <td>
                             <a href="/users/${resp.user.id}/edit/" class="btn btn-sm btn-outline-secondary">Edit</a>
@@ -3390,6 +3620,8 @@ $(function() {
                           </td>
                         </tr>
                     `);
+            applyTaskResultsSort(document.querySelector('#user-table tbody'));
+            applyTaskResultsSort(document.getElementById('user-card-view'));
           }
         }
       },
@@ -3604,6 +3836,11 @@ $(document).on("click", "#btn-save-member", function () {
       success: function(resp) {
         $('#task-board-wrapper').html(resp.html);
         applyTaskResultsSort(document.getElementById('task-board-wrapper'));
+        const savedOrder = localStorage.getItem('arva_project_detail_list_order') || 'default';
+        const $orderSelect = $('#task-list-order');
+        if ($orderSelect.length) {
+          $orderSelect.val(savedOrder).trigger('change');
+        }
         initSortable();
         if (typeof window.applyProjectBoardViewMode === 'function') {
           window.applyProjectBoardViewMode();
@@ -3762,6 +3999,7 @@ $(document).on("click", "#btn-save-member", function () {
       if ($newList.length) $list.html($newList.html());
       if ($newTableBody.length) $table.html($newTableBody.html());
       if ($newCount.length) $('#subproject-count').text($newCount.text());
+      applyTaskResultsSort(document.getElementById('subprojectViewContent'));
     });
   }
 
