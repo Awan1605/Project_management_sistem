@@ -18,6 +18,7 @@ from django.core.paginator import Paginator
 from django.contrib import messages
 from django.utils.timezone import now
 from datetime import timedelta
+from django.db.models.functions import Lower
 
 from ..models import (
     Project, ProjectMember, SubProject, Task, ActivityLog, TaskList,
@@ -60,6 +61,34 @@ def _build_task_status_priority_case(is_structured_project):
         default=1,
         output_field=IntegerField(),
     )
+
+
+def _apply_project_task_sort(queryset, is_structured_project, sort_mode):
+    """Apply server-side sort for project detail task collections."""
+    mode = (sort_mode or 'default').strip().lower()
+    tasks = queryset.annotate(_status_priority=_build_task_status_priority_case(is_structured_project))
+
+    if mode == 'updated_asc':
+        return tasks.order_by('_status_priority', 'updated_at', 'created_at', 'id')
+    if mode == 'updated_desc':
+        return tasks.order_by('_status_priority', '-updated_at', '-created_at', '-id')
+    if mode in {'due_asc', 'due_desc'}:
+        tasks = tasks.annotate(
+            _due_is_null=Case(
+                When(due_date__isnull=True, then=1),
+                default=0,
+                output_field=IntegerField(),
+            )
+        )
+        if mode == 'due_asc':
+            return tasks.order_by('_status_priority', '_due_is_null', 'due_date', '-created_at', '-id')
+        return tasks.order_by('_status_priority', '_due_is_null', '-due_date', '-created_at', '-id')
+    if mode in {'title_asc', 'title_desc'}:
+        tasks = tasks.annotate(_title_sort=Lower('title'))
+        if mode == 'title_asc':
+            return tasks.order_by('_status_priority', '_title_sort', '-created_at', '-id')
+        return tasks.order_by('_status_priority', '-_title_sort', '-created_at', '-id')
+    return tasks.order_by('_status_priority', '-created_at', '-id')
 
 
 # ============================================================
@@ -143,6 +172,7 @@ def project_detail(request, pk):
     priority_code = request.GET.get('priority', '').strip()
     label_id = request.GET.get('label', '')
     due = request.GET.get('due', '')
+    sort_mode = request.GET.get('sort', 'default').strip().lower()
     page_number = request.GET.get('page', 1)
     per_page = request.GET.get('per_page', '25').strip()
     if per_page not in {'10', '25', '50', '100'}:
@@ -188,10 +218,7 @@ def project_detail(request, pk):
         base_tasks = base_tasks.filter(due_date__lte=due)
     base_tasks = base_tasks.distinct()
 
-    status_priority_case = _build_task_status_priority_case(project.is_project)
-    ordered_tasks_qs = base_tasks.annotate(
-        _status_priority=status_priority_case
-    ).order_by('_status_priority', '-created_at', '-id')
+    ordered_tasks_qs = _apply_project_task_sort(base_tasks, project.is_project, sort_mode)
 
     list_tasks_qs = ordered_tasks_qs
     list_paginator = Paginator(list_tasks_qs, int(per_page))
@@ -278,6 +305,7 @@ def project_detail(request, pk):
             'priority': priority_code,
             'label': label_id,
             'due': due,
+            'sort': sort_mode,
             'page': str(list_page_obj.number),
             'per_page': per_page,
         },

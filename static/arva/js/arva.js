@@ -266,6 +266,25 @@ $(function() {
     });
   }
 
+  function syncProjectDetailTaskResultsSortMode(mode) {
+    const selectedMode = String(mode || 'default').trim().toLowerCase();
+    const boardWrapper = document.getElementById('task-board-wrapper');
+    if (!boardWrapper) return;
+    const containers = boardWrapper.querySelectorAll('[data-task-results-item]');
+    containers.forEach((container) => {
+      const fallback = container.dataset.defaultTaskResultsSort || container.getAttribute('data-task-results-sort') || 'status-created-desc';
+      container.dataset.defaultTaskResultsSort = fallback;
+      if (selectedMode === 'default') {
+        container.setAttribute('data-task-results-sort', fallback);
+      } else {
+        container.removeAttribute('data-task-results-sort');
+      }
+    });
+    if (selectedMode === 'default') {
+      applyTaskResultsSort(boardWrapper);
+    }
+  }
+
   function parseSortDateValue(raw) {
     if (raw === undefined || raw === null) return 0;
     const text = String(raw).trim();
@@ -373,6 +392,7 @@ $(function() {
   }
 
   const TASK_RESULTS_VIEW_KEY = 'arva_task_user_results_view';
+  const TASK_RESULTS_SORT_KEY = 'arva_task_user_results_sort';
 
   function normalizeTaskResultsView(value) {
     const raw = (value || '').toString().trim().toLowerCase();
@@ -516,6 +536,7 @@ $(function() {
       isSearchActive: false,
       fetchController: null,
       loadedUserKey: '',
+      loadedSortMode: '',
     };
 
     state.userLabel = panel.querySelector('[data-task-user-results-user]');
@@ -540,6 +561,14 @@ $(function() {
     state.nextBtn = panel.querySelector('[data-task-results-next]');
     state.viewButtons = Array.from(panel.querySelectorAll('[data-task-results-view]'));
     state.resetBtn = panel.querySelector('[data-task-results-reset]');
+    if (state.sortSelect) {
+      const savedSort = (localStorage.getItem(TASK_RESULTS_SORT_KEY) || 'default').toLowerCase();
+      if (Array.from(state.sortSelect.options).some((opt) => opt.value === savedSort)) {
+        state.sortSelect.value = savedSort;
+      } else {
+        state.sortSelect.value = 'default';
+      }
+    }
 
     state.viewButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -557,6 +586,7 @@ $(function() {
       state.tasks = [];
       state.filtered = [];
       state.loadedUserKey = '';
+      state.loadedSortMode = '';
       state.page = 1;
       state.filterInput.value = '';
       state.userLabel.textContent = '';
@@ -573,8 +603,9 @@ $(function() {
       renderTaskSearchPanel(state);
     });
     state.sortSelect?.addEventListener('change', () => {
+      localStorage.setItem(TASK_RESULTS_SORT_KEY, state.sortSelect.value || 'default');
       state.page = 1;
-      renderTaskSearchPanel(state);
+      fetchTaskSearchResultsForSelectedUser(state, { force: true, scrollIntoView: false });
     });
     state.perPageSelect?.addEventListener('change', () => {
       const next = parseInt(state.perPageSelect.value || '25', 10);
@@ -594,22 +625,6 @@ $(function() {
 
     window.__taskSearchPanelState = state;
     return state;
-  }
-
-  function getTaskSortValue(task, mode) {
-    if (mode === 'updated_asc' || mode === 'updated_desc') {
-      return task.updated_at || '';
-    }
-    if (mode === 'due_asc' || mode === 'due_desc') {
-      return task.due_date || '';
-    }
-    if (mode === 'title_asc' || mode === 'title_desc') {
-      return (task.title || '').toLowerCase();
-    }
-    if (mode === 'project_asc') {
-      return (task.project_name || '').toLowerCase();
-    }
-    return task.updated_at || '';
   }
 
   function createAvatarNode(userInfo, fallbackText, sizeClass = '') {
@@ -722,30 +737,12 @@ $(function() {
   function renderTaskSearchPanel(state) {
     if (!state?.panel) return;
     const query = (state.filterInput?.value || '').trim().toLowerCase();
-    const sortMode = state.sortSelect?.value || 'default';
-    const sortDesc = sortMode.endsWith('_desc');
+    const activeSortMode = (state.sortSelect?.value || 'default').toLowerCase();
 
     const filtered = state.tasks.filter((task) => {
       if (!query) return true;
       const hay = `${task.title || ''} ${task.project_name || ''} ${task.status || ''} ${task.assignees_display || ''}`.toLowerCase();
       return hay.includes(query);
-    });
-    filtered.sort((a, b) => {
-      const doneA = String((a.status_code || '').toLowerCase()) === 'done' ? 1 : 0;
-      const doneB = String((b.status_code || '').toLowerCase()) === 'done' ? 1 : 0;
-      if (doneA !== doneB) return doneA - doneB;
-
-      if (sortMode !== 'default') {
-        const aVal = getTaskSortValue(a, sortMode);
-        const bVal = getTaskSortValue(b, sortMode);
-        if (aVal < bVal) return sortDesc ? 1 : -1;
-        if (aVal > bVal) return sortDesc ? -1 : 1;
-      }
-
-      const createdA = a.created_at ? Date.parse(a.created_at) || 0 : 0;
-      const createdB = b.created_at ? Date.parse(b.created_at) || 0 : 0;
-      if (createdA !== createdB) return createdB - createdA;
-      return (b.id || 0) - (a.id || 0);
     });
 
     state.filtered = filtered;
@@ -796,6 +793,13 @@ $(function() {
 
     state.cardList.innerHTML = '';
     state.tableBody.innerHTML = '';
+    if (activeSortMode === 'default') {
+      state.cardList.setAttribute('data-task-results-sort', 'status-created-desc');
+      state.tableBody.setAttribute('data-task-results-sort', 'status-created-desc');
+    } else {
+      state.cardList.removeAttribute('data-task-results-sort');
+      state.tableBody.removeAttribute('data-task-results-sort');
+    }
     visible.forEach((task) => {
       const card = document.createElement('a');
       card.href = task.url || '#';
@@ -945,17 +949,18 @@ $(function() {
       row.appendChild(rowActivity);
       state.tableBody.appendChild(row);
     });
-    applyTaskResultsSort(state.panel);
+    if (activeSortMode === 'default') {
+      applyTaskResultsSort(state.panel);
+    }
   }
 
-  function showTaskSearchPanelForUser(user) {
-    if (!user) return;
-    const state = getTaskSearchPanelState();
-    state.viewMode = normalizeTaskResultsView(localStorage.getItem(TASK_RESULTS_VIEW_KEY)) || state.viewMode || 'list';
-    const userKey = String(user.id || user.username || '').toLowerCase();
-    if (state.loadedUserKey && state.loadedUserKey === userKey && state.tasks.length) {
-      state.user = user;
-      state.page = 1;
+  function fetchTaskSearchResultsForSelectedUser(state, options = {}) {
+    if (!state?.user) return;
+    const force = !!options.force;
+    const scrollIntoView = options.scrollIntoView !== false;
+    const sortMode = (state.sortSelect?.value || 'default').toLowerCase();
+    const userKey = String(state.user.id || state.user.username || '').toLowerCase();
+    if (!force && state.loadedUserKey === userKey && state.loadedSortMode === sortMode && Array.isArray(state.tasks) && state.tasks.length) {
       setDefaultTaskContainersVisibility(state, false);
       state.isSearchActive = true;
       state.panel.classList.remove('d-none');
@@ -967,34 +972,46 @@ $(function() {
       state.fetchController.abort();
     }
     state.fetchController = new AbortController();
-    state.user = user;
-    state.page = 1;
+    const params = new URLSearchParams({
+      user_q: state.user.username || state.user.email || '',
+      sort: sortMode || 'default',
+    });
 
-    fetch(`/tasks/search/?${new URLSearchParams({ user_q: user.username || '' }).toString()}`, {
+    fetch(`/tasks/search/?${params.toString()}`, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
       signal: state.fetchController.signal
     }).then((resp) => resp.json()).then((resp) => {
       state.fetchController = null;
-      if (!resp.success) {
-        state.tasks = [];
-      } else {
-        state.tasks = Array.isArray(resp.results) ? resp.results : [];
-      }
+      state.tasks = resp.success && Array.isArray(resp.results) ? resp.results : [];
       state.loadedUserKey = userKey;
+      state.loadedSortMode = sortMode;
       setDefaultTaskContainersVisibility(state, false);
       state.isSearchActive = true;
       state.panel.classList.remove('d-none');
       renderTaskSearchPanel(state);
-      state.panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (scrollIntoView) {
+        state.panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
     }).catch(() => {
       if (state.fetchController?.signal?.aborted) return;
       state.fetchController = null;
       state.tasks = [];
+      state.loadedUserKey = userKey;
+      state.loadedSortMode = sortMode;
       setDefaultTaskContainersVisibility(state, false);
       state.isSearchActive = true;
       state.panel.classList.remove('d-none');
       renderTaskSearchPanel(state);
     });
+  }
+
+  function showTaskSearchPanelForUser(user) {
+    if (!user) return;
+    const state = getTaskSearchPanelState();
+    state.viewMode = normalizeTaskResultsView(localStorage.getItem(TASK_RESULTS_VIEW_KEY)) || state.viewMode || 'list';
+    state.user = user;
+    state.page = 1;
+    fetchTaskSearchResultsForSelectedUser(state, { force: false, scrollIntoView: true });
   }
 
   function initTaskUserSearchWidgets() {
@@ -2209,19 +2226,24 @@ $(function() {
 
     const taskListOrderSelect = document.getElementById('task-list-order');
     if (taskListOrderSelect) {
-      const savedOrder = localStorage.getItem('arva_project_detail_list_order') || 'default';
-      if (Array.from(taskListOrderSelect.options).some((opt) => opt.value === savedOrder)) {
-        taskListOrderSelect.value = savedOrder;
+      const hiddenSortInput = document.getElementById('task-filter-sort');
+      const currentOrder = (hiddenSortInput?.value || '').toLowerCase();
+      const savedOrder = (localStorage.getItem('arva_project_detail_list_order') || 'default').toLowerCase();
+      const initialOrder = Array.from(taskListOrderSelect.options).some((opt) => opt.value === currentOrder) ? currentOrder : savedOrder;
+      if (Array.from(taskListOrderSelect.options).some((opt) => opt.value === initialOrder)) {
+        taskListOrderSelect.value = initialOrder;
       } else {
         taskListOrderSelect.value = 'default';
       }
-      applyTaskListOrder(taskListOrderSelect.value);
+      if (hiddenSortInput) hiddenSortInput.value = taskListOrderSelect.value;
+      syncProjectDetailTaskResultsSortMode(taskListOrderSelect.value);
     }
 
     $(document).on('change', '#task-list-order', function() {
       const selected = ($(this).val() || 'default').toString();
       localStorage.setItem('arva_project_detail_list_order', selected);
-      applyTaskListOrder(selected);
+      $('#task-filter-sort').val(selected);
+      reloadProjectDetailBoard(true);
     });
 
     const projectPrivateInput = document.getElementById('project-edit-private');
@@ -3818,8 +3840,10 @@ $(document).on("click", "#btn-save-member", function () {
     const params = new URLSearchParams($('#task-filter-form').serialize());
     const pageValue = ($('#task-filter-page').val() || '1').toString();
     const perPageValue = ($('#task-filter-per-page').val() || '25').toString();
+    const sortValue = ($('#task-list-order').val() || $('#task-filter-sort').val() || 'default').toString();
     params.set('page', pageValue);
     params.set('per_page', perPageValue);
+    params.set('sort', sortValue);
 
     if (taskScope === 'all') {
       params.set('sub', 'all');
@@ -3835,12 +3859,13 @@ $(document).on("click", "#btn-save-member", function () {
       },
       success: function(resp) {
         $('#task-board-wrapper').html(resp.html);
-        applyTaskResultsSort(document.getElementById('task-board-wrapper'));
-        const savedOrder = localStorage.getItem('arva_project_detail_list_order') || 'default';
+        const savedOrder = localStorage.getItem('arva_project_detail_list_order') || $('#task-filter-sort').val() || 'default';
         const $orderSelect = $('#task-list-order');
         if ($orderSelect.length) {
-          $orderSelect.val(savedOrder).trigger('change');
+          $orderSelect.val(savedOrder);
         }
+        $('#task-filter-sort').val(savedOrder);
+        syncProjectDetailTaskResultsSortMode(savedOrder);
         initSortable();
         if (typeof window.applyProjectBoardViewMode === 'function') {
           window.applyProjectBoardViewMode();

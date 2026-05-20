@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
 from django.db import transaction, models as dj_models
 from django.db.models import Q, Max, Prefetch, Case, When, IntegerField, Value, CharField, F
-from django.db.models.functions import Concat
+from django.db.models.functions import Concat, Lower
 from django.contrib.auth import get_user_model
 from django.utils.html import strip_tags
 
@@ -55,6 +55,39 @@ def _task_search_status_priority_case():
     )
 
 
+def _apply_task_search_sort(queryset, sort_mode):
+    """Apply server-side ordering for task search results."""
+    mode = (sort_mode or 'default').strip().lower()
+    tasks = queryset.annotate(_status_priority=_task_search_status_priority_case())
+
+    if mode == 'updated_asc':
+        return tasks.order_by('_status_priority', 'updated_at', 'created_at', 'id')
+    if mode == 'updated_desc':
+        return tasks.order_by('_status_priority', '-updated_at', '-created_at', '-id')
+    if mode in {'due_asc', 'due_desc'}:
+        tasks = tasks.annotate(
+            _due_is_null=Case(
+                When(due_date__isnull=True, then=1),
+                default=0,
+                output_field=IntegerField(),
+            )
+        )
+        if mode == 'due_asc':
+            return tasks.order_by('_status_priority', '_due_is_null', 'due_date', '-created_at', '-id')
+        return tasks.order_by('_status_priority', '_due_is_null', '-due_date', '-created_at', '-id')
+    if mode in {'title_asc', 'title_desc'}:
+        tasks = tasks.annotate(_title_sort=Lower('title'))
+        if mode == 'title_asc':
+            return tasks.order_by('_status_priority', '_title_sort', '-created_at', '-id')
+        return tasks.order_by('_status_priority', '-_title_sort', '-created_at', '-id')
+    if mode in {'project_asc', 'project_desc'}:
+        tasks = tasks.annotate(_project_sort=Lower('project__name'))
+        if mode == 'project_asc':
+            return tasks.order_by('_status_priority', '_project_sort', '-created_at', '-id')
+        return tasks.order_by('_status_priority', '-_project_sort', '-created_at', '-id')
+    return tasks.order_by('_status_priority', '-created_at', '-id')
+
+
 # ============================================================
 # TASK BOARD VIEWS
 # ============================================================
@@ -69,6 +102,7 @@ def task_search_by_user(request):
     due = request.GET.get('due', '').strip()
     label_id = request.GET.get('label', '').strip()
     project_id = request.GET.get('project', '').strip()
+    sort_mode = request.GET.get('sort', 'default').strip().lower()
 
     accessible_projects = get_accessible_projects_queryset(request.user)
     tasks = Task.objects.filter(
@@ -110,9 +144,7 @@ def task_search_by_user(request):
     if project_id:
         tasks = tasks.filter(project_id=project_id)
 
-    tasks = tasks.annotate(
-        _status_priority=_task_search_status_priority_case()
-    ).order_by('_status_priority', '-created_at', '-id')[:200]
+    tasks = _apply_task_search_sort(tasks, sort_mode)[:200]
     results = []
     for task in tasks:
         assignees = list(task.assignees.all())
@@ -168,7 +200,12 @@ def task_search_by_user(request):
             'url': f"/task/{task.id}/",
         })
 
-    return JsonResponse({'success': True, 'count': len(results), 'results': results})
+    return JsonResponse({
+        'success': True,
+        'count': len(results),
+        'sort': sort_mode or 'default',
+        'results': results
+    })
 
 
 @login_required

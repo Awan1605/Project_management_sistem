@@ -173,13 +173,13 @@
             </button>
           </div>
           <select id="task-list-order" class="form-select form-select-sm" aria-label="Task order">
-            <option value="default" selected>Default order</option>
-            <option value="updated_desc">Recently updated</option>
-            <option value="updated_asc">Oldest updated</option>
-            <option value="due_asc">Due date (soonest)</option>
-            <option value="due_desc">Due date (latest)</option>
-            <option value="title_asc">Title (A-Z)</option>
-            <option value="title_desc">Title (Z-A)</option>
+            <option value="default" {% if filter_values.sort|default:'default' == 'default' %}selected{% endif %}>Default order</option>
+            <option value="updated_desc" {% if filter_values.sort == 'updated_desc' %}selected{% endif %}>Recently updated</option>
+            <option value="updated_asc" {% if filter_values.sort == 'updated_asc' %}selected{% endif %}>Oldest updated</option>
+            <option value="due_asc" {% if filter_values.sort == 'due_asc' %}selected{% endif %}>Due date (soonest)</option>
+            <option value="due_desc" {% if filter_values.sort == 'due_desc' %}selected{% endif %}>Due date (latest)</option>
+            <option value="title_asc" {% if filter_values.sort == 'title_asc' %}selected{% endif %}>Title (A-Z)</option>
+            <option value="title_desc" {% if filter_values.sort == 'title_desc' %}selected{% endif %}>Title (Z-A)</option>
           </select>
           {% if not project.is_closed and user_role == 'admin' or not project.is_closed and user_role == 'member' %}
             <button type="button" class="btn btn-primary btn-sm compact-add-btn btn-list-add-task">

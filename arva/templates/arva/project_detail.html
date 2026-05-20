@@ -166,6 +166,7 @@
     <form id="task-filter-form" class="task-filter-toolbar">
       <input type="hidden" name="page" id="task-filter-page" value="{{ filter_values.page|default:'1' }}">
       <input type="hidden" name="per_page" id="task-filter-per-page" value="{{ filter_values.per_page|default:'25' }}">
+      <input type="hidden" name="sort" id="task-filter-sort" value="{{ filter_values.sort|default:'default' }}">
 
       <div class="tf-field tf-field-wide">
         <i class="bi bi-search tf-field-icon"></i>
