@@ -75,6 +75,7 @@ from .task import (
     task_unarchive,
     task_inline_update,
     task_search_by_user,
+    task_user_suggestions,
     my_cards,
 )
 

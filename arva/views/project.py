@@ -35,6 +35,7 @@ from .helpers import (
     sync_project_shares,
     STRUCTURED_TASK_PRIORITIES,
     STRUCTURED_TASK_STATUSES,
+    normalize_user_mention_query,
 )
 
 User = get_user_model()
@@ -109,7 +110,7 @@ def project_detail(request, pk):
 
     q = request.GET.get('q', '')
     assignee_id = request.GET.get('assignee', '')
-    assignee_query = request.GET.get('assignee_q', '').strip()
+    assignee_query = normalize_user_mention_query(request.GET.get('assignee_q', ''))
     status_id = request.GET.get('status', '').strip()
     priority_code = request.GET.get('priority', '').strip()
     label_id = request.GET.get('label', '')
@@ -141,7 +142,9 @@ def project_detail(request, pk):
     if assignee_query:
         base_tasks = base_tasks.filter(
             Q(assignees__username__icontains=assignee_query) |
-            Q(assignees__email__icontains=assignee_query)
+            Q(assignees__email__icontains=assignee_query) |
+            Q(assignees__first_name__icontains=assignee_query) |
+            Q(assignees__last_name__icontains=assignee_query)
         )
     if project.is_project:
         if status_id and status_id in STRUCTURED_TASK_STATUSES:

@@ -32,6 +32,7 @@ from .helpers import (
     closed_project_error,
     STRUCTURED_TASK_PRIORITIES,
     STRUCTURED_TASK_STATUSES,
+    normalize_user_mention_query,
 )
 
 User = get_user_model()
@@ -45,7 +46,8 @@ User = get_user_model()
 def task_search_by_user(request):
     """Cari task berdasarkan user, status, due date, label, dan project.
     Mengembalikan hasil dalam format JSON untuk AJAX."""
-    user_query = request.GET.get('user_q', '').strip()
+    user_query_raw = request.GET.get('user_q', '')
+    user_query = normalize_user_mention_query(user_query_raw)
     status = request.GET.get('status', '').strip()
     due = request.GET.get('due', '').strip()
     label_id = request.GET.get('label', '').strip()
@@ -62,7 +64,9 @@ def task_search_by_user(request):
     if user_query:
         tasks = tasks.filter(
             Q(assignees__username__icontains=user_query) |
-            Q(assignees__email__icontains=user_query)
+            Q(assignees__email__icontains=user_query) |
+            Q(assignees__first_name__icontains=user_query) |
+            Q(assignees__last_name__icontains=user_query)
         )
     if status:
         tasks = tasks.filter(task_list__name__iexact=status)
@@ -88,6 +92,47 @@ def task_search_by_user(request):
             'assignees': [u.username for u in assignees],
             'assignees_display': ', '.join(u.username for u in assignees[:3]) + (f" +{len(assignees)-3}" if len(assignees) > 3 else ''),
             'url': f"/project/{task.project_id}/",
+        })
+
+    return JsonResponse({'success': True, 'count': len(results), 'results': results})
+
+
+@login_required
+def task_user_suggestions(request):
+    """Cari kandidat user untuk mention-style assignee filter."""
+    raw_query = request.GET.get('q', '')
+    query = normalize_user_mention_query(raw_query)
+
+    accessible_projects = get_accessible_projects_queryset(request.user)
+    users = User.objects.filter(
+        assigned_tasks__project__in=accessible_projects,
+        assigned_tasks__is_archived=False,
+        is_active=True,
+    )
+    if query:
+        users = users.filter(
+            Q(username__icontains=query) |
+            Q(email__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query)
+        )
+    users = users.select_related('userprofile').distinct().order_by('username')[:20]
+
+    results = []
+    seen_user_ids = set()
+    for user in users:
+        if user.id in seen_user_ids:
+            continue
+        seen_user_ids.add(user.id)
+        profile = getattr(user, 'userprofile', None)
+        full_name = user.get_full_name().strip()
+        avatar_url = profile.avatar_url if profile else '/static/arva/img/default-avatar.png'
+        results.append({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email or '',
+            'full_name': full_name,
+            'avatar_url': avatar_url,
         })
 
     return JsonResponse({'success': True, 'count': len(results), 'results': results})

@@ -33,6 +33,7 @@ urlpatterns = [
     path('', views.project_list, name='project_list'),
     path('my/cards/', views.my_cards, name='my_cards'),
     path('tasks/search/', views.task_search_by_user, name='task_search_by_user'),
+    path('tasks/user-suggestions/', views.task_user_suggestions, name='task_user_suggestions'),
     path('project/create/', views.project_create, name='project_create'),
     path('project/<int:pk>/', views.project_detail, name='project_detail'),
     path('project/<int:pk>/update/', views.project_update, name='project_update'),

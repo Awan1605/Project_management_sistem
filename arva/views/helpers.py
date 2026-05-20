@@ -53,6 +53,19 @@ def get_accessible_projects_queryset(user):
     ).distinct()
 
 
+def normalize_user_mention_query(raw_value):
+    """Normalisasi query pencarian user.
+
+    Mendukung format mention seperti:
+    - @andre
+    - @andre@email.com
+    """
+    value = (raw_value or '').strip()
+    if value.startswith('@'):
+        value = value[1:].strip()
+    return value
+
+
 def get_user_project_or_404(user, pk):
     """Ambil project berdasarkan pk, hanya jika user memiliki akses.
     Jika tidak ditemukan, return 404."""

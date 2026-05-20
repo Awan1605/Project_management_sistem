@@ -212,6 +212,52 @@ $(function() {
 
   initPersistentViewToggles();
 
+  function normalizeMentionQuery(rawValue) {
+    const value = (rawValue || '').trim();
+    return value.startsWith('@') ? value.slice(1).trim() : value;
+  }
+
+  function getUserInitials(user) {
+    const source = (user.full_name || user.username || user.email || '').trim();
+    if (!source) return '?';
+    const chunks = source.split(/\s+/).filter(Boolean);
+    if (chunks.length >= 2) {
+      return `${chunks[0][0]}${chunks[1][0]}`.toUpperCase();
+    }
+    return source.slice(0, 2).toUpperCase();
+  }
+
+  function fetchUserMentionSuggestions(query, handlers) {
+    fetch(`/tasks/user-suggestions/?${new URLSearchParams({ q: query }).toString()}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then((resp) => resp.json()).then((resp) => {
+      if (!resp.success) {
+        handlers.onError?.();
+        return;
+      }
+      handlers.onSuccess?.(resp.results || []);
+    }).catch(() => {
+      handlers.onError?.();
+    });
+  }
+
+  function applyMentionToBoardFilter(mentionValue) {
+    const filterForm = document.getElementById('task-filter-form');
+    if (!filterForm) return false;
+
+    const assigneeInput = filterForm.querySelector('input[name="assignee_q"]');
+    if (!assigneeInput) return false;
+
+    const assigneeSelect = filterForm.querySelector('select[name="assignee"]');
+    if (assigneeSelect) {
+      assigneeSelect.value = '';
+    }
+    assigneeInput.value = mentionValue;
+    assigneeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    assigneeInput.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
+    return true;
+  }
+
   function initTaskUserSearchWidgets() {
     const widgets = Array.from(document.querySelectorAll('[data-task-user-search-widget]'));
     if (!widgets.length) return;
@@ -222,31 +268,52 @@ $(function() {
       if (!input || !results) return;
 
       let timer = null;
-      let lastQuery = '';
+      let requestToken = 0;
+      let activeIndex = -1;
+      let items = [];
 
-      function hideResults() {
+      const hideResults = () => {
         results.classList.add('d-none');
+        activeIndex = -1;
+      };
+      const showResults = () => results.classList.remove('d-none');
+      const getQuery = () => (input.value || '').trim();
+      const isMentionMode = () => getQuery().startsWith('@');
+
+      function refreshInteractiveItems() {
+        items = Array.from(results.querySelectorAll('.task-user-search-item'));
+        activeIndex = items.length ? 0 : -1;
+        items.forEach((el, idx) => el.classList.toggle('is-active', idx === activeIndex));
       }
 
-      function showResults() {
-        results.classList.remove('d-none');
+      function setActiveIndex(nextIndex) {
+        if (!items.length) return;
+        if (nextIndex < 0) nextIndex = items.length - 1;
+        if (nextIndex >= items.length) nextIndex = 0;
+        activeIndex = nextIndex;
+        items.forEach((el, idx) => el.classList.toggle('is-active', idx === activeIndex));
+        items[activeIndex]?.scrollIntoView({ block: 'nearest' });
       }
 
       function renderEmpty(text) {
         results.innerHTML = `<div class="task-user-search-empty">${text}</div>`;
+        refreshInteractiveItems();
         showResults();
       }
 
-      function renderItems(items) {
-        if (!items.length) {
+      function renderTaskItems(taskItems) {
+        if (!taskItems.length) {
           renderEmpty('No matching tasks found.');
           return;
         }
         results.innerHTML = '';
-        items.slice(0, 12).forEach((item) => {
+        taskItems.slice(0, 12).forEach((item) => {
           const link = document.createElement('a');
           link.href = item.url || '#';
           link.className = 'task-user-search-item';
+          link.setAttribute('data-item-type', 'task');
+          const body = document.createElement('div');
+          body.className = 'task-user-search-user-body';
 
           const title = document.createElement('div');
           title.className = 'task-user-search-item-title';
@@ -256,54 +323,343 @@ $(function() {
           meta.className = 'task-user-search-item-meta';
           meta.textContent = `${item.project_name || '-'} | ${item.assignees_display || 'No assignee'} | ${item.status || '-'}`;
 
-          link.appendChild(title);
-          link.appendChild(meta);
+          body.appendChild(title);
+          body.appendChild(meta);
+          link.appendChild(body);
           results.appendChild(link);
         });
+        refreshInteractiveItems();
         showResults();
       }
 
-      function fetchResults(query) {
+      function fetchTaskResults(query) {
+        const token = ++requestToken;
         fetch(`/tasks/search/?${new URLSearchParams({ user_q: query }).toString()}`, {
           headers: { 'X-Requested-With': 'XMLHttpRequest' }
         }).then((resp) => resp.json()).then((resp) => {
+          if (token !== requestToken) return;
           if (!resp.success) {
             renderEmpty('Search failed.');
             return;
           }
-          renderItems(resp.results || []);
+          renderTaskItems(resp.results || []);
         }).catch(() => {
+          if (token !== requestToken) return;
           renderEmpty('Search failed.');
         });
       }
 
-      input.addEventListener('input', () => {
-        const query = (input.value || '').trim();
-        if (query === lastQuery) return;
-        lastQuery = query;
-
-        clearTimeout(timer);
-        if (!query) {
+      function applyUserSelection(user) {
+        const mentionValue = `@${user.username}`;
+        input.value = mentionValue;
+        const didApplyBoardFilter = applyMentionToBoardFilter(mentionValue);
+        if (didApplyBoardFilter) {
           hideResults();
           return;
         }
+        fetchTaskResults(mentionValue);
+      }
 
-        timer = setTimeout(() => fetchResults(query), 220);
-      });
+      function renderUserItems(userItems) {
+        if (!userItems.length) {
+          renderEmpty('No matching users found.');
+          return;
+        }
+        results.innerHTML = '';
+        userItems.slice(0, 12).forEach((user) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'task-user-search-item task-user-search-user';
+          button.setAttribute('data-item-type', 'user');
+          button.setAttribute('aria-label', `Select ${user.username}`);
 
-      document.addEventListener('click', (e) => {
-        if (!widget.contains(e.target)) hideResults();
+          const avatar = document.createElement('div');
+          avatar.className = 'task-user-search-avatar';
+          const initials = document.createElement('span');
+          initials.className = 'task-user-search-avatar-initials';
+          initials.textContent = getUserInitials(user);
+
+          if (user.avatar_url) {
+            const img = document.createElement('img');
+            img.src = user.avatar_url;
+            img.alt = user.username;
+            img.className = 'task-user-search-avatar-img';
+            img.addEventListener('error', () => {
+              img.remove();
+              avatar.appendChild(initials);
+            });
+            avatar.appendChild(img);
+          } else {
+            avatar.appendChild(initials);
+          }
+
+          const body = document.createElement('div');
+          body.className = 'task-user-search-user-body';
+          const title = document.createElement('div');
+          title.className = 'task-user-search-item-title';
+          title.textContent = user.full_name || user.username;
+
+          const meta = document.createElement('div');
+          meta.className = 'task-user-search-item-meta';
+          meta.textContent = `${user.username}${user.email ? ` | ${user.email}` : ''}`;
+
+          body.appendChild(title);
+          body.appendChild(meta);
+          button.appendChild(avatar);
+          button.appendChild(body);
+          button.addEventListener('click', () => applyUserSelection(user));
+          button.addEventListener('mousemove', () => {
+            const idx = items.indexOf(button);
+            if (idx >= 0) setActiveIndex(idx);
+          });
+          results.appendChild(button);
+        });
+        refreshInteractiveItems();
+        showResults();
+      }
+
+      function runSearch() {
+        const rawQuery = getQuery();
+        if (!rawQuery) {
+          hideResults();
+          return;
+        }
+        if (isMentionMode()) {
+          const mentionQuery = normalizeMentionQuery(rawQuery);
+          const token = ++requestToken;
+          fetchUserMentionSuggestions(mentionQuery, {
+            onSuccess: (userItems) => {
+              if (token !== requestToken) return;
+              renderUserItems(userItems);
+            },
+            onError: () => {
+              if (token !== requestToken) return;
+              renderEmpty('User search failed.');
+            }
+          });
+          return;
+        }
+        fetchTaskResults(rawQuery);
+      }
+
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(runSearch, isMentionMode() ? 120 : 220);
       });
 
       input.addEventListener('focus', () => {
-        const query = (input.value || '').trim();
-        if (!query) return;
-        fetchResults(query);
+        if (!getQuery()) return;
+        runSearch();
+      });
+
+      input.addEventListener('keydown', (event) => {
+        if (results.classList.contains('d-none')) return;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          hideResults();
+          return;
+        }
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          setActiveIndex(activeIndex + 1);
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          setActiveIndex(activeIndex - 1);
+          return;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (activeIndex >= 0 && items[activeIndex]) {
+            items[activeIndex].click();
+            return;
+          }
+          if (isMentionMode()) {
+            fetchTaskResults(getQuery());
+          }
+        }
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!widget.contains(event.target)) hideResults();
+      });
+    });
+  }
+
+  function initTaskMentionFilterInputs() {
+    const inputs = Array.from(document.querySelectorAll('input[data-mention-filter-input="assignee"]'));
+    if (!inputs.length) return;
+
+    inputs.forEach((input) => {
+      if (input.dataset.mentionReady === '1') return;
+      input.dataset.mentionReady = '1';
+
+      const field = input.closest('.tf-field') || input.parentElement;
+      if (!field) return;
+
+      const results = document.createElement('div');
+      results.className = 'task-user-search-results task-user-search-results-inline d-none';
+      field.appendChild(results);
+
+      let timer = null;
+      let activeIndex = -1;
+      let items = [];
+      let requestToken = 0;
+
+      const hideResults = () => {
+        results.classList.add('d-none');
+        activeIndex = -1;
+      };
+      const showResults = () => results.classList.remove('d-none');
+
+      const refreshItems = () => {
+        items = Array.from(results.querySelectorAll('.task-user-search-item'));
+        activeIndex = items.length ? 0 : -1;
+        items.forEach((el, idx) => el.classList.toggle('is-active', idx === activeIndex));
+      };
+
+      const setActive = (nextIndex) => {
+        if (!items.length) return;
+        if (nextIndex < 0) nextIndex = items.length - 1;
+        if (nextIndex >= items.length) nextIndex = 0;
+        activeIndex = nextIndex;
+        items.forEach((el, idx) => el.classList.toggle('is-active', idx === activeIndex));
+        items[activeIndex]?.scrollIntoView({ block: 'nearest' });
+      };
+
+      const renderEmpty = (text) => {
+        results.innerHTML = `<div class="task-user-search-empty">${text}</div>`;
+        refreshItems();
+        showResults();
+      };
+
+      const applySelection = (user) => {
+        const mentionValue = `@${user.username}`;
+        input.value = mentionValue;
+        const assigneeSelect = document.querySelector('#task-filter-form select[name="assignee"]');
+        if (assigneeSelect) assigneeSelect.value = '';
+        hideResults();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
+      };
+
+      const renderUsers = (userItems) => {
+        if (!userItems.length) {
+          renderEmpty('No matching users found.');
+          return;
+        }
+        results.innerHTML = '';
+        userItems.slice(0, 10).forEach((user) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'task-user-search-item task-user-search-user';
+
+          const avatar = document.createElement('div');
+          avatar.className = 'task-user-search-avatar';
+          const initials = document.createElement('span');
+          initials.className = 'task-user-search-avatar-initials';
+          initials.textContent = getUserInitials(user);
+          if (user.avatar_url) {
+            const img = document.createElement('img');
+            img.src = user.avatar_url;
+            img.alt = user.username;
+            img.className = 'task-user-search-avatar-img';
+            img.addEventListener('error', () => {
+              img.remove();
+              avatar.appendChild(initials);
+            });
+            avatar.appendChild(img);
+          } else {
+            avatar.appendChild(initials);
+          }
+
+          const body = document.createElement('div');
+          body.className = 'task-user-search-user-body';
+          const title = document.createElement('div');
+          title.className = 'task-user-search-item-title';
+          title.textContent = user.full_name || user.username;
+          const meta = document.createElement('div');
+          meta.className = 'task-user-search-item-meta';
+          meta.textContent = `${user.username}${user.email ? ` | ${user.email}` : ''}`;
+
+          body.appendChild(title);
+          body.appendChild(meta);
+          button.appendChild(avatar);
+          button.appendChild(body);
+          button.addEventListener('click', () => applySelection(user));
+          button.addEventListener('mousemove', () => {
+            const idx = items.indexOf(button);
+            if (idx >= 0) setActive(idx);
+          });
+          results.appendChild(button);
+        });
+        refreshItems();
+        showResults();
+      };
+
+      const runMentionSearch = () => {
+        const value = (input.value || '').trim();
+        if (!value.startsWith('@')) {
+          hideResults();
+          return;
+        }
+        const token = ++requestToken;
+        const mentionQuery = normalizeMentionQuery(value);
+        fetchUserMentionSuggestions(mentionQuery, {
+          onSuccess: (userItems) => {
+            if (token !== requestToken) return;
+            renderUsers(userItems);
+          },
+          onError: () => {
+            if (token !== requestToken) return;
+            renderEmpty('User search failed.');
+          }
+        });
+      };
+
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(runMentionSearch, 120);
+      });
+
+      input.addEventListener('focus', () => {
+        if ((input.value || '').trim().startsWith('@')) {
+          runMentionSearch();
+        }
+      });
+
+      input.addEventListener('keydown', (event) => {
+        if (results.classList.contains('d-none')) return;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          hideResults();
+          return;
+        }
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          setActive(activeIndex + 1);
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          setActive(activeIndex - 1);
+          return;
+        }
+        if (event.key === 'Enter' && activeIndex >= 0 && items[activeIndex]) {
+          event.preventDefault();
+          items[activeIndex].click();
+        }
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!field.contains(event.target)) hideResults();
       });
     });
   }
 
   initTaskUserSearchWidgets();
+  initTaskMentionFilterInputs();
 
   function initSidebarToggleDesktop() {
     const toggleBtn = document.getElementById('sidebarToggleDesktop');
