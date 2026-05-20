@@ -87,6 +87,7 @@ def task_search_by_user(request):
             'project_id': task.project_id,
             'project_name': task.project.name,
             'status': task.task_list.name,
+            'updated_at': task.updated_at.isoformat() if task.updated_at else '',
             'due_date': task.due_date.isoformat() if task.due_date else '',
             'due_date_display': task.due_date.strftime('%d %b %Y') if task.due_date else 'No due',
             'assignees': [u.username for u in assignees],

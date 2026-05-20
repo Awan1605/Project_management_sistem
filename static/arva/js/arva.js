@@ -258,6 +258,304 @@ $(function() {
     return true;
   }
 
+  function detectActiveTaskResultView() {
+    const boardModeBtn = document.querySelector('[data-view-mode].active');
+    if (boardModeBtn?.dataset?.viewMode) {
+      return boardModeBtn.dataset.viewMode === 'list' ? 'list' : 'card';
+    }
+    const tabBtn = document.querySelector('.arva-view-toggle .btn.active[data-bs-target]');
+    if (tabBtn) {
+      const target = (tabBtn.getAttribute('data-bs-target') || '').toLowerCase();
+      if (target.includes('table') || target.includes('list')) return 'list';
+      if (target.includes('card') || target.includes('grid')) return 'card';
+    }
+    return 'card';
+  }
+
+  function getTaskSearchPanelHost() {
+    return document.querySelector('.app-content') ||
+      document.querySelector('main.container-fluid') ||
+      document.querySelector('main') ||
+      document.body;
+  }
+
+  function getTaskSearchPanelState() {
+    if (window.__taskSearchPanelState) return window.__taskSearchPanelState;
+
+    const host = getTaskSearchPanelHost();
+    const panel = document.createElement('section');
+    panel.id = 'task-user-results-panel';
+    panel.className = 'task-user-results-panel d-none';
+    panel.innerHTML = `
+      <div class="task-user-results-header">
+        <div>
+          <div class="task-user-results-title">Showing tasks for:</div>
+          <div class="task-user-results-user" data-task-user-results-user></div>
+        </div>
+        <div class="task-user-results-actions">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Task result view mode">
+            <button type="button" class="btn btn-outline-secondary active" data-task-results-view="card"><i class="bi bi-grid-3x3-gap me-1"></i>Card</button>
+            <button type="button" class="btn btn-outline-secondary" data-task-results-view="list"><i class="bi bi-list-ul me-1"></i>List</button>
+          </div>
+          <button type="button" class="btn btn-outline-danger btn-sm" data-task-results-reset>
+            <i class="bi bi-x-circle me-1"></i>Clear
+          </button>
+        </div>
+      </div>
+      <div class="task-user-results-toolbar">
+        <div class="task-user-results-search">
+          <i class="bi bi-search"></i>
+          <input type="text" class="form-control form-control-sm" placeholder="Filter this user's tasks..." data-task-results-filter>
+        </div>
+        <select class="form-select form-select-sm" data-task-results-sort>
+          <option value="updated_desc">Recently updated</option>
+          <option value="updated_asc">Oldest updated</option>
+          <option value="due_asc">Due date (soonest)</option>
+          <option value="due_desc">Due date (latest)</option>
+          <option value="title_asc">Title (A-Z)</option>
+          <option value="title_desc">Title (Z-A)</option>
+          <option value="project_asc">Project (A-Z)</option>
+        </select>
+        <select class="form-select form-select-sm" data-task-results-per-page>
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        <div class="task-user-results-summary" data-task-results-summary></div>
+      </div>
+      <div class="task-user-results-empty d-none" data-task-results-empty>
+        <i class="bi bi-inbox"></i>
+        <span>No tasks found for this user.</span>
+      </div>
+      <div class="task-user-results-card-list" data-task-results-cards></div>
+      <div class="table-responsive d-none" data-task-results-table-wrap>
+        <table class="table table-sm table-hover align-middle mb-0 table-modern">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Project</th>
+              <th>Status</th>
+              <th>Due</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody data-task-results-table-body></tbody>
+        </table>
+      </div>
+      <div class="task-user-results-pagination d-none" data-task-results-pagination>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-task-results-prev><i class="bi bi-chevron-left"></i></button>
+        <span data-task-results-page-info></span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-task-results-next><i class="bi bi-chevron-right"></i></button>
+      </div>
+    `;
+    host.prepend(panel);
+
+    const state = {
+      panel,
+      user: null,
+      tasks: [],
+      filtered: [],
+      page: 1,
+      perPage: 25,
+      viewMode: detectActiveTaskResultView(),
+    };
+
+    state.userLabel = panel.querySelector('[data-task-user-results-user]');
+    state.filterInput = panel.querySelector('[data-task-results-filter]');
+    state.sortSelect = panel.querySelector('[data-task-results-sort]');
+    state.perPageSelect = panel.querySelector('[data-task-results-per-page]');
+    state.summary = panel.querySelector('[data-task-results-summary]');
+    state.empty = panel.querySelector('[data-task-results-empty]');
+    state.cardList = panel.querySelector('[data-task-results-cards]');
+    state.tableWrap = panel.querySelector('[data-task-results-table-wrap]');
+    state.tableBody = panel.querySelector('[data-task-results-table-body]');
+    state.pagination = panel.querySelector('[data-task-results-pagination]');
+    state.pageInfo = panel.querySelector('[data-task-results-page-info]');
+    state.prevBtn = panel.querySelector('[data-task-results-prev]');
+    state.nextBtn = panel.querySelector('[data-task-results-next]');
+    state.viewButtons = Array.from(panel.querySelectorAll('[data-task-results-view]'));
+    state.resetBtn = panel.querySelector('[data-task-results-reset]');
+
+    state.viewButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.viewMode = btn.dataset.taskResultsView === 'list' ? 'list' : 'card';
+        renderTaskSearchPanel(state);
+      });
+    });
+    state.resetBtn?.addEventListener('click', () => {
+      state.user = null;
+      state.tasks = [];
+      state.filtered = [];
+      state.page = 1;
+      state.filterInput.value = '';
+      panel.classList.add('d-none');
+    });
+    state.filterInput?.addEventListener('input', () => {
+      state.page = 1;
+      renderTaskSearchPanel(state);
+    });
+    state.sortSelect?.addEventListener('change', () => {
+      state.page = 1;
+      renderTaskSearchPanel(state);
+    });
+    state.perPageSelect?.addEventListener('change', () => {
+      const next = parseInt(state.perPageSelect.value || '25', 10);
+      state.perPage = [10, 25, 50, 100].includes(next) ? next : 25;
+      state.page = 1;
+      renderTaskSearchPanel(state);
+    });
+    state.prevBtn?.addEventListener('click', () => {
+      if (state.page <= 1) return;
+      state.page -= 1;
+      renderTaskSearchPanel(state);
+    });
+    state.nextBtn?.addEventListener('click', () => {
+      state.page += 1;
+      renderTaskSearchPanel(state);
+    });
+
+    window.__taskSearchPanelState = state;
+    return state;
+  }
+
+  function getTaskSortValue(task, mode) {
+    if (mode === 'updated_asc' || mode === 'updated_desc') {
+      return task.updated_at || '';
+    }
+    if (mode === 'due_asc' || mode === 'due_desc') {
+      return task.due_date || '';
+    }
+    if (mode === 'title_asc' || mode === 'title_desc') {
+      return (task.title || '').toLowerCase();
+    }
+    if (mode === 'project_asc') {
+      return (task.project_name || '').toLowerCase();
+    }
+    return task.updated_at || '';
+  }
+
+  function renderTaskSearchPanel(state) {
+    if (!state?.panel) return;
+    const query = (state.filterInput?.value || '').trim().toLowerCase();
+    const sortMode = state.sortSelect?.value || 'updated_desc';
+    const sortDesc = sortMode.endsWith('_desc');
+
+    const filtered = state.tasks.filter((task) => {
+      if (!query) return true;
+      const hay = `${task.title || ''} ${task.project_name || ''} ${task.status || ''} ${task.assignees_display || ''}`.toLowerCase();
+      return hay.includes(query);
+    });
+    filtered.sort((a, b) => {
+      const aVal = getTaskSortValue(a, sortMode);
+      const bVal = getTaskSortValue(b, sortMode);
+      if (aVal < bVal) return sortDesc ? 1 : -1;
+      if (aVal > bVal) return sortDesc ? -1 : 1;
+      return 0;
+    });
+
+    state.filtered = filtered;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / state.perPage));
+    state.page = Math.max(1, Math.min(state.page, totalPages));
+    const start = (state.page - 1) * state.perPage;
+    const end = start + state.perPage;
+    const visible = filtered.slice(start, end);
+
+    state.userLabel.textContent = state.user ? `${state.user.full_name || state.user.username} (${state.user.email || state.user.username})` : '-';
+    state.summary.textContent = total ? `Showing ${start + 1}-${Math.min(end, total)} of ${total} task${total === 1 ? '' : 's'}` : 'Showing 0 of 0 tasks';
+
+    state.empty.classList.toggle('d-none', total > 0);
+    state.pagination.classList.toggle('d-none', total <= state.perPage || total === 0);
+    state.pageInfo.textContent = `Page ${state.page} / ${totalPages}`;
+    state.prevBtn.disabled = state.page <= 1;
+    state.nextBtn.disabled = state.page >= totalPages;
+
+    state.viewButtons.forEach((btn) => {
+      const active = btn.dataset.taskResultsView === state.viewMode;
+      btn.classList.toggle('active', active);
+    });
+    const isList = state.viewMode === 'list';
+    state.cardList.classList.toggle('d-none', isList);
+    state.tableWrap.classList.toggle('d-none', !isList);
+
+    state.cardList.innerHTML = '';
+    state.tableBody.innerHTML = '';
+    visible.forEach((task) => {
+      const card = document.createElement('article');
+      card.className = 'task-user-result-card';
+      const cardMeta = document.createElement('div');
+      cardMeta.className = 'task-user-result-meta';
+      cardMeta.textContent = `${task.project_name || '-'} | ${task.status || '-'}`;
+      const cardTitle = document.createElement('div');
+      cardTitle.className = 'task-user-result-title';
+      cardTitle.textContent = task.title || '-';
+      const cardFoot = document.createElement('div');
+      cardFoot.className = 'task-user-result-foot';
+      const due = document.createElement('span');
+      due.className = 'task-user-result-due';
+      due.textContent = task.due_date_display || 'No due';
+      const go = document.createElement('a');
+      go.href = task.url || '#';
+      go.className = 'btn btn-outline-primary btn-sm';
+      go.textContent = 'Open';
+      cardFoot.appendChild(due);
+      cardFoot.appendChild(go);
+      card.appendChild(cardMeta);
+      card.appendChild(cardTitle);
+      card.appendChild(cardFoot);
+      state.cardList.appendChild(card);
+
+      const tr = document.createElement('tr');
+      const tdTask = document.createElement('td');
+      tdTask.textContent = task.title || '-';
+      const tdProject = document.createElement('td');
+      tdProject.textContent = task.project_name || '-';
+      const tdStatus = document.createElement('td');
+      tdStatus.textContent = task.status || '-';
+      const tdDue = document.createElement('td');
+      tdDue.textContent = task.due_date_display || 'No due';
+      const tdAction = document.createElement('td');
+      tdAction.className = 'text-end';
+      const action = document.createElement('a');
+      action.href = task.url || '#';
+      action.className = 'btn btn-outline-primary btn-sm';
+      action.textContent = 'Open';
+      tdAction.appendChild(action);
+      tr.appendChild(tdTask);
+      tr.appendChild(tdProject);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdDue);
+      tr.appendChild(tdAction);
+      state.tableBody.appendChild(tr);
+    });
+  }
+
+  function showTaskSearchPanelForUser(user) {
+    if (!user) return;
+    const state = getTaskSearchPanelState();
+    state.viewMode = detectActiveTaskResultView();
+    state.user = user;
+    state.page = 1;
+
+    fetch(`/tasks/search/?${new URLSearchParams({ user_q: `@${user.username}` }).toString()}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then((resp) => resp.json()).then((resp) => {
+      if (!resp.success) {
+        state.tasks = [];
+      } else {
+        state.tasks = Array.isArray(resp.results) ? resp.results : [];
+      }
+      state.panel.classList.remove('d-none');
+      renderTaskSearchPanel(state);
+      state.panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }).catch(() => {
+      state.tasks = [];
+      state.panel.classList.remove('d-none');
+      renderTaskSearchPanel(state);
+    });
+  }
+
   function initTaskUserSearchWidgets() {
     const widgets = Array.from(document.querySelectorAll('[data-task-user-search-widget]'));
     if (!widgets.length) return;
@@ -352,12 +650,8 @@ $(function() {
       function applyUserSelection(user) {
         const mentionValue = `@${user.username}`;
         input.value = mentionValue;
-        const didApplyBoardFilter = applyMentionToBoardFilter(mentionValue);
-        if (didApplyBoardFilter) {
-          hideResults();
-          return;
-        }
-        fetchTaskResults(mentionValue);
+        showTaskSearchPanelForUser(user);
+        hideResults();
       }
 
       function renderUserItems(userItems) {
