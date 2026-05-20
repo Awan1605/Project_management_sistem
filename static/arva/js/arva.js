@@ -266,29 +266,7 @@ $(function() {
     });
   }
 
-  function initTaskResultsSortObserver() {
-    if (window.__taskResultsSortObserverInit === true) return;
-    window.__taskResultsSortObserverInit = true;
-
-    let timer = null;
-    const observer = new MutationObserver((mutations) => {
-      const targets = new Set();
-      mutations.forEach((mutation) => {
-        const el = mutation.target?.closest?.('[data-task-results-sort]');
-        if (el) targets.add(el);
-      });
-      if (!targets.size) return;
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        targets.forEach((container) => sortTaskItemsInContainer(container));
-      }, 60);
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
   applyTaskResultsSort();
-  initTaskResultsSortObserver();
 
   function normalizeMentionQuery(rawValue) {
     const value = (rawValue || '').trim();
@@ -305,9 +283,10 @@ $(function() {
     return source.slice(0, 2).toUpperCase();
   }
 
-  function fetchUserMentionSuggestions(query, handlers) {
+  function fetchUserMentionSuggestions(query, handlers, options = {}) {
     fetch(`/tasks/user-suggestions/?${new URLSearchParams({ q: query }).toString()}`, {
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: options.signal
     }).then((resp) => resp.json()).then((resp) => {
       if (!resp.success) {
         handlers.onError?.();
@@ -315,6 +294,7 @@ $(function() {
       }
       handlers.onSuccess?.(resp.results || []);
     }).catch(() => {
+      if (options.signal?.aborted) return;
       handlers.onError?.();
     });
   }
@@ -461,6 +441,8 @@ $(function() {
       perPage: 25,
       viewMode: resolveTaskResultsDefaultView(),
       isSearchActive: false,
+      fetchController: null,
+      loadedUserKey: '',
     };
 
     state.userLabel = panel.querySelector('[data-task-user-results-user]');
@@ -494,9 +476,14 @@ $(function() {
       });
     });
     state.resetBtn?.addEventListener('click', () => {
+      if (state.fetchController) {
+        state.fetchController.abort();
+        state.fetchController = null;
+      }
       state.user = null;
       state.tasks = [];
       state.filtered = [];
+      state.loadedUserKey = '';
       state.page = 1;
       state.filterInput.value = '';
       state.userLabel.textContent = '';
@@ -892,23 +879,43 @@ $(function() {
     if (!user) return;
     const state = getTaskSearchPanelState();
     state.viewMode = normalizeTaskResultsView(localStorage.getItem(TASK_RESULTS_VIEW_KEY)) || state.viewMode || 'list';
+    const userKey = String(user.id || user.username || '').toLowerCase();
+    if (state.loadedUserKey && state.loadedUserKey === userKey && state.tasks.length) {
+      state.user = user;
+      state.page = 1;
+      setDefaultTaskContainersVisibility(state, false);
+      state.isSearchActive = true;
+      state.panel.classList.remove('d-none');
+      renderTaskSearchPanel(state);
+      return;
+    }
+
+    if (state.fetchController) {
+      state.fetchController.abort();
+    }
+    state.fetchController = new AbortController();
     state.user = user;
     state.page = 1;
 
     fetch(`/tasks/search/?${new URLSearchParams({ user_q: user.username || '' }).toString()}`, {
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: state.fetchController.signal
     }).then((resp) => resp.json()).then((resp) => {
+      state.fetchController = null;
       if (!resp.success) {
         state.tasks = [];
       } else {
         state.tasks = Array.isArray(resp.results) ? resp.results : [];
       }
+      state.loadedUserKey = userKey;
       setDefaultTaskContainersVisibility(state, false);
       state.isSearchActive = true;
       state.panel.classList.remove('d-none');
       renderTaskSearchPanel(state);
       state.panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }).catch(() => {
+      if (state.fetchController?.signal?.aborted) return;
+      state.fetchController = null;
       state.tasks = [];
       setDefaultTaskContainersVisibility(state, false);
       state.isSearchActive = true;
@@ -927,9 +934,11 @@ $(function() {
       if (!input || !results) return;
 
       let timer = null;
-      let requestToken = 0;
       let activeIndex = -1;
       let items = [];
+      let usersCache = [];
+      let lastSearchedKey = null;
+      let suggestionsController = null;
 
       const hideResults = () => {
         results.classList.add('d-none');
@@ -971,11 +980,13 @@ $(function() {
           return;
         }
         results.innerHTML = '';
-        userItems.slice(0, 12).forEach((user) => {
+        usersCache = userItems.slice(0, 12);
+        usersCache.forEach((user, idx) => {
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'task-user-search-item task-user-search-user';
           button.setAttribute('data-item-type', 'user');
+          button.setAttribute('data-user-index', String(idx));
           button.setAttribute('aria-label', `Select ${user.username}`);
 
           const avatar = document.createElement('div');
@@ -1012,11 +1023,6 @@ $(function() {
           body.appendChild(meta);
           button.appendChild(avatar);
           button.appendChild(body);
-          button.addEventListener('click', () => applyUserSelection(user));
-          button.addEventListener('mousemove', () => {
-            const idx = items.indexOf(button);
-            if (idx >= 0) setActiveIndex(idx);
-          });
           results.appendChild(button);
         });
         refreshInteractiveItems();
@@ -1026,31 +1032,36 @@ $(function() {
       function runSearch() {
         const rawQuery = getQuery();
         if (!rawQuery) {
+          if (suggestionsController) {
+            suggestionsController.abort();
+            suggestionsController = null;
+          }
+          usersCache = [];
+          lastSearchedKey = null;
           hideResults();
           return;
         }
         const mentionQuery = normalizeMentionQuery(rawQuery);
-        const token = ++requestToken;
+        const queryKey = mentionQuery.toLowerCase();
+        if (queryKey === lastSearchedKey) return;
+        lastSearchedKey = queryKey;
+        if (suggestionsController) {
+          suggestionsController.abort();
+        }
+        suggestionsController = new AbortController();
         fetchUserMentionSuggestions(mentionQuery, {
           onSuccess: (userItems) => {
-            if (token !== requestToken) return;
             renderUserItems(userItems);
           },
           onError: () => {
-            if (token !== requestToken) return;
             renderEmpty('User search failed.');
           }
-        });
+        }, { signal: suggestionsController.signal });
       }
 
       input.addEventListener('input', () => {
         clearTimeout(timer);
         timer = setTimeout(runSearch, 140);
-      });
-
-      input.addEventListener('focus', () => {
-        if (!getQuery()) return;
-        runSearch();
       });
 
       input.addEventListener('keydown', (event) => {
@@ -1073,12 +1084,34 @@ $(function() {
         if (event.key === 'Enter') {
           event.preventDefault();
           if (activeIndex >= 0 && items[activeIndex]) {
-            items[activeIndex].click();
+            const idx = parseInt(items[activeIndex].dataset.userIndex || '-1', 10);
+            if (Number.isInteger(idx) && idx >= 0 && usersCache[idx]) {
+              applyUserSelection(usersCache[idx]);
+            }
           } else {
             const firstBtn = items[0];
-            firstBtn?.click();
+            const idx = firstBtn ? parseInt(firstBtn.dataset.userIndex || '-1', 10) : -1;
+            if (Number.isInteger(idx) && idx >= 0 && usersCache[idx]) {
+              applyUserSelection(usersCache[idx]);
+            }
           }
         }
+      });
+
+      results.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-user-index]');
+        if (!trigger) return;
+        const idx = parseInt(trigger.dataset.userIndex || '-1', 10);
+        if (!Number.isInteger(idx) || idx < 0 || !usersCache[idx]) return;
+        event.preventDefault();
+        applyUserSelection(usersCache[idx]);
+      });
+
+      results.addEventListener('mousemove', (event) => {
+        const trigger = event.target.closest('[data-user-index]');
+        if (!trigger) return;
+        const idx = parseInt(trigger.dataset.userIndex || '-1', 10);
+        if (Number.isInteger(idx) && idx >= 0) setActiveIndex(idx);
       });
 
       document.addEventListener('click', (event) => {
@@ -1105,7 +1138,8 @@ $(function() {
       let timer = null;
       let activeIndex = -1;
       let items = [];
-      let requestToken = 0;
+      let mentionController = null;
+      let lastMentionKey = null;
 
       const hideResults = () => {
         results.classList.add('d-none');
@@ -1201,32 +1235,35 @@ $(function() {
       const runMentionSearch = () => {
         const value = (input.value || '').trim();
         if (!value.startsWith('@')) {
+          if (mentionController) {
+            mentionController.abort();
+            mentionController = null;
+          }
+          lastMentionKey = null;
           hideResults();
           return;
         }
-        const token = ++requestToken;
         const mentionQuery = normalizeMentionQuery(value);
+        const mentionKey = mentionQuery.toLowerCase();
+        if (mentionKey === lastMentionKey) return;
+        lastMentionKey = mentionKey;
+        if (mentionController) {
+          mentionController.abort();
+        }
+        mentionController = new AbortController();
         fetchUserMentionSuggestions(mentionQuery, {
           onSuccess: (userItems) => {
-            if (token !== requestToken) return;
             renderUsers(userItems);
           },
           onError: () => {
-            if (token !== requestToken) return;
             renderEmpty('User search failed.');
           }
-        });
+        }, { signal: mentionController.signal });
       };
 
       input.addEventListener('input', () => {
         clearTimeout(timer);
         timer = setTimeout(runMentionSearch, 120);
-      });
-
-      input.addEventListener('focus', () => {
-        if ((input.value || '').trim().startsWith('@')) {
-          runMentionSearch();
-        }
       });
 
       input.addEventListener('keydown', (event) => {
