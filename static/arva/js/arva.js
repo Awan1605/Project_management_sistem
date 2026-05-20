@@ -212,6 +212,84 @@ $(function() {
 
   initPersistentViewToggles();
 
+  function parseTaskSortCreated(item) {
+    const raw = (item.dataset.taskSortCreated || item.dataset.created || '').toString().trim();
+    if (!raw) return 0;
+    const asNumber = Number(raw);
+    if (Number.isFinite(asNumber)) return asNumber;
+    const asDate = Date.parse(raw);
+    return Number.isFinite(asDate) ? asDate : 0;
+  }
+
+  function isTaskDoneForSort(item) {
+    const raw = (item.dataset.taskSortDone || '').toString().trim();
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    const status = (item.dataset.status || item.dataset.list || '').toString().trim().toLowerCase();
+    return status === 'done';
+  }
+
+  function sortTaskItemsInContainer(container) {
+    if (!container) return;
+    const mode = (container.dataset.taskResultsSort || '').toLowerCase();
+    if (!mode) return;
+    const selector = container.dataset.taskResultsItem || '';
+    if (!selector) return;
+    const items = Array.from(container.querySelectorAll(selector));
+    if (items.length < 2) return;
+
+    items.sort((a, b) => {
+      const doneA = isTaskDoneForSort(a) ? 1 : 0;
+      const doneB = isTaskDoneForSort(b) ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+
+      const createdA = parseTaskSortCreated(a);
+      const createdB = parseTaskSortCreated(b);
+      if (createdA !== createdB) return createdB - createdA;
+
+      const idA = Number(a.dataset.taskId || 0);
+      const idB = Number(b.dataset.taskId || 0);
+      return idB - idA;
+    });
+
+    items.forEach((item) => {
+      if (item.parentNode === container) {
+        container.appendChild(item);
+      }
+    });
+  }
+
+  function applyTaskResultsSort(root = document) {
+    const scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll('[data-task-results-sort]').forEach((container) => {
+      sortTaskItemsInContainer(container);
+    });
+  }
+
+  function initTaskResultsSortObserver() {
+    if (window.__taskResultsSortObserverInit === true) return;
+    window.__taskResultsSortObserverInit = true;
+
+    let timer = null;
+    const observer = new MutationObserver((mutations) => {
+      const targets = new Set();
+      mutations.forEach((mutation) => {
+        const el = mutation.target?.closest?.('[data-task-results-sort]');
+        if (el) targets.add(el);
+      });
+      if (!targets.size) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        targets.forEach((container) => sortTaskItemsInContainer(container));
+      }, 60);
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  applyTaskResultsSort();
+  initTaskResultsSortObserver();
+
   function normalizeMentionQuery(rawValue) {
     const value = (rawValue || '').trim();
     return value.startsWith('@') ? value.slice(1).trim() : value;
@@ -241,35 +319,31 @@ $(function() {
     });
   }
 
-  function applyMentionToBoardFilter(mentionValue) {
-    const filterForm = document.getElementById('task-filter-form');
-    if (!filterForm) return false;
+  const TASK_RESULTS_VIEW_KEY = 'arva_task_user_results_view';
 
-    const assigneeInput = filterForm.querySelector('input[name="assignee_q"]');
-    if (!assigneeInput) return false;
-
-    const assigneeSelect = filterForm.querySelector('select[name="assignee"]');
-    if (assigneeSelect) {
-      assigneeSelect.value = '';
-    }
-    assigneeInput.value = mentionValue;
-    assigneeInput.dispatchEvent(new Event('input', { bubbles: true }));
-    assigneeInput.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
-    return true;
+  function normalizeTaskResultsView(value) {
+    const raw = (value || '').toString().trim().toLowerCase();
+    if (raw === 'list' || raw === 'table' || raw.includes('list') || raw.includes('table')) return 'list';
+    if (raw === 'card' || raw === 'grid' || raw.includes('card') || raw.includes('grid')) return 'card';
+    return '';
   }
 
-  function detectActiveTaskResultView() {
-    const boardModeBtn = document.querySelector('[data-view-mode].active');
-    if (boardModeBtn?.dataset?.viewMode) {
-      return boardModeBtn.dataset.viewMode === 'list' ? 'list' : 'card';
+  function resolveTaskResultsDefaultView() {
+    const explicit = normalizeTaskResultsView(localStorage.getItem(TASK_RESULTS_VIEW_KEY));
+    if (explicit) return explicit;
+
+    const fallbackKeys = [
+      'arva_project_detail_view_mode',
+      'arva_my_cards_view',
+      'arva_user_view',
+      'arva_project_view',
+      'arva_subproject_view',
+    ];
+    for (const key of fallbackKeys) {
+      const normalized = normalizeTaskResultsView(localStorage.getItem(key));
+      if (normalized) return normalized;
     }
-    const tabBtn = document.querySelector('.arva-view-toggle .btn.active[data-bs-target]');
-    if (tabBtn) {
-      const target = (tabBtn.getAttribute('data-bs-target') || '').toLowerCase();
-      if (target.includes('table') || target.includes('list')) return 'list';
-      if (target.includes('card') || target.includes('grid')) return 'card';
-    }
-    return 'card';
+    return 'list';
   }
 
   function getTaskSearchPanelHost() {
@@ -279,26 +353,48 @@ $(function() {
       document.body;
   }
 
+  function collectDefaultTaskContainers(state) {
+    if (!state?.host) return [];
+    return Array.from(state.host.children).filter((el) => el !== state.panel);
+  }
+
+  function setDefaultTaskContainersVisibility(state, visible) {
+    if (!state) return;
+    state.defaultContainers = collectDefaultTaskContainers(state);
+    state.defaultContainers.forEach((container) => {
+      container.classList.add('default-task-container');
+      container.classList.toggle('is-hidden', !visible);
+    });
+  }
+
   function getTaskSearchPanelState() {
     if (window.__taskSearchPanelState) return window.__taskSearchPanelState;
 
     const host = getTaskSearchPanelHost();
     const panel = document.createElement('section');
     panel.id = 'task-user-results-panel';
-    panel.className = 'task-user-results-panel d-none';
+    panel.className = 'task-user-results-panel search-task-container card shadow-sm border-0 h-100 mb-3 d-none';
     panel.innerHTML = `
+      <div class="card-body">
       <div class="task-user-results-header">
-        <div>
-          <div class="task-user-results-title">Showing tasks for:</div>
-          <div class="task-user-results-user" data-task-user-results-user></div>
+        <div class="task-user-summary-card">
+          <div class="task-user-summary-avatar">
+            <img src="" alt="" data-task-user-results-avatar-img class="d-none">
+            <span data-task-user-results-avatar-fallback>U</span>
+          </div>
+          <div class="task-user-summary-body">
+            <div class="task-user-results-title">Showing tasks for:</div>
+            <div class="task-user-results-user" data-task-user-results-user></div>
+            <div class="task-user-results-email" data-task-user-results-email></div>
+          </div>
         </div>
         <div class="task-user-results-actions">
           <div class="btn-group btn-group-sm" role="group" aria-label="Task result view mode">
-            <button type="button" class="btn btn-outline-secondary active" data-task-results-view="card"><i class="bi bi-grid-3x3-gap me-1"></i>Card</button>
-            <button type="button" class="btn btn-outline-secondary" data-task-results-view="list"><i class="bi bi-list-ul me-1"></i>List</button>
+            <button type="button" class="btn btn-outline-secondary" data-task-results-view="card"><i class="bi bi-grid-3x3-gap me-1"></i>Card View</button>
+            <button type="button" class="btn btn-outline-secondary active" data-task-results-view="list"><i class="bi bi-list-ul me-1"></i>List View</button>
           </div>
           <button type="button" class="btn btn-outline-danger btn-sm" data-task-results-reset>
-            <i class="bi bi-x-circle me-1"></i>Clear
+            <i class="bi bi-x-circle me-1"></i>Reset Filter
           </button>
         </div>
       </div>
@@ -308,6 +404,7 @@ $(function() {
           <input type="text" class="form-control form-control-sm" placeholder="Filter this user's tasks..." data-task-results-filter>
         </div>
         <select class="form-select form-select-sm" data-task-results-sort>
+          <option value="default" selected>Default order</option>
           <option value="updated_desc">Recently updated</option>
           <option value="updated_asc">Oldest updated</option>
           <option value="due_asc">Due date (soonest)</option>
@@ -328,40 +425,52 @@ $(function() {
         <i class="bi bi-inbox"></i>
         <span>No tasks found for this user.</span>
       </div>
-      <div class="task-user-results-card-list" data-task-results-cards></div>
-      <div class="table-responsive d-none" data-task-results-table-wrap>
-        <table class="table table-sm table-hover align-middle mb-0 table-modern">
-          <thead>
-            <tr>
-              <th>Task</th>
-              <th>Project</th>
-              <th>Status</th>
-              <th>Due</th>
-              <th class="text-end">Action</th>
-            </tr>
-          </thead>
-          <tbody data-task-results-table-body></tbody>
-        </table>
+      <div class="task-user-results-card-list"
+           data-task-results-cards
+           data-task-results-sort="status-created-desc"
+           data-task-results-item=".task-user-result-card[data-task-id]"></div>
+      <div class="task-user-results-list-shell d-none" data-task-results-table-wrap>
+        <div class="task-user-results-list-head">
+          <span>Priority / Status + Task</span>
+          <span>Reporter / Assignee</span>
+          <span>Start / End</span>
+          <span class="text-end">Recent Activity</span>
+        </div>
+        <div class="task-user-results-list-body"
+             data-task-results-table-body
+             data-task-results-sort="status-created-desc"
+             data-task-results-item=".task-user-result-list-row[data-task-id]"></div>
       </div>
       <div class="task-user-results-pagination d-none" data-task-results-pagination>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-task-results-prev><i class="bi bi-chevron-left"></i></button>
         <span data-task-results-page-info></span>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-task-results-next><i class="bi bi-chevron-right"></i></button>
       </div>
+      </div>
     `;
     host.prepend(panel);
 
     const state = {
+      host,
       panel,
       user: null,
       tasks: [],
       filtered: [],
+      defaultContainers: [],
       page: 1,
       perPage: 25,
-      viewMode: detectActiveTaskResultView(),
+      viewMode: resolveTaskResultsDefaultView(),
+      isSearchActive: false,
     };
 
     state.userLabel = panel.querySelector('[data-task-user-results-user]');
+    state.userEmail = panel.querySelector('[data-task-user-results-email]');
+    state.userAvatarImg = panel.querySelector('[data-task-user-results-avatar-img]');
+    state.userAvatarFallback = panel.querySelector('[data-task-user-results-avatar-fallback]');
+    state.userAvatarImg?.addEventListener('error', () => {
+      state.userAvatarImg.classList.add('d-none');
+      state.userAvatarFallback.classList.remove('d-none');
+    });
     state.filterInput = panel.querySelector('[data-task-results-filter]');
     state.sortSelect = panel.querySelector('[data-task-results-sort]');
     state.perPageSelect = panel.querySelector('[data-task-results-per-page]');
@@ -380,6 +489,7 @@ $(function() {
     state.viewButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         state.viewMode = btn.dataset.taskResultsView === 'list' ? 'list' : 'card';
+        localStorage.setItem(TASK_RESULTS_VIEW_KEY, state.viewMode);
         renderTaskSearchPanel(state);
       });
     });
@@ -389,6 +499,13 @@ $(function() {
       state.filtered = [];
       state.page = 1;
       state.filterInput.value = '';
+      state.userLabel.textContent = '';
+      state.userEmail.textContent = '';
+      document.querySelectorAll('.task-user-search-input').forEach((el) => {
+        el.value = '';
+      });
+      state.isSearchActive = false;
+      setDefaultTaskContainersVisibility(state, true);
       panel.classList.add('d-none');
     });
     state.filterInput?.addEventListener('input', () => {
@@ -435,10 +552,117 @@ $(function() {
     return task.updated_at || '';
   }
 
+  function createAvatarNode(userInfo, fallbackText, sizeClass = '') {
+    const wrapper = document.createElement('span');
+    wrapper.className = `task-result-avatar ${sizeClass}`.trim();
+    const img = document.createElement('img');
+    img.className = 'task-result-avatar-img';
+    const initials = document.createElement('span');
+    initials.className = 'task-result-avatar-fallback';
+    initials.textContent = fallbackText || 'U';
+
+    const avatarUrl = userInfo?.avatar_url || '';
+    if (avatarUrl) {
+      img.src = avatarUrl;
+      img.alt = userInfo?.username || '';
+      img.addEventListener('error', () => {
+        img.remove();
+        wrapper.appendChild(initials);
+      });
+      wrapper.appendChild(img);
+    } else {
+      wrapper.appendChild(initials);
+    }
+    return wrapper;
+  }
+
+  function buildPriorityChip(task) {
+    const chip = document.createElement('span');
+    const priorityCode = (task.priority || 'p2').toLowerCase();
+    chip.className = `task-chip task-chip-priority task-chip-priority-${priorityCode}`;
+    chip.textContent = task.priority_display || 'P2 - Medium';
+    return chip;
+  }
+
+  function buildStatusChip(task) {
+    const chip = document.createElement('span');
+    const rawCode = (task.status_code || '').toLowerCase();
+    const normalizedCode = rawCode || (String((task.status || '').toLowerCase()) === 'done' ? 'done' : '-');
+    chip.className = `task-chip task-chip-status task-chip-status-${normalizedCode}`;
+    chip.textContent = task.status || '-';
+    return chip;
+  }
+
+  function buildDueBadge(task) {
+    const wrap = document.createElement('span');
+    if (!task.due_date_display || task.due_date_display === 'No due') {
+      wrap.textContent = '-';
+      return wrap;
+    }
+    const badge = document.createElement('span');
+    badge.className = 'due-badge';
+    const dueStatus = (task.due_status || 'none').toLowerCase();
+    if (dueStatus === 'overdue') badge.classList.add('due-overdue');
+    else if (dueStatus === 'today') badge.classList.add('due-today');
+    else if (dueStatus === 'soon') badge.classList.add('due-soon');
+    else badge.classList.add('bg-success', 'text-light');
+    badge.textContent = task.due_date_display;
+    wrap.appendChild(badge);
+    return wrap;
+  }
+
+  function buildPersonMetaBlock(label, iconClass, personInfo, extraSuffix = '') {
+    const item = document.createElement('div');
+    item.className = 'task-structured-meta-item';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'task-meta-label';
+    lbl.innerHTML = `<i class="bi ${iconClass} me-1"></i>${label}`;
+
+    const val = document.createElement('span');
+    val.className = 'task-meta-value';
+    const username = personInfo?.username || '-';
+    const avatar = createAvatarNode(personInfo, personInfo?.initial || (username[0] || 'U'), 'sm');
+    val.appendChild(avatar);
+    const text = document.createElement('span');
+    text.className = 'task-result-text-truncate';
+    text.textContent = username;
+    val.appendChild(text);
+    if (extraSuffix) {
+      const suffix = document.createElement('small');
+      suffix.className = 'text-muted ms-1';
+      suffix.textContent = extraSuffix;
+      val.appendChild(suffix);
+    }
+
+    item.appendChild(lbl);
+    item.appendChild(val);
+    return item;
+  }
+
+  function timeSince(isoValue) {
+    if (!isoValue) return '';
+    const date = new Date(isoValue);
+    if (Number.isNaN(date.getTime())) return '';
+    const seconds = Math.max(1, Math.floor((Date.now() - date.getTime()) / 1000));
+    const units = [
+      { name: 'year', sec: 31536000 },
+      { name: 'month', sec: 2592000 },
+      { name: 'day', sec: 86400 },
+      { name: 'hour', sec: 3600 },
+      { name: 'minute', sec: 60 },
+    ];
+    for (const unit of units) {
+      const value = Math.floor(seconds / unit.sec);
+      if (value >= 1) return `${value} ${unit.name}${value > 1 ? 's' : ''}`;
+    }
+    return `${seconds} second${seconds > 1 ? 's' : ''}`;
+  }
+
   function renderTaskSearchPanel(state) {
     if (!state?.panel) return;
     const query = (state.filterInput?.value || '').trim().toLowerCase();
-    const sortMode = state.sortSelect?.value || 'updated_desc';
+    const sortMode = state.sortSelect?.value || 'default';
     const sortDesc = sortMode.endsWith('_desc');
 
     const filtered = state.tasks.filter((task) => {
@@ -447,11 +671,21 @@ $(function() {
       return hay.includes(query);
     });
     filtered.sort((a, b) => {
-      const aVal = getTaskSortValue(a, sortMode);
-      const bVal = getTaskSortValue(b, sortMode);
-      if (aVal < bVal) return sortDesc ? 1 : -1;
-      if (aVal > bVal) return sortDesc ? -1 : 1;
-      return 0;
+      const doneA = String((a.status_code || '').toLowerCase()) === 'done' ? 1 : 0;
+      const doneB = String((b.status_code || '').toLowerCase()) === 'done' ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+
+      if (sortMode !== 'default') {
+        const aVal = getTaskSortValue(a, sortMode);
+        const bVal = getTaskSortValue(b, sortMode);
+        if (aVal < bVal) return sortDesc ? 1 : -1;
+        if (aVal > bVal) return sortDesc ? -1 : 1;
+      }
+
+      const createdA = a.created_at ? Date.parse(a.created_at) || 0 : 0;
+      const createdB = b.created_at ? Date.parse(b.created_at) || 0 : 0;
+      if (createdA !== createdB) return createdB - createdA;
+      return (b.id || 0) - (a.id || 0);
     });
 
     state.filtered = filtered;
@@ -462,7 +696,28 @@ $(function() {
     const end = start + state.perPage;
     const visible = filtered.slice(start, end);
 
-    state.userLabel.textContent = state.user ? `${state.user.full_name || state.user.username} (${state.user.email || state.user.username})` : '-';
+    if (state.user) {
+      const name = state.user.full_name || state.user.username || '-';
+      const email = state.user.email || state.user.username || '-';
+      state.userLabel.textContent = name;
+      state.userEmail.textContent = email;
+      state.userAvatarFallback.textContent = getUserInitials(state.user);
+      if (state.user.avatar_url) {
+        state.userAvatarImg.src = state.user.avatar_url;
+        state.userAvatarImg.alt = name;
+        state.userAvatarImg.classList.remove('d-none');
+        state.userAvatarFallback.classList.add('d-none');
+      } else {
+        state.userAvatarImg.classList.add('d-none');
+        state.userAvatarFallback.classList.remove('d-none');
+      }
+    } else {
+      state.userLabel.textContent = '-';
+      state.userEmail.textContent = '-';
+      state.userAvatarImg.classList.add('d-none');
+      state.userAvatarFallback.classList.remove('d-none');
+      state.userAvatarFallback.textContent = 'U';
+    }
     state.summary.textContent = total ? `Showing ${start + 1}-${Math.min(end, total)} of ${total} task${total === 1 ? '' : 's'}` : 'Showing 0 of 0 tasks';
 
     state.empty.classList.toggle('d-none', total > 0);
@@ -482,63 +737,165 @@ $(function() {
     state.cardList.innerHTML = '';
     state.tableBody.innerHTML = '';
     visible.forEach((task) => {
-      const card = document.createElement('article');
-      card.className = 'task-user-result-card';
-      const cardMeta = document.createElement('div');
-      cardMeta.className = 'task-user-result-meta';
-      cardMeta.textContent = `${task.project_name || '-'} | ${task.status || '-'}`;
+      const card = document.createElement('a');
+      card.href = task.url || '#';
+      card.className = 'task-user-result-card task-card shadow-sm text-decoration-none';
+      card.setAttribute('data-search-task-link', '1');
+      card.setAttribute('aria-label', `Open task ${task.title || ''}`);
+      card.dataset.taskId = String(task.id || '');
+      card.dataset.taskSortDone = (String((task.status_code || '').toLowerCase()) === 'done') ? '1' : '0';
+      card.dataset.taskSortCreated = task.created_at ? String(Date.parse(task.created_at) || 0) : '0';
+
+      const cardBody = document.createElement('div');
+      cardBody.className = 'card-body p-3';
+
+      const chipRow = document.createElement('div');
+      chipRow.className = 'd-flex flex-wrap gap-1 justify-content-start mb-2';
+      chipRow.appendChild(buildPriorityChip(task));
+      chipRow.appendChild(buildStatusChip(task));
+
       const cardTitle = document.createElement('div');
-      cardTitle.className = 'task-user-result-title';
+      cardTitle.className = 'fw-bold font-size-95 task-card-title-main';
       cardTitle.textContent = task.title || '-';
+
+      const metaGrid = document.createElement('div');
+      metaGrid.className = 'task-structured-meta mt-2';
+      const assigneeSuffix = task.assignee?.extra_count ? `+${task.assignee.extra_count}` : '';
+      metaGrid.appendChild(buildPersonMetaBlock('Reporter', 'bi-person-circle', task.reporter));
+      metaGrid.appendChild(buildPersonMetaBlock('Assignee', 'bi-person-badge', task.assignee, assigneeSuffix));
+
+      const startItem = document.createElement('div');
+      startItem.className = 'task-structured-meta-item';
+      startItem.innerHTML = `<span class="task-meta-label"><i class="bi bi-play-circle me-1"></i>Start Date</span>`;
+      const startValue = document.createElement('span');
+      startValue.className = 'task-meta-value';
+      startValue.textContent = task.start_date_tbd ? 'TBD' : (task.start_date_display || '-');
+      startItem.appendChild(startValue);
+      metaGrid.appendChild(startItem);
+
+      const endItem = document.createElement('div');
+      endItem.className = `task-structured-meta-item ${task.due_status === 'overdue' ? 'text-danger fw-semibold' : (task.due_status === 'today' ? 'text-warning-emphasis fw-semibold' : '')}`.trim();
+      endItem.innerHTML = `<span class="task-meta-label"><i class="bi bi-calendar-check me-1"></i>End Date</span>`;
+      const endValue = document.createElement('span');
+      endValue.className = 'task-meta-value';
+      endValue.appendChild(buildDueBadge(task));
+      endItem.appendChild(endValue);
+      metaGrid.appendChild(endItem);
+
+      const subMeta = document.createElement('div');
+      subMeta.className = 'task-result-project-line mt-2';
+      const projectBadge = document.createElement('span');
+      projectBadge.className = 'badge bg-light text-dark border';
+      projectBadge.textContent = task.project_name || '-';
+      subMeta.appendChild(projectBadge);
+      if (task.task_list_name) {
+        const listBadge = document.createElement('span');
+        listBadge.className = 'badge bg-light text-dark border ms-1';
+        listBadge.textContent = task.task_list_name;
+        subMeta.appendChild(listBadge);
+      }
+
       const cardFoot = document.createElement('div');
-      cardFoot.className = 'task-user-result-foot';
-      const due = document.createElement('span');
-      due.className = 'task-user-result-due';
-      due.textContent = task.due_date_display || 'No due';
-      const go = document.createElement('a');
-      go.href = task.url || '#';
+      cardFoot.className = 'mt-3 d-flex justify-content-between align-items-center task-actions';
+      const activity = document.createElement('small');
+      activity.className = 'text-muted';
+      activity.textContent = task.updated_at ? `${timeSince(task.updated_at)} ago` : '';
+      const go = document.createElement('span');
       go.className = 'btn btn-outline-primary btn-sm';
       go.textContent = 'Open';
-      cardFoot.appendChild(due);
+      cardFoot.appendChild(activity);
       cardFoot.appendChild(go);
-      card.appendChild(cardMeta);
-      card.appendChild(cardTitle);
-      card.appendChild(cardFoot);
+      cardBody.appendChild(chipRow);
+      cardBody.appendChild(cardTitle);
+      cardBody.appendChild(metaGrid);
+      cardBody.appendChild(subMeta);
+      cardBody.appendChild(cardFoot);
+      card.appendChild(cardBody);
       state.cardList.appendChild(card);
 
-      const tr = document.createElement('tr');
-      const tdTask = document.createElement('td');
-      tdTask.textContent = task.title || '-';
-      const tdProject = document.createElement('td');
-      tdProject.textContent = task.project_name || '-';
-      const tdStatus = document.createElement('td');
-      tdStatus.textContent = task.status || '-';
-      const tdDue = document.createElement('td');
-      tdDue.textContent = task.due_date_display || 'No due';
-      const tdAction = document.createElement('td');
-      tdAction.className = 'text-end';
-      const action = document.createElement('a');
-      action.href = task.url || '#';
-      action.className = 'btn btn-outline-primary btn-sm';
-      action.textContent = 'Open';
-      tdAction.appendChild(action);
-      tr.appendChild(tdTask);
-      tr.appendChild(tdProject);
-      tr.appendChild(tdStatus);
-      tr.appendChild(tdDue);
-      tr.appendChild(tdAction);
-      state.tableBody.appendChild(tr);
+      const row = document.createElement('a');
+      row.href = task.url || '#';
+      row.className = 'task-user-result-list-row task-list-row text-decoration-none';
+      row.setAttribute('data-search-task-link', '1');
+      row.setAttribute('aria-label', `Open task ${task.title || ''}`);
+      row.dataset.taskId = String(task.id || '');
+      row.dataset.taskSortDone = (String((task.status_code || '').toLowerCase()) === 'done') ? '1' : '0';
+      row.dataset.taskSortCreated = task.created_at ? String(Date.parse(task.created_at) || 0) : '0';
+
+      const rowMain = document.createElement('div');
+      rowMain.className = 'task-row-main';
+      const rowChips = document.createElement('div');
+      rowChips.className = 'task-row-sub';
+      rowChips.appendChild(buildPriorityChip(task));
+      rowChips.appendChild(buildStatusChip(task));
+      const rowTitle = document.createElement('div');
+      rowTitle.className = 'task-row-title';
+      rowTitle.textContent = task.title || '-';
+      const rowSub = document.createElement('div');
+      rowSub.className = 'task-row-sub';
+      const pBadge = document.createElement('span');
+      pBadge.className = 'badge bg-light text-dark border';
+      pBadge.textContent = task.project_name || '-';
+      rowSub.appendChild(pBadge);
+      if (task.task_list_name) {
+        const lBadge = document.createElement('span');
+        lBadge.className = 'badge bg-light text-dark border';
+        lBadge.textContent = task.task_list_name;
+        rowSub.appendChild(lBadge);
+      }
+      rowMain.appendChild(rowChips);
+      rowMain.appendChild(rowTitle);
+      rowMain.appendChild(rowSub);
+
+      const rowMeta = document.createElement('div');
+      rowMeta.className = 'task-row-meta';
+      const rowMetaGrid = document.createElement('div');
+      rowMetaGrid.className = 'task-structured-list-meta';
+      rowMetaGrid.appendChild(buildPersonMetaBlock('Reporter', 'bi-person-circle', task.reporter));
+      rowMetaGrid.appendChild(buildPersonMetaBlock('Assignee', 'bi-person-badge', task.assignee, assigneeSuffix));
+      rowMeta.appendChild(rowMetaGrid);
+
+      const rowDue = document.createElement('div');
+      rowDue.className = 'task-row-due';
+      const rowDueGrid = document.createElement('div');
+      rowDueGrid.className = 'task-structured-list-meta';
+      const rowStart = document.createElement('span');
+      rowStart.innerHTML = `<span class="task-meta-label"><i class="bi bi-play-circle me-1"></i>Start Date</span><span class="task-meta-value">${task.start_date_tbd ? 'TBD' : (task.start_date_display || '-')}</span>`;
+      const rowEnd = document.createElement('span');
+      rowEnd.className = task.due_status === 'overdue' ? 'text-danger fw-semibold' : (task.due_status === 'today' ? 'text-warning-emphasis fw-semibold' : '');
+      const rowEndLabel = document.createElement('span');
+      rowEndLabel.className = 'task-meta-label';
+      rowEndLabel.innerHTML = '<i class="bi bi-calendar-check me-1"></i>End Date';
+      const rowEndValue = document.createElement('span');
+      rowEndValue.className = 'task-meta-value';
+      rowEndValue.appendChild(buildDueBadge(task));
+      rowEnd.appendChild(rowEndLabel);
+      rowEnd.appendChild(rowEndValue);
+      rowDueGrid.appendChild(rowStart);
+      rowDueGrid.appendChild(rowEnd);
+      rowDue.appendChild(rowDueGrid);
+
+      const rowActivity = document.createElement('div');
+      rowActivity.className = 'task-row-activity';
+      rowActivity.innerHTML = `<span class="activity-dot"></span><small class="text-muted">${task.updated_at ? `${timeSince(task.updated_at)} ago` : ''}</small>`;
+
+      row.appendChild(rowMain);
+      row.appendChild(rowMeta);
+      row.appendChild(rowDue);
+      row.appendChild(rowActivity);
+      state.tableBody.appendChild(row);
     });
+    applyTaskResultsSort(state.panel);
   }
 
   function showTaskSearchPanelForUser(user) {
     if (!user) return;
     const state = getTaskSearchPanelState();
-    state.viewMode = detectActiveTaskResultView();
+    state.viewMode = normalizeTaskResultsView(localStorage.getItem(TASK_RESULTS_VIEW_KEY)) || state.viewMode || 'list';
     state.user = user;
     state.page = 1;
 
-    fetch(`/tasks/search/?${new URLSearchParams({ user_q: `@${user.username}` }).toString()}`, {
+    fetch(`/tasks/search/?${new URLSearchParams({ user_q: user.username || '' }).toString()}`, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     }).then((resp) => resp.json()).then((resp) => {
       if (!resp.success) {
@@ -546,11 +903,15 @@ $(function() {
       } else {
         state.tasks = Array.isArray(resp.results) ? resp.results : [];
       }
+      setDefaultTaskContainersVisibility(state, false);
+      state.isSearchActive = true;
       state.panel.classList.remove('d-none');
       renderTaskSearchPanel(state);
       state.panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }).catch(() => {
       state.tasks = [];
+      setDefaultTaskContainersVisibility(state, false);
+      state.isSearchActive = true;
       state.panel.classList.remove('d-none');
       renderTaskSearchPanel(state);
     });
@@ -576,7 +937,6 @@ $(function() {
       };
       const showResults = () => results.classList.remove('d-none');
       const getQuery = () => (input.value || '').trim();
-      const isMentionMode = () => getQuery().startsWith('@');
 
       function refreshInteractiveItems() {
         items = Array.from(results.querySelectorAll('.task-user-search-item'));
@@ -599,57 +959,8 @@ $(function() {
         showResults();
       }
 
-      function renderTaskItems(taskItems) {
-        if (!taskItems.length) {
-          renderEmpty('No matching tasks found.');
-          return;
-        }
-        results.innerHTML = '';
-        taskItems.slice(0, 12).forEach((item) => {
-          const link = document.createElement('a');
-          link.href = item.url || '#';
-          link.className = 'task-user-search-item';
-          link.setAttribute('data-item-type', 'task');
-          const body = document.createElement('div');
-          body.className = 'task-user-search-user-body';
-
-          const title = document.createElement('div');
-          title.className = 'task-user-search-item-title';
-          title.textContent = item.title || '-';
-
-          const meta = document.createElement('div');
-          meta.className = 'task-user-search-item-meta';
-          meta.textContent = `${item.project_name || '-'} | ${item.assignees_display || 'No assignee'} | ${item.status || '-'}`;
-
-          body.appendChild(title);
-          body.appendChild(meta);
-          link.appendChild(body);
-          results.appendChild(link);
-        });
-        refreshInteractiveItems();
-        showResults();
-      }
-
-      function fetchTaskResults(query) {
-        const token = ++requestToken;
-        fetch(`/tasks/search/?${new URLSearchParams({ user_q: query }).toString()}`, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        }).then((resp) => resp.json()).then((resp) => {
-          if (token !== requestToken) return;
-          if (!resp.success) {
-            renderEmpty('Search failed.');
-            return;
-          }
-          renderTaskItems(resp.results || []);
-        }).catch(() => {
-          if (token !== requestToken) return;
-          renderEmpty('Search failed.');
-        });
-      }
-
       function applyUserSelection(user) {
-        const mentionValue = `@${user.username}`;
-        input.value = mentionValue;
+        input.value = user.username || '';
         showTaskSearchPanelForUser(user);
         hideResults();
       }
@@ -718,27 +1029,23 @@ $(function() {
           hideResults();
           return;
         }
-        if (isMentionMode()) {
-          const mentionQuery = normalizeMentionQuery(rawQuery);
-          const token = ++requestToken;
-          fetchUserMentionSuggestions(mentionQuery, {
-            onSuccess: (userItems) => {
-              if (token !== requestToken) return;
-              renderUserItems(userItems);
-            },
-            onError: () => {
-              if (token !== requestToken) return;
-              renderEmpty('User search failed.');
-            }
-          });
-          return;
-        }
-        fetchTaskResults(rawQuery);
+        const mentionQuery = normalizeMentionQuery(rawQuery);
+        const token = ++requestToken;
+        fetchUserMentionSuggestions(mentionQuery, {
+          onSuccess: (userItems) => {
+            if (token !== requestToken) return;
+            renderUserItems(userItems);
+          },
+          onError: () => {
+            if (token !== requestToken) return;
+            renderEmpty('User search failed.');
+          }
+        });
       }
 
       input.addEventListener('input', () => {
         clearTimeout(timer);
-        timer = setTimeout(runSearch, isMentionMode() ? 120 : 220);
+        timer = setTimeout(runSearch, 140);
       });
 
       input.addEventListener('focus', () => {
@@ -767,10 +1074,9 @@ $(function() {
           event.preventDefault();
           if (activeIndex >= 0 && items[activeIndex]) {
             items[activeIndex].click();
-            return;
-          }
-          if (isMentionMode()) {
-            fetchTaskResults(getQuery());
+          } else {
+            const firstBtn = items[0];
+            firstBtn?.click();
           }
         }
       });
@@ -954,6 +1260,15 @@ $(function() {
 
   initTaskUserSearchWidgets();
   initTaskMentionFilterInputs();
+
+  document.addEventListener('click', function(event) {
+    const link = event.target.closest('.search-task-container [data-search-task-link]');
+    if (!link || !(link instanceof HTMLAnchorElement)) return;
+    if (event.defaultPrevented) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    window.location.assign(link.href);
+  });
 
   function initSidebarToggleDesktop() {
     const toggleBtn = document.getElementById('sidebarToggleDesktop');
@@ -3251,6 +3566,7 @@ $(document).on("click", "#btn-save-member", function () {
       },
       success: function(resp) {
         $('#task-board-wrapper').html(resp.html);
+        applyTaskResultsSort(document.getElementById('task-board-wrapper'));
         initSortable();
         if (typeof window.applyProjectBoardViewMode === 'function') {
           window.applyProjectBoardViewMode();

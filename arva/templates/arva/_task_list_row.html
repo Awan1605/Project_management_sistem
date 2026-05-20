@@ -4,35 +4,48 @@
      data-status="{% if task.project.is_project %}{{ task.status|default:'-'|lower }}{% else %}{{ task.task_list.name|lower }}{% endif %}"
      data-due="{{ task.due_date|date:'Y-m-d'|default:'' }}"
      data-updated="{{ task.updated_at|date:'Y-m-d H:i:s' }}"
+     data-created="{{ task.created_at|date:'Y-m-d H:i:s' }}"
+     data-task-sort-done="{% if task.project.is_project %}{% if task.status == 'done' %}1{% else %}0{% endif %}{% else %}{% if task.task_list.name|lower == 'done' %}1{% else %}0{% endif %}{% endif %}"
+     data-task-sort-created="{{ task.created_at|date:'U' }}"
      {% if task.project.is_project %}data-structured="1"{% endif %}
      tabindex="0"
      aria-label="Open task {{ task.title }}">
   <div class="task-row-main">
+    <div class="task-row-sub">
+      {% if task.priority %}
+        <span class="task-chip task-chip-priority task-chip-priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
+      {% else %}
+        <span class="task-chip task-chip-priority task-chip-priority-p2">P2 - Medium</span>
+      {% endif %}
+
+      {% if task.project.is_project %}
+        <span class="task-chip task-chip-status task-chip-status-{{ task.status|default:'-' }}">{{ task.get_status_display|default:'-' }}</span>
+      {% else %}
+        {% if task.task_list.name|lower == 'done' %}
+          <span class="task-chip task-chip-status task-chip-status-done">Done</span>
+        {% elif task.is_overdue %}
+          <span class="task-chip task-chip-status task-chip-status-overdue">Overdue</span>
+        {% elif task.is_due_today %}
+          <span class="task-chip task-chip-status task-chip-status-today">Due today</span>
+        {% else %}
+          <span class="task-chip task-chip-status task-chip-status-active">{{ task.task_list.name }}</span>
+        {% endif %}
+      {% endif %}
+    </div>
+
     <div class="task-row-title">{{ task.title }}</div>
+
     <div class="task-row-sub">
       {% if task.sub_project %}
         <span class="badge bg-light text-dark border">{{ task.sub_project.name }}</span>
       {% endif %}
       <span class="badge bg-light text-dark border">{{ task.task_list.name }}</span>
-      {% if not task.project.is_project %}
-        {% for label in task.labels.all|slice:":3" %}
-          <span class="label-chip" style="background-color: #{{ label.color }}; color: #ffffff;">{{ label.name }}</span>
-        {% endfor %}
-        {% if task.labels.count > 3 %}<span class="small text-muted">+{{ task.labels.count|add:"-3" }}</span>{% endif %}
-        <span class="task-row-reporter small text-muted"><i class="bi bi-person-circle me-1"></i>{{ task.created_by.username|default:"—" }}</span>
-      {% endif %}
       {% if task.description %}
         <span class="text-muted task-row-desc">{{ task.description|truncatechars:90 }}</span>
       {% endif %}
     </div>
   </div>
-  {% if task.project.is_project %}
-  <div class="task-row-status">
-    <div class="d-flex align-items-center gap-1 flex-wrap">
-      <span class="task-chip task-chip-priority task-chip-priority-{{ task.priority|default:'p2' }}">{{ task.get_priority_display }}</span>
-      <span class="task-chip task-chip-status task-chip-status-{{ task.status|default:'-' }}">{{ task.get_status_display|default:'-' }}</span>
-    </div>
-  </div>
+
   <div class="task-row-meta">
     <div class="task-structured-list-meta">
       <span>
@@ -53,14 +66,14 @@
       <span>
         <span class="task-meta-label"><i class="bi bi-person-badge me-1"></i>Assignee</span>
         <span class="task-meta-value">
-          {% with primary_assignee=task.assignees.first %}
+          {% with primary_assignee=task.assignees.first assignee_count=task.assignees.count %}
             {% if primary_assignee %}
               {% if primary_assignee.userprofile.avatar or primary_assignee.userprofile.avatar_icon %}
                 <img src="{{ primary_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ primary_assignee.username }}">
               {% else %}
                 <span class="assignee-avatar-fallback me-1">{{ primary_assignee.username|first|upper }}</span>
               {% endif %}
-              {{ primary_assignee.username }}
+              {{ primary_assignee.username }}{% if assignee_count > 1 %} <small class="text-muted">+{{ assignee_count|add:"-1" }}</small>{% endif %}
             {% elif task.project.pm_assignee %}
               {% if task.project.pm_assignee.userprofile.avatar or task.project.pm_assignee.userprofile.avatar_icon %}
                 <img src="{{ task.project.pm_assignee.userprofile.avatar_url }}" class="assignee-avatar me-1" alt="{{ task.project.pm_assignee.username }}">
@@ -74,59 +87,36 @@
           {% endwith %}
         </span>
       </span>
+    </div>
+  </div>
+
+  <div class="task-row-due">
+    <div class="task-structured-list-meta">
       <span>
-        <span class="task-meta-label"><i class="bi bi-play-circle me-1"></i>Start</span>
+        <span class="task-meta-label"><i class="bi bi-play-circle me-1"></i>Start Date</span>
         <span class="task-meta-value">{% if task.start_date_tbd %}TBD{% elif task.start_date %}{{ task.start_date|date:"d M Y" }}{% else %}-{% endif %}</span>
       </span>
       <span class="{% if task.is_overdue %}text-danger fw-semibold{% elif task.is_due_today %}text-warning-emphasis fw-semibold{% endif %}">
-        <span class="task-meta-label"><i class="bi bi-calendar-check me-1"></i>End</span>
-        <span class="task-meta-value">{% if task.due_date %}{{ task.due_date|date:"d M Y" }}{% if task.is_overdue %} (Overdue){% elif task.is_due_today %} (Due today){% endif %}{% else %}-{% endif %}</span>
+        <span class="task-meta-label"><i class="bi bi-calendar-check me-1"></i>End Date</span>
+        <span class="task-meta-value">
+          {% if task.due_date %}
+            <span class="due-badge
+              {% if task.is_overdue %} due-overdue
+              {% elif task.is_due_today %} due-today
+              {% elif task.is_due_soon %} due-soon
+              {% else %} bg-success text-light
+              {% endif %}
+            ">
+              {{ task.due_date|date:"d M Y" }}
+            </span>
+          {% else %}
+            -
+          {% endif %}
+        </span>
       </span>
     </div>
   </div>
-  {% else %}
-    <div class="task-row-status">
-      {% if task.task_list.name|lower == 'done' %}
-        <span class="task-chip task-chip-status task-chip-status-done">Done</span>
-      {% elif task.is_overdue %}
-        <span class="task-chip task-chip-status task-chip-status-overdue">Overdue</span>
-      {% elif task.is_due_today %}
-        <span class="task-chip task-chip-status task-chip-status-today">Due Today</span>
-      {% else %}
-        <span class="task-chip task-chip-status task-chip-status-active">Active</span>
-      {% endif %}
-    </div>
-    <div class="task-row-assignees">
-      {% with primary=task.assignees.first extra=task.assignees.count %}
-        {% if primary %}
-          <div class="assignee-pill" title="{{ primary.username }}{% if extra > 1 %} (+{{ extra|add:'-1' }} more){% endif %}">
-            {% if primary.userprofile.avatar or primary.userprofile.avatar_icon %}
-              <img src="{{ primary.userprofile.avatar_url }}" class="assignee-avatar" alt="{{ primary.username }}">
-            {% else %}
-              <span class="assignee-avatar-fallback">{{ primary.username|first|upper }}</span>
-            {% endif %}
-            <span class="assignee-name text-truncate">{{ primary.username }}</span>
-            {% if extra > 1 %}
-              <span class="assignee-extra">+{{ extra|add:"-1" }}</span>
-            {% endif %}
-          </div>
-        {% else %}
-          <span class="text-muted small">—</span>
-        {% endif %}
-      {% endwith %}
-    </div>
-    <div class="task-row-due">
-      <div class="task-row-due-date {% if task.is_overdue %}text-danger fw-semibold{% elif task.is_due_today %}text-warning-emphasis fw-semibold{% endif %}">
-        {% if task.due_date %}{{ task.due_date|date:"d M Y" }}{% else %}<span class="text-muted">—</span>{% endif %}
-      </div>
-      {% if task.checklist_total %}
-        <div class="task-row-progress-compact">
-          <div class="progress progress-compact"><div class="progress-bar bg-info" style="width: {{ task.checklist_percent }}%;"></div></div>
-          <span class="small text-muted">{{ task.checklist_done }}/{{ task.checklist_total }}</span>
-        </div>
-      {% endif %}
-    </div>
-  {% endif %}
+
   <div class="task-row-activity">
     <span class="activity-dot"></span>
     <small class="text-muted">{{ task.updated_at|timesince }} ago</small>

@@ -170,7 +170,7 @@
   }
   .task-list-head {
     display: grid;
-    grid-template-columns: minmax(240px, 2.4fr) 110px 160px 150px 130px;
+    grid-template-columns: minmax(260px, 2.3fr) minmax(220px, 1.5fr) minmax(180px, 1.25fr) 130px;
     gap: 0.75rem;
     padding: 0.7rem 0.95rem;
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
@@ -200,12 +200,9 @@
   .task-list-head > :last-child {
     justify-self: end;
   }
-  #task-board[data-is-project="1"] .task-list-head {
-    grid-template-columns: minmax(240px, 2.2fr) minmax(150px, 1fr) minmax(280px, 2fr) 160px;
-  }
   .task-list-row {
     display: grid;
-    grid-template-columns: minmax(240px, 2.4fr) 110px 160px 150px 130px;
+    grid-template-columns: minmax(260px, 2.3fr) minmax(220px, 1.5fr) minmax(180px, 1.25fr) 130px;
     gap: 0.75rem;
     align-items: center;
     padding: 0.75rem 0.95rem;
@@ -312,21 +309,6 @@
   font-size: 0.82rem;
   line-height: 1.35;
 }
-.task-list-row[data-structured="1"] {
-  grid-template-columns: minmax(240px, 2.2fr) minmax(150px, 1fr) minmax(280px, 2fr) 160px;
-}
-.task-list-row[data-structured="1"] .task-row-title {
-  font-size: 0.96rem;
-}
-.task-list-row[data-structured="1"] .task-row-sub {
-  margin-top: 0.12rem;
-}
-.task-list-row[data-structured="1"] .task-row-status {
-  justify-self: start;
-}
-.task-list-row[data-structured="1"] .task-row-meta {
-  min-width: 0;
-}
 .task-structured-list-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -347,7 +329,7 @@
     box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
   }
 
-  /* --- Non-project list-view extras (Assignees / Due / Status chips / Reporter) --- */
+  /* --- Unified list-view detail layout --- */
   .task-list-sort-static {
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -367,11 +349,6 @@
     padding: 0.1rem 0.45rem;
     border-radius: 999px;
   }
-  .task-row-reporter {
-    display: inline-flex;
-    align-items: center;
-    font-size: 0.76rem;
-  }
   .task-row-desc {
     flex-basis: 100%;
     font-size: 0.78rem;
@@ -379,91 +356,8 @@
     margin-top: 0.15rem;
     color: #64748b;
   }
-  .task-row-assignees {
-    display: flex;
-    align-items: center;
-    min-width: 0;
-  }
-  .assignee-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-width: 0;
-    max-width: 100%;
-    padding: 0.22rem 0.5rem;
-    background: rgba(15, 23, 42, 0.04);
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 999px;
-    font-size: 0.8rem;
-    color: #1e293b;
-    line-height: 1.2;
-  }
-  .assignee-pill .assignee-avatar,
-  .assignee-pill .assignee-avatar-fallback {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-  }
-  .assignee-pill .assignee-avatar-fallback {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: #0d6efd;
-    color: #fff;
-    font-size: 0.68rem;
-    font-weight: 700;
-    line-height: 1;
-  }
-  .assignee-pill .assignee-name {
-    min-width: 0;
-    flex: 1 1 auto;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .assignee-pill .assignee-extra {
-    flex-shrink: 0;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #475569;
-    background: rgba(15, 23, 42, 0.07);
-    padding: 0.05rem 0.35rem;
-    border-radius: 999px;
-  }
-  .assignee-stack {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  .assignee-stack .assignee-avatar,
-  .assignee-stack .assignee-avatar-fallback {
-    width: 24px;
-    height: 24px;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
-    margin-left: -6px;
-  }
-  .assignee-stack .assignee-avatar:first-child,
-  .assignee-stack .assignee-avatar-fallback:first-child {
-    margin-left: 0;
-  }
-  .assignee-stack .assignee-avatar-fallback {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: #0d6efd;
-    color: #fff;
-    font-size: 0.72rem;
-    font-weight: 700;
-    line-height: 1;
-  }
   .task-row-due {
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
     min-width: 0;
   }
   .task-row-due-date {
@@ -471,16 +365,6 @@
     font-weight: 600;
     color: #1e293b;
     white-space: nowrap;
-  }
-  .task-row-progress-compact {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-  }
-  .task-row-progress-compact .progress {
-    flex: 1 1 auto;
-    min-width: 60px;
-    height: 5px;
   }
   /* Status chip color variants used in the non-project list row. */
   .task-chip-status-active   { background: rgba(100, 116, 139, 0.16); color: #334155; border-color: rgba(100, 116, 139, 0.26); }
@@ -549,9 +433,8 @@
   .task-structured-list-meta {
     grid-template-columns: 1fr;
   }
-  .task-row-status,
   .task-row-meta,
-  .task-row-progress,
+  .task-row-due,
   .task-row-activity {
       justify-content: flex-start;
     }

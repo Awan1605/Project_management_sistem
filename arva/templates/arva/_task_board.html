@@ -180,20 +180,15 @@
         </div>
       </div>
       <div class="task-list-head">
-        {% if project.is_project %}
-          <button type="button" class="task-list-sort" data-sort-key="title">Task</button>
-          <button type="button" class="task-list-sort" data-sort-key="status">Priority / Status</button>
-          <button type="button" class="task-list-sort" data-sort-key="due">Ownership / Dates</button>
-          <button type="button" class="task-list-sort" data-sort-key="updated">Recent Activity</button>
-        {% else %}
-          <button type="button" class="task-list-sort" data-sort-key="title">Task</button>
-          <button type="button" class="task-list-sort" data-sort-key="status">Status</button>
-          <span class="task-list-sort-static">Assignees</span>
-          <button type="button" class="task-list-sort" data-sort-key="due">Due</button>
-          <button type="button" class="task-list-sort" data-sort-key="updated">Updated</button>
-        {% endif %}
+        <button type="button" class="task-list-sort" data-sort-key="title">Priority / Status + Task</button>
+        <span class="task-list-sort-static">Reporter / Assignee</span>
+        <button type="button" class="task-list-sort" data-sort-key="due">Start / End</button>
+        <button type="button" class="task-list-sort" data-sort-key="updated">Recent Activity</button>
       </div>
-      <div class="task-list-body" id="task-list-body">
+      <div class="task-list-body"
+           id="task-list-body"
+           data-task-results-sort="status-created-desc"
+           data-task-results-item=".task-list-row">
         {% for task in list_page_obj.object_list %}
           {% include "arva/_task_list_row.html" with task=task %}
         {% endfor %}

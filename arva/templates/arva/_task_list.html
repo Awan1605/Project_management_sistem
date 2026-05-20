@@ -20,7 +20,10 @@
     {% endif %}
   </div>
 
-  <div class="task-column" data-list-id="{{ task_list.id }}">
+  <div class="task-column"
+       data-list-id="{{ task_list.id }}"
+       data-task-results-sort="status-created-desc"
+       data-task-results-item=".task-card[data-task-id]">
     {% for task in task_list.filtered_tasks %}
       {% include "arva/_task_card.html" with task=task project=project user_role=user_role %}
     {% empty %}

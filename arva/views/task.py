@@ -12,7 +12,8 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
 from django.db import transaction, models as dj_models
-from django.db.models import Q, Max, Prefetch, Case, When, IntegerField
+from django.db.models import Q, Max, Prefetch, Case, When, IntegerField, Value, CharField, F
+from django.db.models.functions import Concat
 from django.contrib.auth import get_user_model
 from django.utils.html import strip_tags
 
@@ -38,6 +39,22 @@ from .helpers import (
 User = get_user_model()
 
 
+def _task_search_status_priority_case():
+    """Default global task search order: unfinished first, done last."""
+    return Case(
+        When(status=Task.STATUS_IN_PROGRESS, then=0),
+        When(task_list__name__iexact='in progress', then=0),
+        When(status=Task.STATUS_NONE, then=1),
+        When(task_list__name__iexact='to do', then=1),
+        When(status=Task.STATUS_INFEASIBLE, then=2),
+        When(task_list__name__iexact='infeasible', then=2),
+        When(status=Task.STATUS_DONE, then=3),
+        When(task_list__name__iexact='done', then=3),
+        default=1,
+        output_field=IntegerField(),
+    )
+
+
 # ============================================================
 # TASK BOARD VIEWS
 # ============================================================
@@ -57,16 +74,32 @@ def task_search_by_user(request):
     tasks = Task.objects.filter(
         project__in=accessible_projects,
         is_archived=False,
-    ).select_related('project', 'task_list').prefetch_related(
+    ).select_related(
+        'project',
+        'task_list',
+        'created_by',
+        'created_by__userprofile',
+        'project__pm_assignee',
+        'project__pm_assignee__userprofile',
+    ).prefetch_related(
         Prefetch('assignees', queryset=User.objects.select_related('userprofile').order_by('username')),
+        'labels',
     ).distinct()
 
     if user_query:
-        tasks = tasks.filter(
+        tasks = tasks.annotate(
+            assignee_full_name=Concat(
+                F('assignees__first_name'),
+                Value(' '),
+                F('assignees__last_name'),
+                output_field=CharField(),
+            ),
+        ).filter(
             Q(assignees__username__icontains=user_query) |
             Q(assignees__email__icontains=user_query) |
             Q(assignees__first_name__icontains=user_query) |
-            Q(assignees__last_name__icontains=user_query)
+            Q(assignees__last_name__icontains=user_query) |
+            Q(assignee_full_name__icontains=user_query)
         )
     if status:
         tasks = tasks.filter(task_list__name__iexact=status)
@@ -77,22 +110,62 @@ def task_search_by_user(request):
     if project_id:
         tasks = tasks.filter(project_id=project_id)
 
-    tasks = tasks.order_by('-updated_at')[:200]
+    tasks = tasks.annotate(
+        _status_priority=_task_search_status_priority_case()
+    ).order_by('_status_priority', '-created_at', '-id')[:200]
     results = []
     for task in tasks:
         assignees = list(task.assignees.all())
+        primary_assignee = assignees[0] if assignees else task.project.pm_assignee
+        assignee_count = len(assignees)
+        reporter = task.created_by
+        reporter_profile = getattr(reporter, 'userprofile', None) if reporter else None
+        assignee_profile = getattr(primary_assignee, 'userprofile', None) if primary_assignee else None
+        labels = list(task.labels.all()[:3])
+        status_code = task.status if task.project.is_project else (
+            'done' if task.task_list.name.lower() == 'done' else (
+                'in_progress' if task.task_list.name.lower() == 'in progress' else '-'
+            )
+        )
+        status_display = task.get_status_display() if task.project.is_project else task.task_list.name
         results.append({
             'id': task.id,
             'title': task.title,
             'project_id': task.project_id,
             'project_name': task.project.name,
-            'status': task.task_list.name,
+            'task_list_name': task.task_list.name,
+            'status': status_display,
+            'status_code': status_code,
+            'priority': task.priority or Task.PRIORITY_P2,
+            'priority_display': task.get_priority_display() if task.priority else 'P2 - Medium',
+            'is_project': bool(task.project.is_project),
+            'sub_project_name': task.sub_project.name if task.sub_project else '',
+            'description': strip_tags(task.description or ''),
+            'created_at': task.created_at.isoformat() if task.created_at else '',
             'updated_at': task.updated_at.isoformat() if task.updated_at else '',
+            'start_date': task.start_date.isoformat() if task.start_date else '',
+            'start_date_display': task.start_date.strftime('%d %b %Y') if task.start_date else '',
+            'start_date_tbd': bool(task.start_date_tbd),
             'due_date': task.due_date.isoformat() if task.due_date else '',
             'due_date_display': task.due_date.strftime('%d %b %Y') if task.due_date else 'No due',
+            'due_status': 'overdue' if task.is_overdue else ('today' if task.is_due_today else ('soon' if task.is_due_soon else ('later' if task.due_date else 'none'))),
             'assignees': [u.username for u in assignees],
             'assignees_display': ', '.join(u.username for u in assignees[:3]) + (f" +{len(assignees)-3}" if len(assignees) > 3 else ''),
-            'url': f"/project/{task.project_id}/",
+            'assignee': {
+                'username': primary_assignee.username if primary_assignee else '',
+                'email': primary_assignee.email if primary_assignee else '',
+                'avatar_url': assignee_profile.avatar_url if assignee_profile else '/static/arva/img/default-avatar.png',
+                'initial': (primary_assignee.username[0].upper() if primary_assignee and primary_assignee.username else 'U'),
+                'extra_count': max(assignee_count - 1, 0),
+            },
+            'reporter': {
+                'username': reporter.username if reporter else '',
+                'email': reporter.email if reporter else '',
+                'avatar_url': reporter_profile.avatar_url if reporter_profile else '/static/arva/img/default-avatar.png',
+                'initial': (reporter.username[0].upper() if reporter and reporter.username else 'U'),
+            },
+            'labels': [{'name': label.name, 'color': label.color} for label in labels],
+            'url': f"/task/{task.id}/",
         })
 
     return JsonResponse({'success': True, 'count': len(results), 'results': results})
@@ -109,13 +182,21 @@ def task_user_suggestions(request):
         assigned_tasks__project__in=accessible_projects,
         assigned_tasks__is_archived=False,
         is_active=True,
+    ).annotate(
+        full_name_value=Concat(
+            F('first_name'),
+            Value(' '),
+            F('last_name'),
+            output_field=CharField(),
+        ),
     )
     if query:
         users = users.filter(
             Q(username__icontains=query) |
             Q(email__icontains=query) |
             Q(first_name__icontains=query) |
-            Q(last_name__icontains=query)
+            Q(last_name__icontains=query) |
+            Q(full_name_value__icontains=query)
         )
     users = users.select_related('userprofile').distinct().order_by('username')[:20]
 
@@ -146,7 +227,9 @@ def my_cards(request):
     tasks = Task.objects.filter(
         project__in=accessible_projects,
         is_archived=False
-    ).select_related('project', 'task_list').order_by('due_date', 'project__name')
+    ).select_related('project', 'task_list').annotate(
+        _status_priority=_task_search_status_priority_case()
+    ).order_by('_status_priority', '-created_at', '-id')
     return render(request, 'arva/my_cards.html', {'tasks': tasks})
 
 

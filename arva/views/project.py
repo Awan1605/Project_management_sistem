@@ -11,7 +11,7 @@ from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
-from django.db.models import Prefetch, Q, Max
+from django.db.models import Prefetch, Q, Max, Case, When, IntegerField
 from django.db import models as dj_models
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
@@ -39,6 +39,27 @@ from .helpers import (
 )
 
 User = get_user_model()
+
+
+def _build_task_status_priority_case(is_structured_project):
+    """Urutan prioritas status default: in progress -> default -> infeasible -> done."""
+    if is_structured_project:
+        return Case(
+            When(status=Task.STATUS_IN_PROGRESS, then=0),
+            When(status=Task.STATUS_NONE, then=1),
+            When(status=Task.STATUS_INFEASIBLE, then=2),
+            When(status=Task.STATUS_DONE, then=3),
+            default=4,
+            output_field=IntegerField(),
+        )
+    return Case(
+        When(task_list__name__iexact='in progress', then=0),
+        When(task_list__name__iexact='to do', then=1),
+        When(task_list__name__iexact='infeasible', then=2),
+        When(task_list__name__iexact='done', then=3),
+        default=1,
+        output_field=IntegerField(),
+    )
 
 
 # ============================================================
@@ -160,7 +181,12 @@ def project_detail(request, pk):
         base_tasks = base_tasks.filter(due_date__lte=due)
     base_tasks = base_tasks.distinct()
 
-    list_tasks_qs = base_tasks.order_by('-updated_at', '-id')
+    status_priority_case = _build_task_status_priority_case(project.is_project)
+    ordered_tasks_qs = base_tasks.annotate(
+        _status_priority=status_priority_case
+    ).order_by('_status_priority', '-created_at', '-id')
+
+    list_tasks_qs = ordered_tasks_qs
     list_paginator = Paginator(list_tasks_qs, int(per_page))
     list_page_obj = list_paginator.get_page(page_number)
 
@@ -173,7 +199,7 @@ def project_detail(request, pk):
         for sp in subproject_items:
             list_qs = project.lists.filter(is_archived=False, sub_project=sp)
             lists = list(list_qs.order_by('position').prefetch_related(
-                Prefetch('tasks', queryset=base_tasks.order_by('order'), to_attr='filtered_tasks')
+                Prefetch('tasks', queryset=ordered_tasks_qs, to_attr='filtered_tasks')
             ))
             grouped_task_lists.append({
                 'subproject': sp,
@@ -184,7 +210,7 @@ def project_detail(request, pk):
         list_qs = project.lists.filter(is_archived=False)
         list_qs = list_qs.filter(sub_project=selected_subproject if selected_subproject else None)
         task_lists = list(list_qs.order_by('position').prefetch_related(
-            Prefetch('tasks', queryset=base_tasks.order_by('order'), to_attr='filtered_tasks')
+            Prefetch('tasks', queryset=ordered_tasks_qs, to_attr='filtered_tasks')
         ))
         grouped_task_lists = []
 
