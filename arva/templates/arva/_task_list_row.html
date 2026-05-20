@@ -41,7 +41,7 @@
       {% endif %}
       <span class="badge bg-light text-dark border">{{ task.task_list.name }}</span>
       {% if task.description %}
-        <span class="text-muted task-row-desc">{{ task.description|truncatechars:90 }}</span>
+        <span class="text-muted task-row-desc">{{ task.description|striptags|truncatechars:90 }}</span>
       {% endif %}
     </div>
   </div>

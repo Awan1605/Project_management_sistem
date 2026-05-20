@@ -2413,6 +2413,7 @@ $(function() {
   initUserSettingsPage();
   initWebsiteSettingsPage();
   initProjectDetailPage();
+  initTaskRichEditors($(document));
 
   $(document).on('click', '.theme-select', function() {
     const theme = $(this).data('theme');
@@ -2829,7 +2830,10 @@ $(function() {
             const card = $(`.task-card[data-task-id='${taskId}']`);
             card.replaceWith(resp.html);
           }
-          if (typeof onSuccess === 'function') onSuccess();
+          if (resp.task) {
+            updateTaskDetailUI(resp.task);
+          }
+          if (typeof onSuccess === 'function') onSuccess(resp);
         } else {
           showError(resp.error || `Update failed for field "${field}".`);
           if (typeof onError === 'function') onError();
@@ -2887,9 +2891,7 @@ $(function() {
 
   $(document).on('change', '#task-view-desc', function() {
         const taskId = getCurrentTaskId();
-    inlineUpdate(taskId, 'description', $(this).val(), function() {
-      loadTaskView(taskId);
-    });
+    inlineUpdate(taskId, 'description', $(this).val());
   });
 
   $(document).on('change', '#task-view-due', function() {
@@ -3015,6 +3017,7 @@ $(function() {
         $('#task-view-body').html(resp.html);
         const scope = $('#taskViewModal').length ? $('#taskViewModal') : $('#task-view-body');
         autoResizeTextareas(scope);
+        initTaskRichEditors(scope);
       } else {
         $('#task-view-body').html('<div class="text-danger">You are not allowed to view this task.</div>');
       }
@@ -3037,9 +3040,279 @@ $(function() {
     });
   }
 
+  function updateTaskDetailUI(taskData) {
+    if (!taskData || typeof taskData !== 'object') return;
+    const $title = $('#task-overview-title');
+    if ($title.length && taskData.title !== undefined) {
+      $title.text(taskData.title || '');
+      if (document.title && document.title.includes(' - ')) {
+        const parts = document.title.split(' - ');
+        const suffix = parts.length > 1 ? parts.slice(1).join(' - ') : '';
+        if (suffix) document.title = `${taskData.title || ''} - ${suffix}`;
+      }
+    }
+
+    const $status = $('#task-overview-status-badge');
+    if ($status.length && taskData.status) {
+      const code = (taskData.status.code || 'active').toString().toLowerCase();
+      $status.attr('class', `task-chip task-chip-status task-chip-status-${code}`);
+      $status.text(taskData.status.label || '-');
+    }
+
+    const $priority = $('#task-overview-priority-badge');
+    if ($priority.length && taskData.priority) {
+      const pCode = (taskData.priority.code || 'p2').toString().toLowerCase();
+      $priority.attr('class', `task-chip task-chip-priority task-chip-priority-${pCode}`);
+      $priority.text(taskData.priority.label || 'P2 - Medium');
+    }
+
+    const renderPerson = (person) => {
+      if (!person || !person.username) return '<span class="text-muted">-</span>';
+      const safeName = $('<div>').text(person.username).html();
+      const initial = $('<div>').text((person.initial || 'U').toString().slice(0, 1).toUpperCase()).html();
+      if (person.avatar_url) {
+        const safeUrl = $('<div>').text(person.avatar_url).html();
+        return `<img src="${safeUrl}" class="assignee-avatar" alt="${safeName}"><span class="text-truncate">${safeName}</span>`;
+      }
+      return `<span class="assignee-avatar-fallback">${initial}</span><span class="text-truncate">${safeName}</span>`;
+    };
+
+    const $reporter = $('#task-overview-reporter');
+    if ($reporter.length && taskData.reporter) {
+      $reporter.html(renderPerson(taskData.reporter));
+    }
+
+    const $assignee = $('#task-overview-assignee');
+    if ($assignee.length && taskData.assignee) {
+      const html = renderPerson(taskData.assignee);
+      const extra = Number(taskData.assignee.extra_count || 0);
+      $assignee.html(extra > 0 ? `${html}<small class="text-muted ms-1">+${extra}</small>` : html);
+    }
+
+    const $start = $('#task-overview-start-date');
+    if ($start.length && taskData.start_date) {
+      $start.text(taskData.start_date.display || '-');
+    }
+
+    const $end = $('#task-overview-end-date');
+    if ($end.length && taskData.due_date) {
+      $end
+        .toggleClass('text-danger fw-semibold', !!taskData.due_date.is_overdue)
+        .text(taskData.due_date.display || '-');
+    }
+
+    const $desc = $('#task-overview-description');
+    if ($desc.length) {
+      const rich = sanitizeRichEditorHtml(taskData.description_html || '');
+      $desc.html(rich || '<span class="text-muted">No description yet.</span>');
+    }
+
+    const $descField = $('#task-view-desc');
+    if ($descField.length && taskData.description_html !== undefined) {
+      $descField.val(taskData.description_html || '');
+    }
+    const editorEl = document.querySelector('[data-task-rich-editor] [data-editor-input]');
+    if (editorEl && taskData.description_html !== undefined) {
+      editorEl.innerHTML = sanitizeRichEditorHtml(taskData.description_html || '') || '<p><br></p>';
+    }
+
+    if (taskData.start_date && $('#task-view-start-date').length) {
+      $('#task-view-start-date').val(taskData.start_date.value || '');
+      $('#task-view-start-date-tbd')
+        .prop('checked', !!taskData.start_date.is_tbd)
+        .closest('.tbd-pill')
+        .toggleClass('is-active', !!taskData.start_date.is_tbd);
+    }
+    if (taskData.due_date && $('#task-view-due').length) {
+      $('#task-view-due').val(taskData.due_date.value || '');
+    }
+  }
+
+  function sanitizeRichEditorHtml(html) {
+    const source = document.createElement('div');
+    source.innerHTML = html || '';
+    const allowedTags = new Set(['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'UL', 'OL', 'LI', 'A']);
+    const normalizeTag = (tagName) => {
+      if (!tagName) return '';
+      const upper = tagName.toUpperCase();
+      if (upper === 'DIV') return 'P';
+      return upper;
+    };
+    const sanitizeUrl = (value) => {
+      const raw = (value || '').trim();
+      if (!raw) return '';
+      if (/^(https?:|mailto:|\/)/i.test(raw)) return raw;
+      if (/^\/\//.test(raw)) return `https:${raw}`;
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) return `https://${raw}`;
+      return '';
+    };
+
+    const sanitizeNode = (node) => {
+      if (!node) return null;
+      if (node.nodeType === Node.TEXT_NODE) {
+        return document.createTextNode(node.textContent || '');
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return null;
+      }
+
+      const tag = normalizeTag(node.tagName);
+      const children = Array.from(node.childNodes || []).map(sanitizeNode).filter(Boolean);
+
+      if (!allowedTags.has(tag)) {
+        const fragment = document.createDocumentFragment();
+        children.forEach((child) => fragment.appendChild(child));
+        return fragment;
+      }
+
+      const safeEl = document.createElement(tag.toLowerCase());
+      children.forEach((child) => safeEl.appendChild(child));
+
+      if (tag === 'A') {
+        const href = sanitizeUrl(node.getAttribute('href') || node.dataset.href || node.textContent || '');
+        if (!href) {
+          const fragment = document.createDocumentFragment();
+          while (safeEl.firstChild) fragment.appendChild(safeEl.firstChild);
+          return fragment;
+        }
+        safeEl.setAttribute('href', href);
+        safeEl.setAttribute('target', '_blank');
+        safeEl.setAttribute('rel', 'noopener noreferrer nofollow');
+      }
+      return safeEl;
+    };
+
+    const output = document.createElement('div');
+    Array.from(source.childNodes || []).forEach((child) => {
+      const safe = sanitizeNode(child);
+      if (safe) output.appendChild(safe);
+    });
+    return output.innerHTML.trim();
+  }
+
+  function initTaskRichEditors($scope) {
+    const $roots = ($scope && $scope.length ? $scope : $(document)).find('[data-task-rich-editor]');
+    $roots.each(function() {
+      const root = this;
+      if (root.dataset.editorInitialized === '1') return;
+      const textarea = root.querySelector('#task-view-desc');
+      const editor = root.querySelector('[data-editor-input]');
+      if (!textarea || !editor) return;
+      root.dataset.editorInitialized = '1';
+      const isDisabled = root.dataset.disabled === '1' || textarea.disabled;
+      editor.innerHTML = sanitizeRichEditorHtml(textarea.value || '') || '<p><br></p>';
+      editor.setAttribute('contenteditable', isDisabled ? 'false' : 'true');
+      root.querySelectorAll('[data-editor-cmd]').forEach((btn) => {
+        if (isDisabled) btn.setAttribute('disabled', 'disabled');
+      });
+      let autoSaveTimer = null;
+
+      const syncToTextarea = (triggerChange = false) => {
+        const sanitized = sanitizeRichEditorHtml(editor.innerHTML);
+        if (textarea.value !== sanitized) {
+          textarea.value = sanitized;
+        }
+        if (triggerChange) {
+          $(textarea).trigger('change');
+        }
+      };
+
+      editor.addEventListener('input', () => {
+        syncToTextarea(false);
+        const overviewDesc = document.getElementById('task-overview-description');
+        if (overviewDesc) {
+          const plainText = (editor.textContent || '').trim();
+          overviewDesc.innerHTML = plainText ? $('<div>').text(plainText).html() : '<span class="text-muted">No description yet.</span>';
+        }
+        if (isDisabled) return;
+        if (autoSaveTimer) window.clearTimeout(autoSaveTimer);
+        autoSaveTimer = window.setTimeout(() => {
+          syncToTextarea(true);
+        }, 700);
+      });
+      editor.addEventListener('blur', () => {
+        window.setTimeout(() => {
+          if (root.contains(document.activeElement)) return;
+          if (autoSaveTimer) {
+            window.clearTimeout(autoSaveTimer);
+            autoSaveTimer = null;
+          }
+          syncToTextarea(true);
+        }, 0);
+      });
+
+      editor.addEventListener('paste', (event) => {
+        const text = event.clipboardData?.getData('text/plain') || '';
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        const isUrlOnly = /^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed);
+        if (!isUrlOnly) return;
+        event.preventDefault();
+        const href = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+        document.execCommand('insertHTML', false, `<a href="${href}" target="_blank" rel="noopener noreferrer nofollow">${trimmed}</a>`);
+        syncToTextarea(false);
+      });
+
+      root.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-editor-cmd]');
+        if (!btn || isDisabled) return;
+        event.preventDefault();
+        const cmd = btn.dataset.editorCmd;
+        editor.focus();
+        if (cmd === 'createLink') {
+          const selectedText = window.getSelection()?.toString() || '';
+          const raw = window.prompt('Enter link URL', selectedText && /^https?:\/\//i.test(selectedText) ? selectedText : 'https://');
+          if (!raw) return;
+          const href = raw.trim().startsWith('http') || raw.trim().startsWith('mailto:') ? raw.trim() : `https://${raw.trim()}`;
+          document.execCommand('createLink', false, href);
+          const selection = window.getSelection();
+          if (selection?.anchorNode?.parentElement?.tagName === 'A') {
+            const anchor = selection.anchorNode.parentElement;
+            anchor.setAttribute('target', '_blank');
+            anchor.setAttribute('rel', 'noopener noreferrer nofollow');
+          }
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        syncToTextarea(false);
+      });
+    });
+  }
+
   $(document).on('input', 'textarea[data-autoresize="true"]', function() {
     this.style.height = 'auto';
     this.style.height = `${this.scrollHeight}px`;
+  });
+
+  $(document).on('click', '#task-share-btn', async function() {
+    const url = ($(this).data('task-share-url') || window.location.href || '').toString();
+    if (!url) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: document.title || 'Task', url });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const temp = document.createElement('textarea');
+        temp.value = url;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+      }
+      showSuccess('Task link copied.');
+    } catch (error) {
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(url);
+          showSuccess('Task link copied.');
+          return;
+        } catch (fallbackError) {
+          // continue to error message
+        }
+      }
+      showError('Failed to share task link.');
+    }
   });
 
   function loadProjectSubprojects(projectId, $select, selectedId, onDone) {

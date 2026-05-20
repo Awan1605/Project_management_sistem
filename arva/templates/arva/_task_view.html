@@ -1,7 +1,7 @@
 {% if project_is_project %}
 <div class="task-structured-shell">
   <section class="task-structured-section task-structured-header-plain mb-3">
-    <input type="text" id="task-view-title" class="task-title-plain" value="{{ task.title }}" spellcheck="false" placeholder="Task name…" {% if view_only or project_is_closed %}disabled{% endif %}>
+    <input type="text" id="task-view-title" class="task-title-plain" value="{{ task.title }}" spellcheck="false" placeholder="Task name..." {% if view_only or project_is_closed %}disabled{% endif %}>
   </section>
 
   <section class="task-structured-section mb-3">
@@ -34,7 +34,7 @@
           {% elif task.created_by %}
             <span class="assignee-avatar-fallback">{{ task.created_by.username|first|upper }}</span>
           {% else %}
-            <span class="assignee-avatar-fallback reporter-avatar-empty">—</span>
+            <span class="assignee-avatar-fallback reporter-avatar-empty">-</span>
           {% endif %}
           <span class="reporter-name text-truncate">{{ task.created_by.username|default:"-" }}</span>
         </div>
@@ -67,7 +67,20 @@
 
   <section class="task-structured-section mb-3">
     <h6 class="fw-semibold mb-2">Description</h6>
-    <textarea id="task-view-desc" class="task-desc-input task-desc-plain" rows="3" data-autoresize="true" placeholder="Add a description…" spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description }}</textarea>
+    <div class="task-rich-editor" data-task-rich-editor {% if view_only or project_is_closed %}data-disabled="1"{% endif %}>
+      <div class="task-rich-editor-toolbar" role="toolbar" aria-label="Description formatting toolbar">
+        <button type="button" class="btn btn-light btn-sm" data-editor-cmd="bold" title="Bold"><i class="bi bi-type-bold"></i></button>
+        <button type="button" class="btn btn-light btn-sm" data-editor-cmd="italic" title="Italic"><i class="bi bi-type-italic"></i></button>
+        <button type="button" class="btn btn-light btn-sm" data-editor-cmd="underline" title="Underline"><i class="bi bi-type-underline"></i></button>
+        <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertUnorderedList" title="Bullet list"><i class="bi bi-list-ul"></i></button>
+        <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertOrderedList" title="Numbered list"><i class="bi bi-list-ol"></i></button>
+        <button type="button" class="btn btn-light btn-sm" data-editor-cmd="createLink" title="Insert link"><i class="bi bi-link-45deg"></i></button>
+        <button type="button" class="btn btn-light btn-sm" data-editor-cmd="undo" title="Undo"><i class="bi bi-arrow-counterclockwise"></i></button>
+        <button type="button" class="btn btn-light btn-sm" data-editor-cmd="redo" title="Redo"><i class="bi bi-arrow-clockwise"></i></button>
+      </div>
+      <div class="task-rich-editor-input" contenteditable="{% if view_only or project_is_closed %}false{% else %}true{% endif %}" data-editor-input aria-label="Task description editor"></div>
+      <textarea id="task-view-desc" class="task-desc-input task-desc-plain d-none" rows="3" data-autoresize="true" placeholder="Add a description..." spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description|default:'' }}</textarea>
+    </div>
   </section>
 
   <section class="task-structured-section mb-3">
@@ -146,7 +159,20 @@
   <div class="col-md-8">
     <div class="section-box">
       <h6 class="fw-semibold mb-2">Description</h6>
-      <textarea id="task-view-desc" class="task-desc-input task-desc-plain" rows="2" data-autoresize="true" placeholder="Add a description…" spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description }}</textarea>
+      <div class="task-rich-editor" data-task-rich-editor {% if view_only or project_is_closed %}data-disabled="1"{% endif %}>
+        <div class="task-rich-editor-toolbar" role="toolbar" aria-label="Description formatting toolbar">
+          <button type="button" class="btn btn-light btn-sm" data-editor-cmd="bold" title="Bold"><i class="bi bi-type-bold"></i></button>
+          <button type="button" class="btn btn-light btn-sm" data-editor-cmd="italic" title="Italic"><i class="bi bi-type-italic"></i></button>
+          <button type="button" class="btn btn-light btn-sm" data-editor-cmd="underline" title="Underline"><i class="bi bi-type-underline"></i></button>
+          <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertUnorderedList" title="Bullet list"><i class="bi bi-list-ul"></i></button>
+          <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertOrderedList" title="Numbered list"><i class="bi bi-list-ol"></i></button>
+          <button type="button" class="btn btn-light btn-sm" data-editor-cmd="createLink" title="Insert link"><i class="bi bi-link-45deg"></i></button>
+          <button type="button" class="btn btn-light btn-sm" data-editor-cmd="undo" title="Undo"><i class="bi bi-arrow-counterclockwise"></i></button>
+          <button type="button" class="btn btn-light btn-sm" data-editor-cmd="redo" title="Redo"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+        <div class="task-rich-editor-input" contenteditable="{% if view_only or project_is_closed %}false{% else %}true{% endif %}" data-editor-input aria-label="Task description editor"></div>
+        <textarea id="task-view-desc" class="task-desc-input task-desc-plain d-none" rows="2" data-autoresize="true" placeholder="Add a description..." spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description|default:'' }}</textarea>
+      </div>
     </div>
 
     <div class="section-box">

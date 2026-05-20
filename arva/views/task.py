@@ -5,12 +5,15 @@ Menangani CRUD task, pindah task, transfer antar project, archive, inline update
 """
 
 from datetime import datetime
+from html import escape
+from html.parser import HTMLParser
 
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.db import transaction, models as dj_models
 from django.db.models import Q, Max, Prefetch, Case, When, IntegerField, Value, CharField, F
 from django.db.models.functions import Concat, Lower
@@ -37,6 +40,147 @@ from .helpers import (
 )
 
 User = get_user_model()
+
+
+class _RichTextSanitizer(HTMLParser):
+    """Minimal allow-list sanitizer for task description rich text."""
+
+    allowed_tags = {'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'a'}
+    void_tags = {'br'}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.open_tags = []
+
+    def _sanitize_href(self, href):
+        href = (href or '').strip()
+        if not href:
+            return ''
+        if href.startswith(('http://', 'https://', 'mailto:')):
+            return href
+        if href.startswith('//'):
+            return f'https:{href}'
+        if href.startswith('/'):
+            return href
+        if '://' not in href:
+            return f'https://{href}'
+        return ''
+
+    def _normalize_tag(self, tag):
+        t = (tag or '').lower()
+        if t == 'div':
+            return 'p'
+        return t
+
+    def handle_starttag(self, tag, attrs):
+        t = self._normalize_tag(tag)
+        if t not in self.allowed_tags:
+            return
+        if t == 'a':
+            href = ''
+            for key, val in attrs:
+                if (key or '').lower() == 'href':
+                    href = self._sanitize_href(val)
+                    break
+            if not href:
+                return
+            self.parts.append(f'<a href="{escape(href, quote=True)}" target="_blank" rel="noopener noreferrer nofollow">')
+            self.open_tags.append('a')
+            return
+        self.parts.append(f'<{t}>')
+        if t not in self.void_tags:
+            self.open_tags.append(t)
+
+    def handle_endtag(self, tag):
+        t = self._normalize_tag(tag)
+        if t in self.void_tags or t not in self.allowed_tags:
+            return
+        for idx in range(len(self.open_tags) - 1, -1, -1):
+            if self.open_tags[idx] == t:
+                del self.open_tags[idx]
+                self.parts.append(f'</{t}>')
+                break
+
+    def handle_data(self, data):
+        if data:
+            self.parts.append(escape(data))
+
+    def get_html(self):
+        while self.open_tags:
+            t = self.open_tags.pop()
+            self.parts.append(f'</{t}>')
+        return ''.join(self.parts)
+
+
+def sanitize_task_description_html(value):
+    raw = (value or '').strip()
+    if not raw:
+        return ''
+    parser = _RichTextSanitizer()
+    parser.feed(raw)
+    parser.close()
+    return parser.get_html()
+
+
+def _serialize_task_detail_payload(task, project):
+    assignees = list(task.assignees.select_related('userprofile').all())
+    primary_assignee = assignees[0] if assignees else getattr(project, 'pm_assignee', None)
+    reporter = task.created_by
+    reporter_profile = getattr(reporter, 'userprofile', None) if reporter else None
+    assignee_profile = getattr(primary_assignee, 'userprofile', None) if primary_assignee else None
+
+    if project.is_project:
+        status_code = task.status or Task.STATUS_NONE
+        status_label = task.get_status_display() or '-'
+    else:
+        list_name = (task.task_list.name or '').lower()
+        if list_name == 'done':
+            status_code = 'done'
+        elif list_name == 'in progress':
+            status_code = 'in_progress'
+        else:
+            status_code = 'active'
+        status_label = task.task_list.name
+
+    priority_code = (task.priority or Task.PRIORITY_P2).lower()
+    priority_label = task.get_priority_display() if task.priority else 'P2 - Medium'
+
+    return {
+        'id': task.id,
+        'title': task.title,
+        'description_html': task.description or '',
+        'description_text': strip_tags(task.description or ''),
+        'status': {
+            'code': status_code,
+            'label': status_label,
+        },
+        'priority': {
+            'code': priority_code,
+            'label': priority_label,
+        },
+        'reporter': {
+            'username': reporter.username if reporter else '',
+            'avatar_url': reporter_profile.avatar_url if reporter_profile else '',
+            'initial': (reporter.username[:1].upper() if reporter and reporter.username else 'U'),
+        },
+        'assignee': {
+            'username': primary_assignee.username if primary_assignee else '',
+            'avatar_url': assignee_profile.avatar_url if assignee_profile else '',
+            'initial': (primary_assignee.username[:1].upper() if primary_assignee and primary_assignee.username else 'U'),
+            'extra_count': max(len(assignees) - 1, 0),
+        },
+        'start_date': {
+            'is_tbd': bool(task.start_date_tbd),
+            'display': 'TBD' if task.start_date_tbd else (task.start_date.strftime('%d %b %Y') if task.start_date else '-'),
+            'value': task.start_date.strftime('%Y-%m-%d') if task.start_date else '',
+        },
+        'due_date': {
+            'display': task.due_date.strftime('%d %b %Y') if task.due_date else '-',
+            'value': task.due_date.strftime('%Y-%m-%d') if task.due_date else '',
+            'is_overdue': bool(task.is_overdue),
+        },
+    }
 
 
 def _task_search_status_priority_case():
@@ -452,6 +596,8 @@ def task_detail(request, task_id):
         'root_comments': comments,
         "view_only": view_only,
         'project_is_closed': is_project_locked(project),
+        'task_detail_url': request.build_absolute_uri(reverse('task_detail', args=[task.id])),
+        'overview_description_html': sanitize_task_description_html(task.description or ''),
     })
 
 
@@ -701,7 +847,7 @@ def task_inline_update(request, task_id):
         changed = True
         desc = f"Title updated from '{old}' to '{value}'"
     elif field == 'description':
-        task.description = value
+        task.description = sanitize_task_description_html(value)
         changed = True
         desc = "Description updated"
     elif field == 'status':
@@ -828,4 +974,9 @@ def task_inline_update(request, task_id):
 
     html = render_to_string('arva/_task_card.html', {'task': task, 'project': project, 'user_role': role}, request=request)
     list_row_html = render_to_string('arva/_task_list_row.html', {'task': task, 'project': project, 'user_role': role}, request=request)
-    return JsonResponse({'success': True, 'html': html, 'list_row_html': list_row_html})
+    return JsonResponse({
+        'success': True,
+        'html': html,
+        'list_row_html': list_row_html,
+        'task': _serialize_task_detail_payload(task, project),
+    })

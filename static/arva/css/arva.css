@@ -992,6 +992,77 @@
   line-height: 1.5;
 }
 
+.task-rich-editor {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.task-rich-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+  background: #f8fafc;
+}
+
+.task-rich-editor-toolbar .btn {
+  min-width: 34px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.task-rich-editor-input {
+  min-height: 150px;
+  max-height: 460px;
+  overflow: auto;
+  padding: 0.75rem 0.8rem;
+  line-height: 1.6;
+  outline: none;
+}
+
+.task-rich-editor-input:focus {
+  box-shadow: inset 0 0 0 2px rgba(9, 175, 255, 0.22);
+}
+
+.task-rich-editor-input:empty::before {
+  content: "Add a description...";
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.task-rich-editor[data-disabled="1"] {
+  opacity: 0.9;
+}
+
+.task-rich-editor[data-disabled="1"] .task-rich-editor-input {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.task-rich-editor-input a {
+  color: #0ea5e9;
+  text-decoration: underline;
+  word-break: break-word;
+}
+
+body.layout-sidebar.theme-dark .task-rich-editor,
+body[data-theme='dark'] .task-rich-editor {
+  border-color: rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.9);
+}
+
+body.layout-sidebar.theme-dark .task-rich-editor-toolbar,
+body[data-theme='dark'] .task-rich-editor-toolbar {
+  border-color: rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.72);
+}
+
 /* Plain (borderless) description textarea — reads like prose, hints editability on hover/focus. */
 .task-desc-plain {
   display: block;
