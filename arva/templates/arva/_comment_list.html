@@ -1,3 +1,4 @@
+{% load arva_tags %}
 {% for c in comments %}
 <article class="comment-item {% if c.parent_id %}comment-item--reply{% endif %}" data-id="{{ c.id }}">
   <div class="comment-item-card">
@@ -24,7 +25,7 @@
     </header>
 
     <div class="comment-body">
-      <div class="comment-content">{{ c.content|linebreaksbr }}</div>
+      <div class="comment-content">{{ c.content|mentionize }}</div>
       {% if c.attachments.all %}
         <div class="comment-image-grid mt-2">
           {% for att in c.attachments.all|slice:":6" %}

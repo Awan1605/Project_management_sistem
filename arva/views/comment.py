@@ -4,21 +4,26 @@ Views Komentar, Lampiran, dan Checklist
 Menangani operasi terkait komentar, balasan, lampiran, dan checklist pada task.
 """
 
+import re
+
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponseForbidden, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
 from django.utils.text import get_valid_filename
+from django.contrib.auth import get_user_model
 
 from .helpers import get_user_project_or_404, get_role, is_project_locked, closed_project_error
-from ..models import Task, Comment, Attachment, ChecklistItem, ActivityLog
+from ..models import Task, Comment, Attachment, ChecklistItem, ActivityLog, UserNotification
 from ..forms import AttachmentForm, ChecklistItemForm
 
 ALLOWED_COMMENT_IMAGE_TYPES = {'image/png', 'image/jpeg', 'image/webp'}
 ALLOWED_COMMENT_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
 MAX_COMMENT_IMAGE_SIZE = 5 * 1024 * 1024
 MAX_COMMENT_IMAGE_COUNT = 5
+MENTION_PATTERN = re.compile(r'(^|\s)@([A-Za-z0-9_.+-]{2,150})')
+User = get_user_model()
 
 
 def _validate_comment_images(images):
@@ -35,6 +40,37 @@ def _validate_comment_images(images):
         if image.size > MAX_COMMENT_IMAGE_SIZE:
             return 'Each pasted image must be 5 MB or smaller.'
     return None
+
+
+def _create_mention_notifications(project, task, actor, comment):
+    """Buat notifikasi mention berdasarkan @username di konten komentar."""
+    content = comment.content or ''
+    usernames = {m.group(2) for m in MENTION_PATTERN.finditer(content)}
+    if not usernames:
+        return
+
+    mentioned_users = User.objects.filter(username__in=usernames, is_active=True).distinct()
+    seen_recipient_ids = set()
+    notifications = []
+
+    for mentioned in mentioned_users:
+        if mentioned.id == actor.id:
+            continue
+        if mentioned.id in seen_recipient_ids:
+            continue
+        if not project.can_user_view(mentioned):
+            continue
+        seen_recipient_ids.add(mentioned.id)
+        notifications.append(UserNotification(
+            recipient=mentioned,
+            actor=actor,
+            task=task,
+            comment=comment,
+            message=f"{actor.username} mentioned you in a comment on Task: {task.title}",
+        ))
+
+    if notifications:
+        UserNotification.objects.bulk_create(notifications)
 
 
 # ============================================================
@@ -73,6 +109,7 @@ def comment_add(request, task_id):
     comment = Comment.objects.create(task=task, user=request.user, content=content)
     for image in images:
         Attachment.objects.create(task=task, comment=comment, uploaded_by=request.user, file=image)
+    _create_mention_notifications(project, task, request.user, comment)
 
     ActivityLog.objects.create(
         user=request.user, project=task.project, task=task,
@@ -118,6 +155,7 @@ def comment_reply(request, comment_id):
     )
     for image in images:
         Attachment.objects.create(task=task, comment=new_comment, uploaded_by=request.user, file=image)
+    _create_mention_notifications(project, task, request.user, new_comment)
 
     ActivityLog.objects.create(
         user=request.user, project=task.project, task=task,

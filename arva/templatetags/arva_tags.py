@@ -10,8 +10,12 @@ Custom template tags yang tersedia di seluruh template:
 - get_item: Ambil item dari dict dengan key
 """
 
+import re
 from django import template
-from arva.models import WebsiteSettings, AISettings
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
+from arva.models import WebsiteSettings, AISettings, UserNotification
+from django.contrib.auth.models import User
 import os
 from datetime import datetime
 
@@ -80,3 +84,41 @@ def get_item(mapping, key):
     if mapping is None:
         return None
     return mapping.get(key)
+
+
+@register.simple_tag
+def recent_notifications(user, limit=8):
+    """Ambil notifikasi terbaru untuk user di topbar bell."""
+    if not getattr(user, 'is_authenticated', False):
+        return []
+    return UserNotification.objects.filter(recipient=user).select_related('actor', 'task')[:limit]
+
+
+@register.simple_tag
+def unread_notification_count(user):
+    """Jumlah notifikasi belum dibaca."""
+    if not getattr(user, 'is_authenticated', False):
+        return 0
+    return UserNotification.objects.filter(recipient=user, is_read=False).count()
+
+
+MENTION_RE = re.compile(r'(^|\s)@([A-Za-z0-9_.+-]{2,150})')
+
+
+@register.filter
+def mentionize(value):
+    """Render @username sebagai chip/link mention yang aman."""
+    text = value or ''
+    escaped = escape(text)
+    usernames = {m.group(2) for m in MENTION_RE.finditer(text)}
+    existing = set(User.objects.filter(username__in=usernames).values_list('username', flat=True)) if usernames else set()
+
+    def _replace(match):
+        prefix = match.group(1) or ''
+        username = match.group(2)
+        if username in existing:
+            return f'{prefix}<a href="/users/?q={username}" class="comment-mention">@{username}</a>'
+        return f'{prefix}@{username}'
+
+    rendered = MENTION_RE.sub(_replace, escaped).replace('\n', '<br>')
+    return mark_safe(rendered)

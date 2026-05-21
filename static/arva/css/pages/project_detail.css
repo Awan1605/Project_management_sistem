@@ -944,6 +944,79 @@
   background: rgba(15, 23, 42, 0.72);
 }
 
+.comment-mention {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.38rem;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 600;
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+}
+
+.comment-mention-menu {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+}
+
+.comment-mention-menu-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.comment-mention-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.48rem 0.62rem;
+  text-align: left;
+}
+
+.comment-mention-item:hover,
+.comment-mention-item.is-active {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.comment-mention-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.comment-mention-meta {
+  min-width: 0;
+}
+
+.comment-mention-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.comment-mention-email {
+  font-size: 0.74rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.comment-mention-empty {
+  padding: 0.55rem 0.65rem;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
 @media (max-width: 575.98px) {
   .comment-replies {
     margin-left: 0.9rem;

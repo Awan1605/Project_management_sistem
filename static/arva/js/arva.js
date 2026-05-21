@@ -3049,6 +3049,7 @@ $(function() {
     }
     $.get(`/task/${taskId}/view/`, function(resp) {
       if (resp.success) {
+        hideMentionMenu();
         if (typeof resetAllReplyDrafts === 'function') {
           resetAllReplyDrafts();
         }
@@ -3730,6 +3731,7 @@ $(function() {
   $(document).on('hidden.bs.modal', '#taskViewModal', function() {
     resetTaskCommentPasteState(null);
     resetAllReplyDrafts();
+    hideMentionMenu();
   });
 
   $(document).on('click', '#btn-add-comment', function() {
@@ -3802,6 +3804,16 @@ $(function() {
   });
 
   const replyCommentDrafts = new Map();
+  const mentionUiState = {
+    $menu: null,
+    activeTextarea: null,
+    queryStart: null,
+    queryEnd: null,
+    results: [],
+    activeIndex: -1,
+    debounceTimer: null,
+    pendingRequest: null,
+  };
 
   function getReplyDraft(commentId) {
     const key = String(commentId);
@@ -3824,6 +3836,146 @@ $(function() {
     Array.from(replyCommentDrafts.keys()).forEach((key) => {
       resetReplyDraft(key);
     });
+  }
+
+  function ensureMentionMenu() {
+    if (mentionUiState.$menu && mentionUiState.$menu.length) return mentionUiState.$menu;
+    mentionUiState.$menu = $(`
+      <div class="comment-mention-menu d-none" role="listbox" aria-label="Mention suggestions">
+        <div class="comment-mention-menu-list"></div>
+      </div>
+    `);
+    $('body').append(mentionUiState.$menu);
+    return mentionUiState.$menu;
+  }
+
+  function hideMentionMenu() {
+    if (mentionUiState.pendingRequest) {
+      mentionUiState.pendingRequest.abort();
+      mentionUiState.pendingRequest = null;
+    }
+    if (mentionUiState.debounceTimer) {
+      window.clearTimeout(mentionUiState.debounceTimer);
+      mentionUiState.debounceTimer = null;
+    }
+    if (mentionUiState.$menu) {
+      mentionUiState.$menu.addClass('d-none');
+    }
+    mentionUiState.results = [];
+    mentionUiState.activeIndex = -1;
+    mentionUiState.activeTextarea = null;
+    mentionUiState.queryStart = null;
+    mentionUiState.queryEnd = null;
+  }
+
+  function extractMentionQuery(textarea) {
+    const value = textarea.value || '';
+    const caret = textarea.selectionStart || 0;
+    const before = value.slice(0, caret);
+    const match = before.match(/(?:^|\s)@([A-Za-z0-9_.+-]{0,150})$/);
+    if (!match) return null;
+    const query = (match[1] || '').trim();
+    const atPos = before.lastIndexOf('@');
+    if (atPos < 0) return null;
+    return { query, start: atPos, end: caret };
+  }
+
+  function positionMentionMenu(textarea) {
+    const $menu = ensureMentionMenu();
+    const rect = textarea.getBoundingClientRect();
+    $menu.css({
+      position: 'fixed',
+      top: `${Math.min(window.innerHeight - 220, rect.bottom + 6)}px`,
+      left: `${Math.max(8, rect.left)}px`,
+      width: `${Math.min(360, Math.max(240, rect.width))}px`,
+      zIndex: 12000,
+    });
+  }
+
+  function renderMentionMenuResults(results) {
+    const $menu = ensureMentionMenu();
+    const $list = $menu.find('.comment-mention-menu-list');
+    $list.empty();
+    mentionUiState.results = results || [];
+    mentionUiState.activeIndex = results.length ? 0 : -1;
+    if (!results.length) {
+      $list.append('<div class="comment-mention-empty">No users found.</div>');
+      $menu.removeClass('d-none');
+      return;
+    }
+    results.forEach((u, idx) => {
+      const displayName = (u.full_name || '').trim() || u.username;
+      const $item = $(`
+        <button type="button" class="comment-mention-item" role="option">
+          <img class="comment-mention-avatar" alt="">
+          <div class="comment-mention-meta">
+            <div class="comment-mention-name"></div>
+            <div class="comment-mention-email"></div>
+          </div>
+        </button>
+      `);
+      $item.attr('data-index', idx);
+      $item.find('.comment-mention-avatar').attr('src', u.avatar_url || '/static/arva/img/default-avatar.png');
+      $item.find('.comment-mention-name').text(displayName);
+      $item.find('.comment-mention-email').text(u.email || `@${u.username}`);
+      if (idx === mentionUiState.activeIndex) $item.addClass('is-active');
+      $list.append($item);
+    });
+    $menu.removeClass('d-none');
+  }
+
+  function updateMentionMenuActiveItem() {
+    if (!mentionUiState.$menu) return;
+    mentionUiState.$menu.find('.comment-mention-item').removeClass('is-active');
+    mentionUiState.$menu.find(`.comment-mention-item[data-index="${mentionUiState.activeIndex}"]`).addClass('is-active');
+  }
+
+  function insertMentionToTextarea(user) {
+    const textarea = mentionUiState.activeTextarea;
+    if (!textarea || !user) return;
+    const value = textarea.value || '';
+    const start = mentionUiState.queryStart;
+    const end = mentionUiState.queryEnd;
+    if (start === null || end === null || start < 0 || end < start) return;
+    const mentionText = `@${user.username} `;
+    const nextValue = `${value.slice(0, start)}${mentionText}${value.slice(end)}`;
+    textarea.value = nextValue;
+    const nextCaret = start + mentionText.length;
+    textarea.setSelectionRange(nextCaret, nextCaret);
+    $(textarea).trigger('input');
+    textarea.focus();
+    hideMentionMenu();
+  }
+
+  function requestMentionSuggestions(textarea, queryMeta) {
+    mentionUiState.activeTextarea = textarea;
+    mentionUiState.queryStart = queryMeta.start;
+    mentionUiState.queryEnd = queryMeta.end;
+    positionMentionMenu(textarea);
+
+    if (mentionUiState.pendingRequest) {
+      mentionUiState.pendingRequest.abort();
+      mentionUiState.pendingRequest = null;
+    }
+    if (mentionUiState.debounceTimer) {
+      window.clearTimeout(mentionUiState.debounceTimer);
+    }
+
+    mentionUiState.debounceTimer = window.setTimeout(() => {
+      mentionUiState.pendingRequest = $.get('/tasks/user-suggestions/', { q: queryMeta.query || '' })
+        .done((resp) => {
+          const results = Array.isArray(resp?.results) ? resp.results : [];
+          renderMentionMenuResults(results);
+        })
+        .fail((xhr) => {
+          if (xhr?.statusText !== 'abort') {
+            hideMentionMenu();
+          }
+        })
+        .always(() => {
+          mentionUiState.pendingRequest = null;
+        });
+    }, 220);
   }
 
   function renderReplyDraftPreview($container, commentId) {
@@ -3915,6 +4067,60 @@ $(function() {
     const commentId = container.closest('.comment-item').data('id');
     resetReplyDraft(commentId);
     container.html('').hide();
+  });
+
+  $(document).on('input click', '#task-view-comment-input, .reply-input', function() {
+    if (this.disabled) return;
+    const meta = extractMentionQuery(this);
+    if (!meta) {
+      hideMentionMenu();
+      return;
+    }
+    requestMentionSuggestions(this, meta);
+  });
+
+  $(document).on('keydown', '#task-view-comment-input, .reply-input', function(e) {
+    if (!mentionUiState.$menu || mentionUiState.$menu.hasClass('d-none')) return;
+    if (mentionUiState.activeTextarea !== this) return;
+    if (!mentionUiState.results.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      mentionUiState.activeIndex = (mentionUiState.activeIndex + 1) % mentionUiState.results.length;
+      updateMentionMenuActiveItem();
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      mentionUiState.activeIndex = (mentionUiState.activeIndex - 1 + mentionUiState.results.length) % mentionUiState.results.length;
+      updateMentionMenuActiveItem();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const chosen = mentionUiState.results[mentionUiState.activeIndex];
+      if (chosen) insertMentionToTextarea(chosen);
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      hideMentionMenu();
+    }
+  });
+
+  $(document).on('blur', '#task-view-comment-input, .reply-input', function() {
+    window.setTimeout(() => {
+      const active = document.activeElement;
+      if (active && $(active).closest('.comment-mention-menu').length) return;
+      hideMentionMenu();
+    }, 120);
+  });
+
+  $(document).on('mousedown', '.comment-mention-item', function(e) {
+    e.preventDefault();
+    const idx = Number($(this).attr('data-index'));
+    const selected = mentionUiState.results[idx];
+    if (selected) insertMentionToTextarea(selected);
   });
 
   $(document).on('paste', '.reply-input', async function(e) {

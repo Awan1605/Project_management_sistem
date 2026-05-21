@@ -561,6 +561,25 @@ class UserActivity(models.Model):
     def __str__(self):
         return f"{self.user.username} Activity"
 
+
+class UserNotification(models.Model):
+    """Notifikasi kolaborasi (mis. user di-mention pada komentar/reply)."""
+    # Keep DB constraints disabled to avoid FK migration failures on existing MySQL schemas.
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, null=True, related_name='arva_notifications', db_constraint=False)
+    actor = models.ForeignKey(User, on_delete=models.CASCADE, null=True, related_name='arva_sent_notifications', db_constraint=False)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, related_name='user_notifications', db_constraint=False)
+    comment = models.ForeignKey(Comment, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_notifications', db_constraint=False)
+    message = models.CharField(max_length=255)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        recipient_name = self.recipient.username if self.recipient else "Unknown"
+        return f"{recipient_name}: {self.message}"
+
 # ============================================================
 # AI CHAT
 # ============================================================
