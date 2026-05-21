@@ -21,7 +21,7 @@ from django.contrib.auth import get_user_model
 from django.utils.html import strip_tags
 
 from ..models import (
-    Project, ProjectMember, Task, TaskList, ActivityLog, Label, Comment,
+    Project, ProjectMember, Task, TaskList, ActivityLog, Label, Comment, UserNotification,
 )
 from ..forms import TaskForm
 from ..utils import EmailThread
@@ -40,6 +40,52 @@ from .helpers import (
 )
 
 User = get_user_model()
+
+
+def _notify_new_assignees(task, actor, previous_assignee_ids=None):
+    """Create notifications for assignees newly added to a task."""
+    previous_ids = {int(uid) for uid in (previous_assignee_ids or set())}
+    current_ids = set(task.assignees.values_list('id', flat=True))
+    new_ids = current_ids - previous_ids
+    if not new_ids:
+        return
+
+    # Never notify the acting user when assigning themselves.
+    new_ids.discard(actor.id)
+    if not new_ids:
+        return
+
+    recipients = list(User.objects.filter(id__in=new_ids, is_active=True))
+    if not recipients:
+        return
+
+    message = f"{actor.username} assigned you to task: {task.title}"
+    recipient_ids = [u.id for u in recipients]
+    existing_recipient_ids = set(
+        UserNotification.objects.filter(
+            recipient_id__in=recipient_ids,
+            actor=actor,
+            task=task,
+            comment__isnull=True,
+            message=message,
+            is_read=False,
+        ).values_list('recipient_id', flat=True)
+    )
+
+    notifications = []
+    for user in recipients:
+        if user.id in existing_recipient_ids:
+            continue
+        notifications.append(UserNotification(
+            recipient=user,
+            actor=actor,
+            task=task,
+            comment=None,
+            message=message,
+        ))
+
+    if notifications:
+        UserNotification.objects.bulk_create(notifications)
 
 
 class _RichTextSanitizer(HTMLParser):
@@ -463,6 +509,7 @@ def task_create(request, pk):
         task.created_by = request.user
         task.save()
         form.save_m2m()
+        _notify_new_assignees(task, request.user, previous_assignee_ids=set())
 
         ActivityLog.objects.create(
             user=request.user, project=project, task=task,
@@ -635,9 +682,11 @@ def task_update(request, task_id):
         data.pop('cover_color', None)
     if 'priority' not in data or not data['priority']:
         data['priority'] = Task.PRIORITY_P2
+    old_assignee_ids = set(task.assignees.values_list('id', flat=True))
     form = TaskForm(data, instance=task, project=project)
     if form.is_valid():
         form.save()
+        _notify_new_assignees(task, request.user, previous_assignee_ids=old_assignee_ids)
         ActivityLog.objects.create(
             user=request.user, project=task.project, task=task,
             action='task_updated', description=f"Task '{task.title}' updated"
@@ -916,7 +965,7 @@ def task_inline_update(request, task_id):
     elif field == 'assignees':
         old_ids = set(task.assignees.values_list('id', flat=True))
 
-        ids = [i for i in value.split(',') if i]
+        ids = [int(i) for i in value.split(',') if i]
         if project.is_project and len(ids) > 1:
             return JsonResponse({'success': False, 'error': 'Only one assignee is allowed for project tasks.'}, status=400)
         if project.is_project and len(ids) == 0:
@@ -931,7 +980,7 @@ def task_inline_update(request, task_id):
         added_ids = new_ids - old_ids
         users_by_id = User.objects.filter(id__in=ids).in_bulk()
         for uid in ids:
-            user_obj = users_by_id.get(int(uid))
+            user_obj = users_by_id.get(uid)
             if not user_obj:
                 continue
 
@@ -970,6 +1019,7 @@ def task_inline_update(request, task_id):
                     # Gagal kirim email tidak boleh menghentikan proses
                     import logging
                     logging.getLogger(__name__).error(f"Gagal kirim email assign task: {e}")
+        _notify_new_assignees(task, request.user, previous_assignee_ids=old_ids)
 
     elif field == 'labels':
         if project.is_project:
