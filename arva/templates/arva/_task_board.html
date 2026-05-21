@@ -1,4 +1,10 @@
-<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}" data-is-project="{{ project.is_project|yesno:'1,0' }}" data-is-closed="0" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}">
+<div id="task-board" data-project-id="{{ project.id }}" data-subproject-id="{% if selected_subproject %}{{ selected_subproject.id }}{% endif %}" data-task-scope="{{ task_scope }}" data-is-project="{{ project.is_project|yesno:'1,0' }}" data-is-closed="{{ project.is_closed|yesno:'1,0' }}" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}">
+  {% if project.is_project and project.is_closed %}
+    <div class="board-lock-notice mb-3">
+      <i class="bi bi-shield-lock me-2"></i>
+      <span>Project is closed. Task modifications are disabled until the project is re-opened.</span>
+    </div>
+  {% endif %}
   <div class="board-view-panel board-view-card">
     {% if task_scope == 'all' %}
     <div class="card shadow-sm border-0 mb-3">

@@ -31,6 +31,7 @@ from .helpers import (
     get_project_subproject_or_404,
     get_role,
     require_role,
+    can_manage_project,
     is_project_locked,
     closed_project_error,
     sync_project_shares,
@@ -314,6 +315,7 @@ def project_detail(request, pk):
         'shared_role_default': ProjectMember.ROLE_MEMBER,
         'all_users': User.objects.exclude(id=request.user.id).order_by('username'),
         'project_is_locked': is_project_locked(project),
+        'project_can_manage_status': can_manage_project(request.user, project),
     }
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -450,8 +452,8 @@ def project_delete(request, pk):
 def project_close(request, pk):
     """Tutup project (hanya untuk structured project)."""
     project = get_user_project_or_404(request.user, pk)
-    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    if not can_manage_project(request.user, project):
+        return JsonResponse({'success': False, 'error': 'You are not allowed to close this project.'}, status=403)
     if not project.is_project:
         return JsonResponse({'success': False, 'error': 'Only structured projects can be closed.'}, status=400)
     if project.is_closed:
@@ -473,8 +475,8 @@ def project_close(request, pk):
 def project_reopen(request, pk):
     """Buka kembali project yang sudah ditutup."""
     project = get_user_project_or_404(request.user, pk)
-    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    if not can_manage_project(request.user, project):
+        return JsonResponse({'success': False, 'error': 'You are not allowed to re-open this project.'}, status=403)
     if not project.is_project:
         return JsonResponse({'success': False, 'error': 'Only structured projects can be reopened.'}, status=400)
     if not project.is_closed:

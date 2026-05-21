@@ -47,6 +47,18 @@
   font-weight: 600;
 }
 
+.task-page-lock-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(220, 53, 69, 0.22);
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.08), rgba(255, 193, 7, 0.08));
+  color: #7f1d1d;
+  font-weight: 600;
+}
+
 /* Dark theme parity */
 body.layout-sidebar.theme-dark .page-hero,
 body[data-theme='dark'] .page-hero {
@@ -66,6 +78,13 @@ body[data-theme='dark'] .hero-badge {
 body.layout-sidebar.theme-dark .hero-subtitle,
 body[data-theme='dark'] .hero-subtitle {
   color: #94a3b8;
+}
+
+body.layout-sidebar.theme-dark .task-page-lock-banner,
+body[data-theme='dark'] .task-page-lock-banner {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.16), rgba(251, 191, 36, 0.16));
+  color: #fecaca;
 }
 
 .task-detail-overview {

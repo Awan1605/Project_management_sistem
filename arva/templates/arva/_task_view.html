@@ -1,3 +1,9 @@
+{% if project_is_closed %}
+<div class="task-lock-inline-banner mb-3">
+  <i class="bi bi-lock-fill me-2"></i>
+  <span>Project is closed. Editing is disabled in this workspace.</span>
+</div>
+{% endif %}
 {% if project_is_project %}
 <div class="task-structured-shell">
   <section class="task-structured-section task-structured-header-plain mb-3">

@@ -21,6 +21,7 @@ from .helpers import (
     get_project_subproject_or_404,
     get_role,
     require_role,
+    can_manage_project,
     is_project_locked,
     closed_project_error,
     sync_project_shares,

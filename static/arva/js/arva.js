@@ -85,6 +85,21 @@ function showError(message, title = 'Error') {
   });
 }
 
+function showSuccess(message, title = 'Success') {
+  if (typeof Swal !== 'undefined') {
+    Swal.fire({
+      icon: 'success',
+      title: title,
+      text: message,
+      timer: 1800,
+      showConfirmButton: false
+    });
+    return;
+  }
+  // Fallback when SweetAlert is unavailable.
+  alert(message);
+}
+
 function showConfirm(message, title = 'Are you sure?') {
   return Swal.fire({
     icon: 'warning',
@@ -3285,16 +3300,31 @@ $(function() {
   });
 
   $(document).on('click', '#task-share-btn', async function() {
-    const url = ($(this).data('task-share-url') || window.location.href || '').toString();
+    const rawUrl = ($(this).data('task-share-url') || window.location.href || '').toString();
+    const shareTitle = (($(this).data('task-share-title') || document.title || 'Task') + '').trim() || 'Task';
+    let url = '';
+    try {
+      url = new URL(rawUrl, window.location.origin).href;
+    } catch (e) {
+      url = (window.location.href || '').toString();
+    }
     if (!url) return;
+    const shareText = `${shareTitle}\n${url}`;
+
     try {
       if (navigator.share) {
-        await navigator.share({ title: document.title || 'Task', url });
+        // WhatsApp and some targets rely on `text`; include both text and url.
+        const shareData = { title: shareTitle, text: shareText, url };
+        if (navigator.canShare && !navigator.canShare(shareData)) {
+          await navigator.share({ text: shareText });
+        } else {
+          await navigator.share(shareData);
+        }
       } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(shareText);
       } else {
         const temp = document.createElement('textarea');
-        temp.value = url;
+        temp.value = shareText;
         document.body.appendChild(temp);
         temp.select();
         document.execCommand('copy');
@@ -3302,9 +3332,13 @@ $(function() {
       }
       showSuccess('Task link copied.');
     } catch (error) {
+      if (error && error.name === 'AbortError') {
+        // User cancelled native share dialog; this is not an application error.
+        return;
+      }
       if (navigator.clipboard?.writeText) {
         try {
-          await navigator.clipboard.writeText(url);
+          await navigator.clipboard.writeText(shareText);
           showSuccess('Task link copied.');
           return;
         } catch (fallbackError) {

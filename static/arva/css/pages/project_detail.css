@@ -557,6 +557,64 @@
   margin-bottom: 0;
 }
 
+.project-lock-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(220, 53, 69, 0.22);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.08), rgba(255, 193, 7, 0.08));
+}
+
+.project-lock-banner-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #dc3545;
+  background: rgba(220, 53, 69, 0.12);
+  flex-shrink: 0;
+}
+
+.project-lock-banner-title {
+  font-weight: 700;
+  color: #842029;
+  line-height: 1.2;
+  margin-bottom: 0.15rem;
+}
+
+.project-lock-banner-text {
+  color: #7f1d1d;
+  font-size: 0.9rem;
+}
+
+.board-lock-notice {
+  border: 1px solid rgba(13, 110, 253, 0.18);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  color: #1e3a8a;
+  background: rgba(13, 110, 253, 0.07);
+  font-size: 0.88rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.task-lock-inline-banner {
+  border: 1px solid rgba(13, 110, 253, 0.18);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  color: #1e3a8a;
+  background: rgba(13, 110, 253, 0.07);
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
 .task-structured-shell {
   display: grid;
   gap: 0.75rem;

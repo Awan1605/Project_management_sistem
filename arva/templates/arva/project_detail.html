@@ -20,15 +20,15 @@
             <span class="project-header">{{ project.name }}</span>
           </h4>
 
-          {% if user_role == 'admin' %}
+          {% if user_role == 'admin' and not project.is_closed %}
           <button class="btn btn-outline-primary btn-sm rounded-btn-10" id="btn-edit-project">
             <i class="bi bi-pencil-square me-1"></i>Edit
           </button>
-          {% if project.is_project %}
+          {% endif %}
+          {% if project.is_project and project_can_manage_status %}
           <button class="btn btn-sm {% if project.is_closed %}btn-success{% else %}btn-outline-danger{% endif %} rounded-btn-10 ms-2" id="btn-project-close-toggle" data-project-id="{{ project.id }}" data-next-action="{% if project.is_closed %}reopen{% else %}close{% endif %}">
             <i class="bi {% if project.is_closed %}bi-unlock{% else %}bi-lock{% endif %} me-1"></i>{% if project.is_closed %}Re-open Project{% else %}Close Project{% endif %}
           </button>
-          {% endif %}
           {% endif %}
         </div>
 
@@ -158,8 +158,20 @@
       </div>
 
     </div>
+</div>
+</div>
+
+{% if project.is_project and project.is_closed %}
+<div class="project-lock-banner mb-3" role="status" aria-live="polite">
+  <div class="project-lock-banner-icon">
+    <i class="bi bi-lock-fill"></i>
+  </div>
+  <div>
+    <div class="project-lock-banner-title">This project is closed</div>
+    <p class="project-lock-banner-text mb-0">Tasks are read-only. Re-open the project to create, edit, move, archive, or delete tasks.</p>
   </div>
 </div>
+{% endif %}
 
 <div class="card shadow-sm border-0 h-100 mb-3 task-filter-card">
   <div class="card-body">

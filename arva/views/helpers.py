@@ -46,6 +46,8 @@ def get_accessible_projects_queryset(user):
     - User adalah pemilik project, ATAU
     - User adalah member dari project tersebut
     """
+    if getattr(user, "is_superuser", False):
+        return Project.objects.all()
     return Project.objects.filter(
         Q(is_private=False) |
         Q(owner=user) |
@@ -108,19 +110,35 @@ def require_role(user, project, allowed_roles):
     return project.can_user_view(user)
 
 
+def can_manage_project(user, project):
+    """Hak kelola close/re-open project.
+
+    Diizinkan untuk:
+    - superuser
+    - creator project (field lama `created_by` atau field aktif `owner`)
+    - PM project (field lama `pm` atau field aktif `pm_assignee`)
+    """
+    if not getattr(user, "is_authenticated", False) or project is None:
+        return False
+
+    creator_id = getattr(project, "created_by_id", None) or getattr(project, "owner_id", None)
+    pm_id = getattr(project, "pm_id", None) or getattr(project, "pm_assignee_id", None)
+
+    return bool(
+        user.is_superuser or
+        creator_id == user.id or
+        pm_id == user.id
+    )
+
+
 # ============================================================
 # FUNGSI PROJECT TERKUNCI
 # ============================================================
 
 def is_project_locked(project):
     """Cek apakah project sedang terkunci (ditutup).
-
-    Catatan: lock status ditutup sengaja dinonaktifkan agar task di real
-    project yang ditutup tetap dapat diedit/dihapus/diarsipkan/di-drag-drop,
-    sama seperti pada project biasa. Status 'Closed' tetap ditampilkan
-    sebagai penanda, namun tidak lagi memblokir perubahan task.
     """
-    return False
+    return bool(project and project.is_project and project.is_closed)
 
 
 def closed_project_error():
