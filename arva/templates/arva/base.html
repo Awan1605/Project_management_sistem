@@ -189,7 +189,7 @@
 		                <div class="list-group list-group-flush js-notification-list">
 		                  {% if top_notifications %}
 		                    {% for n in top_notifications %}
-		                      <a class="list-group-item list-group-item-action border-0 js-notification-item" href="{% url 'task_detail' n.task.id %}" data-notification-id="{{ n.id }}" data-mark-read-url="{% url 'notification_mark_read' n.id %}">
+		                      <a class="list-group-item list-group-item-action border-0 js-notification-item" href="{% url 'notification_open' n.id %}" data-notification-id="{{ n.id }}" data-mark-read-url="{% url 'notification_mark_read' n.id %}">
 		                        <div class="small fw-semibold text-wrap">{{ n.message }}</div>
 		                        <div class="small text-muted">{{ n.created_at|timesince }} ago</div>
 		                      </a>
@@ -201,6 +201,9 @@
 		                  {% else %}
 		                    <div class="list-group-item border-0 small text-muted js-notification-empty">No new notifications.</div>
 		                  {% endif %}
+		                </div>
+		                <div class="border-top p-2 text-end">
+		                  <a href="{% url 'notification_history' %}" class="small text-decoration-none">All notifications</a>
 		                </div>
 		              </div>
             </div>

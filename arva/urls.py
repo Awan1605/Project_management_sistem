@@ -91,6 +91,8 @@ urlpatterns = [
     path('comment/<int:comment_id>/reply/', views.comment_reply, name="comment_reply"),
     path('comment/<int:comment_id>/delete/', views.comment_delete, name="comment_delete"),
     path('notifications/<int:notification_id>/read/', views.notification_mark_read, name='notification_mark_read'),
+    path('notifications/<int:notification_id>/open/', views.notification_open, name='notification_open'),
+    path('notifications/', views.notification_history, name='notification_history'),
     path('task/<int:task_id>/attachment/add/', views.attachment_add, name='attachment_add'),
     path('attachment/<int:attachment_id>/delete/', views.attachment_delete, name='attachment_delete'),
 

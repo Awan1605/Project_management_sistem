@@ -1,6 +1,6 @@
 {% load arva_tags %}
 {% for c in comments %}
-<article class="comment-item {% if c.parent_id %}comment-item--reply{% endif %}" data-id="{{ c.id }}">
+<article class="comment-item {% if c.parent_id %}comment-item--reply{% endif %}" id="comment-{{ c.id }}" data-id="{{ c.id }}">
   <div class="comment-item-card">
     <header class="comment-item-head">
       <div class="comment-author">

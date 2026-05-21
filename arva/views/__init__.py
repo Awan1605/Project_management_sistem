@@ -85,6 +85,8 @@ from .comment import (
     comment_reply,
     comment_delete,
     notification_mark_read,
+    notification_open,
+    notification_history,
     attachment_add,
     attachment_delete,
     checklist_add,

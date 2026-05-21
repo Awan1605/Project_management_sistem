@@ -6,13 +6,16 @@ Menangani operasi terkait komentar, balasan, lampiran, dan checklist pada task.
 
 import re
 
-from django.shortcuts import get_object_or_404
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, render, redirect
 from django.http import HttpResponseForbidden, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
 from django.utils.text import get_valid_filename
 from django.contrib.auth import get_user_model
+from django.core.paginator import Paginator
+from django.urls import reverse
 
 from .helpers import get_user_project_or_404, get_role, is_project_locked, closed_project_error
 from ..models import Task, Comment, Attachment, ChecklistItem, ActivityLog, UserNotification
@@ -85,6 +88,50 @@ def notification_mark_read(request, notification_id):
         notification.is_read = True
         notification.save(update_fields=['is_read'])
     return JsonResponse({'success': True})
+
+
+@login_required
+def notification_open(request, notification_id):
+    """Buka notifikasi, tandai terbaca, lalu arahkan ke task/comment terkait."""
+    notification = get_object_or_404(
+        UserNotification.objects.select_related('task', 'comment'),
+        id=notification_id,
+        recipient=request.user,
+    )
+    if not notification.is_read:
+        notification.is_read = True
+        notification.save(update_fields=['is_read'])
+
+    if notification.task_id:
+        target = reverse('task_detail', args=[notification.task_id])
+        if notification.comment_id:
+            target = f"{target}#comment-{notification.comment_id}"
+        return redirect(target)
+
+    messages.info(request, 'Linked task is no longer available.')
+    return redirect('notification_history')
+
+
+@login_required
+def notification_history(request):
+    """Riwayat notifikasi mention (read + unread) dengan filter dan pagination."""
+    active_filter = (request.GET.get('filter') or 'all').strip().lower()
+    if active_filter not in {'all', 'unread', 'mentions'}:
+        active_filter = 'all'
+
+    notifications = UserNotification.objects.filter(recipient=request.user).select_related('actor', 'task', 'comment')
+    if active_filter == 'unread':
+        notifications = notifications.filter(is_read=False)
+    elif active_filter == 'mentions':
+        notifications = notifications.filter(comment__isnull=False)
+
+    paginator = Paginator(notifications.order_by('-created_at'), 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'arva/notification_history.html', {
+        'page_obj': page_obj,
+        'active_filter': active_filter,
+    })
 
 
 # ============================================================
