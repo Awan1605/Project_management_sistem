@@ -227,6 +227,65 @@ $(function() {
 
   initPersistentViewToggles();
 
+  function ensureNotificationEmptyState(dropdown) {
+    const list = dropdown ? dropdown.querySelector('.js-notification-list') : null;
+    if (!list) return;
+    const hasNotificationItem = Boolean(list.querySelector('.js-notification-item'));
+    if (hasNotificationItem) {
+      const emptyNode = list.querySelector('.js-notification-empty');
+      if (emptyNode) emptyNode.remove();
+      return;
+    }
+    if (!list.querySelector('.js-notification-empty')) {
+      const empty = document.createElement('div');
+      empty.className = 'list-group-item border-0 small text-muted js-notification-empty';
+      empty.textContent = 'No new notifications.';
+      list.appendChild(empty);
+    }
+  }
+
+  function decrementNotificationBadge(dropdown) {
+    const badge = dropdown ? dropdown.querySelector('.js-notification-badge') : null;
+    if (!badge) return;
+    const current = Number.parseInt(badge.textContent || '0', 10);
+    const next = Number.isFinite(current) ? Math.max(current - 1, 0) : 0;
+    if (next <= 0) {
+      badge.remove();
+      return;
+    }
+    badge.textContent = String(next);
+  }
+
+  document.addEventListener('click', function (event) {
+    const item = event.target.closest('.js-notification-item');
+    if (!item) return;
+
+    const markUrl = item.getAttribute('data-mark-read-url');
+    const href = item.getAttribute('href') || '';
+    if (!markUrl) return;
+
+    event.preventDefault();
+    item.classList.add('disabled');
+    item.style.pointerEvents = 'none';
+
+    fetch(markUrl, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrftoken,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      credentials: 'same-origin',
+    }).finally(() => {
+      const dropdown = item.closest('.js-notification-dropdown');
+      item.remove();
+      ensureNotificationEmptyState(dropdown);
+      decrementNotificationBadge(dropdown);
+      if (href) {
+        window.location.href = href;
+      }
+    });
+  });
+
   function parseTaskSortCreated(item) {
     const raw = (item.dataset.taskSortCreated || item.dataset.created || '').toString().trim();
     if (!raw) return 0;

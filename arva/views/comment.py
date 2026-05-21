@@ -73,6 +73,20 @@ def _create_mention_notifications(project, task, actor, comment):
         UserNotification.objects.bulk_create(notifications)
 
 
+@login_required
+@require_POST
+def notification_mark_read(request, notification_id):
+    """Tandai notifikasi user login sebagai terbaca."""
+    notification = get_object_or_404(
+        UserNotification.objects.filter(recipient=request.user),
+        id=notification_id,
+    )
+    if not notification.is_read:
+        notification.is_read = True
+        notification.save(update_fields=['is_read'])
+    return JsonResponse({'success': True})
+
+
 # ============================================================
 # KOMENTAR
 # ============================================================

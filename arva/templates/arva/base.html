@@ -175,34 +175,34 @@
 	          <div class="topbar-actions">
 	            {% unread_notification_count request.user as unread_count %}
 	            {% recent_notifications request.user 8 as top_notifications %}
-	            <div class="dropdown">
-	              <button class="btn topbar-icon-btn position-relative" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
-	                <i class="bi bi-bell"></i>
-	                {% if unread_count %}
-	                  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">{{ unread_count }}</span>
-	                {% endif %}
-	              </button>
-	              <div class="dropdown-menu dropdown-menu-end p-0 topbar-dropdown">
-	                <div class="topbar-dropdown-header">
-	                  <span class="fw-semibold">Notifications</span>
-	                </div>
-	                <div class="list-group list-group-flush">
-	                  {% if top_notifications %}
-	                    {% for n in top_notifications %}
-	                      <a class="list-group-item list-group-item-action border-0" href="{% url 'task_detail' n.task.id %}">
-	                        <div class="small fw-semibold text-wrap">{{ n.message }}</div>
-	                        <div class="small text-muted">{{ n.created_at|timesince }} ago</div>
-	                      </a>
-	                    {% endfor %}
-	                  {% elif messages %}
+		            <div class="dropdown js-notification-dropdown">
+		              <button class="btn topbar-icon-btn position-relative" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+		                <i class="bi bi-bell"></i>
+		                {% if unread_count %}
+		                  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger js-notification-badge">{{ unread_count }}</span>
+		                {% endif %}
+		              </button>
+		              <div class="dropdown-menu dropdown-menu-end p-0 topbar-dropdown">
+		                <div class="topbar-dropdown-header">
+		                  <span class="fw-semibold">Notifications</span>
+		                </div>
+		                <div class="list-group list-group-flush js-notification-list">
+		                  {% if top_notifications %}
+		                    {% for n in top_notifications %}
+		                      <a class="list-group-item list-group-item-action border-0 js-notification-item" href="{% url 'task_detail' n.task.id %}" data-notification-id="{{ n.id }}" data-mark-read-url="{% url 'notification_mark_read' n.id %}">
+		                        <div class="small fw-semibold text-wrap">{{ n.message }}</div>
+		                        <div class="small text-muted">{{ n.created_at|timesince }} ago</div>
+		                      </a>
+		                    {% endfor %}
+		                  {% elif messages %}
 	                    {% for message in messages %}
 	                      <div class="list-group-item border-0 small">{{ message }}</div>
 	                    {% endfor %}
-	                  {% else %}
-	                    <div class="list-group-item border-0 small text-muted">No new notifications.</div>
-	                  {% endif %}
-	                </div>
-	              </div>
+		                  {% else %}
+		                    <div class="list-group-item border-0 small text-muted js-notification-empty">No new notifications.</div>
+		                  {% endif %}
+		                </div>
+		              </div>
             </div>
 
             <div class="dropdown">
