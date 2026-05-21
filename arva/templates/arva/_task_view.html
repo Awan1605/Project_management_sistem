@@ -91,10 +91,23 @@
 
   <section class="task-structured-section mb-3">
     <h6 class="fw-semibold mb-2">Comments</h6>
-    <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if view_only or project_is_closed %}disabled{% endif %}></textarea>
+    <div class="task-comment-composer">
+      <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if view_only or project_is_closed %}disabled{% endif %}></textarea>
+      <div class="task-comment-composer-toolbar mt-2">
+        <label class="btn btn-light btn-sm mb-0 {% if view_only or project_is_closed %}disabled{% endif %}">
+          <i class="bi bi-image me-1"></i>Add image
+          <input type="file" id="task-view-comment-image-input" class="d-none" accept="image/png,image/jpeg,image/webp" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
+        </label>
+        <small class="text-muted">Tip: paste screenshots with Ctrl+V.</small>
+      </div>
+    </div>
+    <div class="task-comment-paste-previews mt-2"></div>
+    <div class="progress task-comment-upload-progress mt-2 d-none" role="progressbar" aria-label="Comment upload progress">
+      <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+    </div>
     <button class="btn btn-primary btn-sm mt-2" id="btn-add-comment" {% if view_only or project_is_closed %}disabled{% endif %}>Add Comment</button>
-    <div id="task-view-comments" class="mt-3">
-      {% include "arva/_comment_list.html" with comments=root_comments show_comment_avatar=False %}
+    <div id="task-view-comments" class="mt-3 task-comment-thread">
+      {% include "arva/_comment_list.html" with comments=root_comments show_comment_avatar=True %}
     </div>
   </section>
 
@@ -103,8 +116,8 @@
     {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in task.assignees.all %}
     <input type="file" id="task-view-upload" class="form-control mb-2" {% if view_only or project_is_closed %}disabled{% endif %}>
     {% endif %}
-    <ul class="list-unstyled mb-0">
-      {% for att in task.attachments.all %}
+      <ul class="list-unstyled mb-0">
+      {% for att in task_attachments %}
       <li class="d-flex align-items-center mb-2" data-id="{{ att.id }}">
         <div class="attachment-file">
           <i class="bi bi-paperclip me-1"></i>
@@ -221,7 +234,7 @@
       <input type="file" id="task-view-upload" class="form-control mb-2" {% if view_only or project_is_closed %}disabled{% endif %}>
       {% endif %}
       <ul class="list-unstyled">
-        {% for att in task.attachments.all %}
+        {% for att in task_attachments %}
         <li class="d-flex align-items-center mb-2" data-id="{{ att.id }}">
           <div class="attachment-file">
             <i class="bi bi-paperclip me-1"></i>
@@ -240,12 +253,25 @@
 
     <div class="section-box">
       <h6 class="fw-semibold">Comments</h6>
-      <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if view_only or project_is_closed %}disabled{% endif %}></textarea>
+      <div class="task-comment-composer">
+        <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if view_only or project_is_closed %}disabled{% endif %}></textarea>
+        <div class="task-comment-composer-toolbar mt-2">
+          <label class="btn btn-light btn-sm mb-0 {% if view_only or project_is_closed %}disabled{% endif %}">
+            <i class="bi bi-image me-1"></i>Add image
+            <input type="file" id="task-view-comment-image-input" class="d-none" accept="image/png,image/jpeg,image/webp" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
+          </label>
+          <small class="text-muted">Tip: paste screenshots with Ctrl+V.</small>
+        </div>
+      </div>
+      <div class="task-comment-paste-previews mt-2"></div>
+      <div class="progress task-comment-upload-progress mt-2 d-none" role="progressbar" aria-label="Comment upload progress">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+      </div>
       <button class="btn btn-primary btn-sm mt-2" id="btn-add-comment" {% if view_only or project_is_closed %}disabled{% endif %}>
         Add Comment
       </button>
-      <div id="task-view-comments" class="mt-3">
-        {% include "arva/_comment_list.html" with comments=root_comments show_comment_avatar=False %}
+      <div id="task-view-comments" class="mt-3 task-comment-thread">
+        {% include "arva/_comment_list.html" with comments=root_comments show_comment_avatar=True %}
       </div>
     </div>
   </div>

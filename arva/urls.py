@@ -91,6 +91,7 @@ urlpatterns = [
     path('comment/<int:comment_id>/reply/', views.comment_reply, name="comment_reply"),
     path('comment/<int:comment_id>/delete/', views.comment_delete, name="comment_delete"),
     path('task/<int:task_id>/attachment/add/', views.attachment_add, name='attachment_add'),
+    path('attachment/<int:attachment_id>/delete/', views.attachment_delete, name='attachment_delete'),
 
     # ============================================================
     # CHECKLIST

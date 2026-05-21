@@ -85,6 +85,7 @@ from .comment import (
     comment_reply,
     comment_delete,
     attachment_add,
+    attachment_delete,
     checklist_add,
     checklist_edit,
     checklist_toggle,

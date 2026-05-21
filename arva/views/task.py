@@ -21,9 +21,9 @@ from django.contrib.auth import get_user_model
 from django.utils.html import strip_tags
 
 from ..models import (
-    Project, ProjectMember, Task, TaskList, ActivityLog, Comment, Attachment, Label,
+    Project, ProjectMember, Task, TaskList, ActivityLog, Label, Comment,
 )
-from ..forms import TaskForm, CommentForm
+from ..forms import TaskForm
 from ..utils import EmailThread
 
 from .helpers import (
@@ -424,7 +424,6 @@ def task_create(request, pk):
     """Buat task baru dalam project.
     
     Untuk project structured: label dan cover color dinonaktifkan.
-    Untuk project biasa: bisa menambahkan komentar dan lampiran saat buat task.
     """
     project = get_user_project_or_404(request.user, pk)
     if is_project_locked(project):
@@ -462,12 +461,6 @@ def task_create(request, pk):
         task.save()
         form.save_m2m()
 
-        if not project.is_project:
-            initial_comment = request.POST.get('initial_comment', '').strip()
-            if initial_comment:
-                Comment.objects.create(task=task, user=request.user, content=initial_comment)
-            for uploaded in request.FILES.getlist('comment_files'):
-                Attachment.objects.create(task=task, uploaded_by=request.user, file=uploaded)
         ActivityLog.objects.create(
             user=request.user, project=project, task=task,
             action='task_created', description=f"Task '{task.title}' created"
@@ -513,7 +506,16 @@ def task_view(request, task_id):
     ).order_by('position')
     subprojects = project.subprojects.order_by('created_at')
     colors = ["primary", "success", "danger", "warning", "info", "dark", ""]
-    comments = task.comments.filter(parent__isnull=True)
+    comments = task.comments.filter(parent__isnull=True).select_related(
+        'user', 'user__userprofile'
+    ).prefetch_related(
+        'attachments',
+        Prefetch(
+            'replies',
+            queryset=Comment.objects.select_related('user', 'user__userprofile').prefetch_related('attachments')
+        ),
+    )
+    task_attachments = task.attachments.filter(comment__isnull=True)
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
@@ -539,6 +541,7 @@ def task_view(request, task_id):
         'checklist_done': done,
         'checklist_percent': percent,
         'root_comments': comments,
+        'task_attachments': task_attachments,
         "view_only": view_only,
         'project_is_closed': is_project_locked(project),
     }, request=request)
@@ -567,7 +570,16 @@ def task_detail(request, task_id):
     ).order_by('position')
     subprojects = project.subprojects.order_by('created_at')
     colors = ["primary", "success", "danger", "warning", "info", "dark", ""]
-    comments = task.comments.filter(parent__isnull=True)
+    comments = task.comments.filter(parent__isnull=True).select_related(
+        'user', 'user__userprofile'
+    ).prefetch_related(
+        'attachments',
+        Prefetch(
+            'replies',
+            queryset=Comment.objects.select_related('user', 'user__userprofile').prefetch_related('attachments')
+        ),
+    )
+    task_attachments = task.attachments.filter(comment__isnull=True)
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -594,6 +606,8 @@ def task_detail(request, task_id):
         'checklist_done': done,
         'checklist_percent': percent,
         'root_comments': comments,
+        'task_attachments': task_attachments,
+        'task_attachment_count': task_attachments.count(),
         "view_only": view_only,
         'project_is_closed': is_project_locked(project),
         'task_detail_url': request.build_absolute_uri(reverse('task_detail', args=[task.id])),

@@ -3027,9 +3027,18 @@ $(function() {
       showError('Task ID missing. Cannot reload task view.');
       return;
     }
+    if (typeof ensureTaskCommentPasteTask === 'function') {
+      ensureTaskCommentPasteTask(taskId);
+    }
     $.get(`/task/${taskId}/view/`, function(resp) {
       if (resp.success) {
+        if (typeof resetAllReplyDrafts === 'function') {
+          resetAllReplyDrafts();
+        }
         $('#task-view-body').html(resp.html);
+        if (typeof resetTaskCommentPasteState === 'function') {
+          resetTaskCommentPasteState(taskId);
+        }
         const scope = $('#taskViewModal').length ? $('#taskViewModal') : $('#task-view-body');
         autoResizeTextareas(scope);
         initTaskRichEditors(scope);
@@ -3502,20 +3511,254 @@ $(function() {
     });
   });
 
-  $(document).on('click', '#btn-add-comment', function() {
-        const taskId = getCurrentTaskId();
+  const COMMENT_IMAGE_ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+  const COMMENT_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
+  const COMMENT_IMAGE_MAX_COUNT = 5;
+  const COMMENT_IMAGE_TARGET_SIZE = 1200 * 1024;
+  const COMMENT_IMAGE_MAX_DIMENSION = 1920;
+  const taskCommentPasteState = {
+    taskId: null,
+    items: [],
+  };
+
+  function formatCommentBytes(bytes) {
+    if (!bytes || bytes < 1024) return `${bytes || 0} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function getCommentComposerElements() {
+    const $scope = $('#task-view-body');
+    return {
+      $preview: $scope.find('.task-comment-paste-previews').first(),
+      $progressWrap: $scope.find('.task-comment-upload-progress').first(),
+      $progressBar: $scope.find('.task-comment-upload-progress .progress-bar').first(),
+    };
+  }
+
+  function renderTaskCommentPastePreviews() {
+    const { $preview } = getCommentComposerElements();
+    if (!$preview.length) return;
+    $preview.empty();
+    taskCommentPasteState.items.forEach((item, index) => {
+      const $item = $('<div class="task-comment-paste-item"></div>');
+      const $thumb = $('<img class="task-comment-paste-thumb" alt="Pasted image preview">').attr('src', item.previewUrl);
+      const $meta = $('<div class="task-comment-paste-meta"></div>').text(`${item.file.name} (${formatCommentBytes(item.file.size)})`);
+      const $remove = $('<button type="button" class="task-comment-paste-remove" title="Remove image"><i class="bi bi-x"></i></button>')
+        .attr('data-index', index);
+      $item.append($thumb, $meta, $remove);
+      $preview.append($item);
+    });
+  }
+
+  function resetTaskCommentPasteState(nextTaskId = null) {
+    taskCommentPasteState.items.forEach((item) => {
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+    taskCommentPasteState.items = [];
+    taskCommentPasteState.taskId = nextTaskId;
+    const { $progressWrap, $progressBar } = getCommentComposerElements();
+    if ($progressBar.length) {
+      $progressBar.css('width', '0%').text('0%');
+    }
+    if ($progressWrap.length) {
+      $progressWrap.addClass('d-none');
+    }
+    renderTaskCommentPastePreviews();
+  }
+
+  function ensureTaskCommentPasteTask(taskId) {
     if (!taskId) return;
+    if (taskCommentPasteState.taskId === null) {
+      taskCommentPasteState.taskId = taskId;
+      return;
+    }
+    if (String(taskCommentPasteState.taskId) !== String(taskId)) {
+      resetTaskCommentPasteState(taskId);
+    }
+  }
 
-    const content = $('#task-view-comment-input').val().trim();
-    if (!content) return;
+  function compressPastedImage(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read image data.'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Failed to load pasted image.'));
+        img.onload = () => {
+          const ratio = Math.min(
+            1,
+            COMMENT_IMAGE_MAX_DIMENSION / Math.max(img.width || 1, 1),
+            COMMENT_IMAGE_MAX_DIMENSION / Math.max(img.height || 1, 1)
+          );
+          const width = Math.max(1, Math.round((img.width || 1) * ratio));
+          const height = Math.max(1, Math.round((img.height || 1) * ratio));
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to initialize image canvas.'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
 
-    $.post({
+          const qualities = [0.9, 0.82, 0.74, 0.66, 0.58];
+          const tryCompressAt = (idx) => {
+            const quality = qualities[Math.min(idx, qualities.length - 1)];
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                reject(new Error('Image compression failed.'));
+                return;
+              }
+              if (blob.size <= COMMENT_IMAGE_TARGET_SIZE || idx >= qualities.length - 1) {
+                const originalName = file.name || `pasted-${Date.now()}.png`;
+                const safeName = originalName.replace(/\.[^.]+$/, '') || `pasted-${Date.now()}`;
+                const finalType = blob.type || 'image/jpeg';
+                const ext = finalType === 'image/webp' ? 'webp' : 'jpg';
+                resolve(new File([blob], `${safeName}.${ext}`, { type: finalType, lastModified: Date.now() }));
+                return;
+              }
+              tryCompressAt(idx + 1);
+            }, 'image/jpeg', quality);
+          };
+
+          tryCompressAt(0);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function addCommentImagesFromFiles(files) {
+    if (!files || !files.length) return;
+    const remaining = Math.max(0, COMMENT_IMAGE_MAX_COUNT - taskCommentPasteState.items.length);
+    if (!remaining) {
+      showError(`Maximum ${COMMENT_IMAGE_MAX_COUNT} images per comment.`);
+      return;
+    }
+
+    const inputFiles = Array.from(files).slice(0, remaining);
+    for (const rawFile of inputFiles) {
+      const type = (rawFile.type || '').toLowerCase();
+      if (!COMMENT_IMAGE_ALLOWED_TYPES.has(type)) {
+        showError('Only PNG, JPG, and WEBP images are supported.');
+        continue;
+      }
+      if (rawFile.size > 15 * 1024 * 1024) {
+        showError('Image is too large to process. Please use an image under 15 MB.');
+        continue;
+      }
+      try {
+        const compressedFile = await compressPastedImage(rawFile);
+        if (compressedFile.size > COMMENT_IMAGE_MAX_SIZE) {
+          showError('Compressed image is still too large (max 5 MB).');
+          continue;
+        }
+        taskCommentPasteState.items.push({
+          file: compressedFile,
+          previewUrl: URL.createObjectURL(compressedFile),
+        });
+      } catch (err) {
+        showError(err?.message || 'Failed to process pasted image.');
+      }
+    }
+
+    if (files.length > remaining) {
+      showError(`Only ${COMMENT_IMAGE_MAX_COUNT} images can be attached to one comment.`);
+    }
+
+    renderTaskCommentPastePreviews();
+  }
+
+  $(document).on('paste', '#task-view-comment-input', async function(e) {
+    const taskId = getCurrentTaskId();
+    if (!taskId || this.disabled) return;
+    ensureTaskCommentPasteTask(taskId);
+
+    const clipboardData = e.originalEvent?.clipboardData;
+    const items = Array.from(clipboardData?.items || []);
+    const imageItems = items.filter((item) => item.kind === 'file' && (item.type || '').toLowerCase().startsWith('image/'));
+    if (!imageItems.length) return;
+
+    e.preventDefault();
+
+    const files = imageItems.map((item) => item.getAsFile()).filter(Boolean);
+    await addCommentImagesFromFiles(files);
+  });
+
+  $(document).on('change', '#task-view-comment-image-input', async function() {
+    const taskId = getCurrentTaskId();
+    if (!taskId || this.disabled) return;
+    ensureTaskCommentPasteTask(taskId);
+    const files = this.files || [];
+    await addCommentImagesFromFiles(files);
+    this.value = '';
+  });
+
+  $(document).on('click', '.task-comment-paste-remove', function() {
+    const index = Number($(this).attr('data-index'));
+    if (!Number.isInteger(index)) return;
+    const item = taskCommentPasteState.items[index];
+    if (item?.previewUrl) {
+      URL.revokeObjectURL(item.previewUrl);
+    }
+    taskCommentPasteState.items.splice(index, 1);
+    renderTaskCommentPastePreviews();
+  });
+
+  $(document).on('hidden.bs.modal', '#taskViewModal', function() {
+    resetTaskCommentPasteState(null);
+    resetAllReplyDrafts();
+  });
+
+  $(document).on('click', '#btn-add-comment', function() {
+    const taskId = getCurrentTaskId();
+    if (!taskId) return;
+    ensureTaskCommentPasteTask(taskId);
+
+    const content = ($('#task-view-comment-input').val() || '').trim();
+    const hasImages = taskCommentPasteState.items.length > 0;
+    if (!content && !hasImages) return;
+
+    const formData = new FormData();
+    formData.append('content', content);
+    taskCommentPasteState.items.forEach((item) => {
+      formData.append('images', item.file, item.file.name);
+    });
+
+    const { $progressWrap, $progressBar } = getCommentComposerElements();
+    if ($progressWrap.length) {
+      $progressWrap.removeClass('d-none');
+    }
+    if ($progressBar.length) {
+      $progressBar.css('width', '0%').text('0%');
+    }
+
+    $.ajax({
       url: `/task/${taskId}/comment/add/`,
-      data: {
-        content: content
+      method: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      xhr: function() {
+        const xhr = $.ajaxSettings.xhr();
+        if (xhr.upload && $progressBar.length) {
+          xhr.upload.addEventListener('progress', function(evt) {
+            if (!evt.lengthComputable) return;
+            const percent = Math.max(0, Math.min(100, Math.round((evt.loaded / evt.total) * 100)));
+            $progressBar.css('width', `${percent}%`).text(`${percent}%`);
+          });
+        }
+        return xhr;
       },
       success: function(resp) {
         if (resp.success) {
+          resetTaskCommentPasteState(taskId);
+          $('#task-view-comment-input').val('');
           loadTaskView(taskId);
         }
       },
@@ -3527,57 +3770,223 @@ $(function() {
         } else {
           showError('Failed to send comment.');
         }
+      },
+      complete: function() {
+        if ($progressWrap.length) {
+          setTimeout(() => {
+            $progressWrap.addClass('d-none');
+            if ($progressBar.length) {
+              $progressBar.css('width', '0%').text('0%');
+            }
+          }, 300);
+        }
       }
     });
   });
+
+  const replyCommentDrafts = new Map();
+
+  function getReplyDraft(commentId) {
+    const key = String(commentId);
+    if (!replyCommentDrafts.has(key)) {
+      replyCommentDrafts.set(key, []);
+    }
+    return replyCommentDrafts.get(key);
+  }
+
+  function resetReplyDraft(commentId) {
+    const key = String(commentId);
+    const items = replyCommentDrafts.get(key) || [];
+    items.forEach((item) => {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    });
+    replyCommentDrafts.delete(key);
+  }
+
+  function resetAllReplyDrafts() {
+    Array.from(replyCommentDrafts.keys()).forEach((key) => {
+      resetReplyDraft(key);
+    });
+  }
+
+  function renderReplyDraftPreview($container, commentId) {
+    const items = getReplyDraft(commentId);
+    const $previewWrap = $container.find('.reply-paste-previews').first();
+    if (!$previewWrap.length) return;
+    $previewWrap.empty();
+    items.forEach((item, idx) => {
+      const $item = $('<div class="reply-preview-item"></div>');
+      const $img = $('<img class="reply-preview-thumb" alt="Reply image preview">').attr('src', item.previewUrl);
+      const $remove = $('<button type="button" class="reply-preview-remove" title="Remove image"><i class="bi bi-x"></i></button>')
+        .attr('data-comment-id', commentId)
+        .attr('data-index', idx);
+      $item.append($img, $remove);
+      $previewWrap.append($item);
+    });
+  }
+
+  async function addReplyImages(commentId, files, $container) {
+    if (!files || !files.length) return;
+    const draft = getReplyDraft(commentId);
+    const remaining = Math.max(0, COMMENT_IMAGE_MAX_COUNT - draft.length);
+    if (!remaining) {
+      showError(`Maximum ${COMMENT_IMAGE_MAX_COUNT} images per reply.`);
+      return;
+    }
+    const inputFiles = Array.from(files).slice(0, remaining);
+    for (const rawFile of inputFiles) {
+      const type = (rawFile.type || '').toLowerCase();
+      if (!COMMENT_IMAGE_ALLOWED_TYPES.has(type)) {
+        showError('Only PNG, JPG, and WEBP images are supported.');
+        continue;
+      }
+      if (rawFile.size > 15 * 1024 * 1024) {
+        showError('Image is too large to process. Please use an image under 15 MB.');
+        continue;
+      }
+      try {
+        const compressedFile = await compressPastedImage(rawFile);
+        if (compressedFile.size > COMMENT_IMAGE_MAX_SIZE) {
+          showError('Compressed image is still too large (max 5 MB).');
+          continue;
+        }
+        draft.push({
+          file: compressedFile,
+          previewUrl: URL.createObjectURL(compressedFile),
+        });
+      } catch (err) {
+        showError(err?.message || 'Failed to process pasted image.');
+      }
+    }
+    if (files.length > remaining) {
+      showError(`Only ${COMMENT_IMAGE_MAX_COUNT} images can be attached to one reply.`);
+    }
+    renderReplyDraftPreview($container, commentId);
+  }
 
   $(document).on('click', '.btn-reply-comment', function() {
     const commentId = $(this).data('id');
     const container = $(this).closest('.comment-item').find('.reply-form');
 
     container.html(`
+      <div class="reply-form-panel">
         <textarea class="form-control reply-input" rows="2" placeholder="Write a reply..."></textarea>
-        <button class="btn btn-sm btn-primary mt-1 btn-submit-reply" data-id="${commentId}">
-            Reply
-        </button>
-        <button class="btn btn-sm btn-secondary mt-1 btn-cancel-reply">
-            Cancel
-        </button>
+        <div class="reply-form-toolbar mt-2">
+          <label class="btn btn-light btn-sm mb-0">
+            <i class="bi bi-image me-1"></i>Add image
+            <input type="file" class="d-none reply-image-input" accept="image/png,image/jpeg,image/webp" multiple data-comment-id="${commentId}">
+          </label>
+          <small class="text-muted">Tip: paste screenshots with Ctrl+V.</small>
+        </div>
+        <div class="reply-paste-previews"></div>
+        <div class="progress reply-progress d-none" role="progressbar" aria-label="Reply upload progress">
+          <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+        </div>
+        <div class="reply-actions">
+          <button class="btn btn-sm btn-primary btn-submit-reply" data-id="${commentId}">Reply</button>
+          <button class="btn btn-sm btn-secondary btn-cancel-reply">Cancel</button>
+        </div>
+      </div>
     `);
 
+    renderReplyDraftPreview(container, commentId);
     container.show();
   });
 
   $(document).on('click', '.btn-cancel-reply', function() {
     const container = $(this).closest('.reply-form');
+    const commentId = container.closest('.comment-item').data('id');
+    resetReplyDraft(commentId);
     container.html('').hide();
+  });
+
+  $(document).on('paste', '.reply-input', async function(e) {
+    const $container = $(this).closest('.reply-form');
+    const commentId = $container.closest('.comment-item').data('id');
+    if (!commentId || this.disabled) return;
+    const clipboardData = e.originalEvent?.clipboardData;
+    const items = Array.from(clipboardData?.items || []);
+    const imageItems = items.filter((item) => item.kind === 'file' && (item.type || '').toLowerCase().startsWith('image/'));
+    if (!imageItems.length) return;
+    e.preventDefault();
+    const files = imageItems.map((item) => item.getAsFile()).filter(Boolean);
+    await addReplyImages(commentId, files, $container);
+  });
+
+  $(document).on('change', '.reply-image-input', async function() {
+    const commentId = $(this).data('comment-id');
+    const $container = $(this).closest('.reply-form');
+    await addReplyImages(commentId, this.files || [], $container);
+    this.value = '';
+  });
+
+  $(document).on('click', '.reply-preview-remove', function() {
+    const commentId = $(this).data('comment-id');
+    const idx = Number($(this).data('index'));
+    const draft = getReplyDraft(commentId);
+    if (Number.isInteger(idx) && draft[idx]?.previewUrl) {
+      URL.revokeObjectURL(draft[idx].previewUrl);
+    }
+    if (Number.isInteger(idx)) {
+      draft.splice(idx, 1);
+    }
+    const $container = $(this).closest('.reply-form');
+    renderReplyDraftPreview($container, commentId);
   });
 
   $(document).on('click', '.btn-submit-reply', function() {
     const commentId = $(this).data('id');
     const container = $(this).closest('.reply-form');
     const content = container.find('.reply-input').val().trim();
-        const taskId = getCurrentTaskId();
+    const taskId = getCurrentTaskId();
+    const draft = getReplyDraft(commentId);
+    if (!content && !draft.length) return;
 
-    if (!content) return;
+    const formData = new FormData();
+    formData.append('content', content);
+    draft.forEach((item) => {
+      formData.append('images', item.file, item.file.name);
+    });
+    const $progress = container.find('.reply-progress');
+    const $progressBar = container.find('.reply-progress .progress-bar');
+    $progress.removeClass('d-none');
+    $progressBar.css('width', '0%').text('0%');
 
-    $.post({
+    $.ajax({
       url: `/comment/${commentId}/reply/`,
-      data: {
-        content: content
+      method: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      xhr: function() {
+        const xhr = $.ajaxSettings.xhr();
+        if (xhr.upload) {
+          xhr.upload.addEventListener('progress', function(evt) {
+            if (!evt.lengthComputable) return;
+            const percent = Math.max(0, Math.min(100, Math.round((evt.loaded / evt.total) * 100)));
+            $progressBar.css('width', `${percent}%`).text(`${percent}%`);
+          });
+        }
+        return xhr;
       },
       success: function(resp) {
         if (resp.success) {
+          resetReplyDraft(commentId);
           loadTaskView(taskId);
         }
       },
-      error: function() {
-        const xhr = arguments[0];
+      error: function(xhr) {
         if (xhr?.status === 400 && xhr.responseJSON?.error) {
           showError(xhr.responseJSON.error);
         } else {
           showError("Failed to send reply.");
         }
+      },
+      complete: function() {
+        setTimeout(() => {
+          $progress.addClass('d-none');
+          $progressBar.css('width', '0%').text('0%');
+        }, 250);
       }
     });
   });
@@ -3602,6 +4011,42 @@ $(function() {
           showError(xhr.responseJSON.error);
         } else {
           showError("Failed to delete comment.");
+        }
+      }
+    });
+  });
+
+  $(document).on('click', '.btn-delete-attachment', async function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!await showConfirm('Delete this attachment?', 'Delete attachment')) return;
+
+    const $btn = $(this);
+    const attachmentId = $btn.data('attachment-id') || $btn.closest('[data-attachment-id]').data('attachment-id') || $btn.closest('li[data-id]').data('id');
+    if (!attachmentId) {
+      showError('Attachment ID not found.');
+      return;
+    }
+
+    $.post({
+      url: `/attachment/${attachmentId}/delete/`,
+      success: function(resp) {
+        if (!resp.success) {
+          showError(resp.error || 'Failed to delete attachment.');
+          return;
+        }
+        const $row = $btn.closest('[data-attachment-id], li[data-id]');
+        if ($row.length) {
+          $row.fadeOut(120, function() { $(this).remove(); });
+        }
+      },
+      error: function(xhr) {
+        if (xhr.status === 403) {
+          showError('You do not have access to delete this attachment.');
+        } else if (xhr.status === 400 && xhr.responseJSON?.error) {
+          showError(xhr.responseJSON.error);
+        } else {
+          showError(xhr.responseJSON?.error || 'Failed to delete attachment.');
         }
       }
     });

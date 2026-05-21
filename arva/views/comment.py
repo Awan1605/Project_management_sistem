@@ -9,10 +9,32 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
+from django.utils.text import get_valid_filename
 
 from .helpers import get_user_project_or_404, get_role, is_project_locked, closed_project_error
 from ..models import Task, Comment, Attachment, ChecklistItem, ActivityLog
-from ..forms import CommentForm, AttachmentForm, ChecklistItemForm
+from ..forms import AttachmentForm, ChecklistItemForm
+
+ALLOWED_COMMENT_IMAGE_TYPES = {'image/png', 'image/jpeg', 'image/webp'}
+ALLOWED_COMMENT_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
+MAX_COMMENT_IMAGE_SIZE = 5 * 1024 * 1024
+MAX_COMMENT_IMAGE_COUNT = 5
+
+
+def _validate_comment_images(images):
+    if len(images) > MAX_COMMENT_IMAGE_COUNT:
+        return f'Maximum {MAX_COMMENT_IMAGE_COUNT} pasted images per comment.'
+
+    for image in images:
+        name = get_valid_filename(image.name or 'pasted-image')
+        lowered = name.lower()
+        extension = f".{lowered.split('.')[-1]}" if '.' in lowered else ''
+        content_type = (getattr(image, 'content_type', '') or '').lower()
+        if content_type not in ALLOWED_COMMENT_IMAGE_TYPES and extension not in ALLOWED_COMMENT_IMAGE_EXTENSIONS:
+            return 'Only PNG, JPG, and WEBP images are allowed.'
+        if image.size > MAX_COMMENT_IMAGE_SIZE:
+            return 'Each pasted image must be 5 MB or smaller.'
+    return None
 
 
 # ============================================================
@@ -35,19 +57,29 @@ def comment_add(request, task_id):
     if role != 'admin' and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
 
-    form = CommentForm(request.POST)
-    if form.is_valid():
-        comment = form.save(commit=False)
-        comment.task = task
-        comment.user = request.user
-        comment.save()
-        ActivityLog.objects.create(
-            user=request.user, project=task.project, task=task,
-            action='comment_added', description=f"Comment added on task '{task.title}'"
-        )
-        html = render_to_string('arva/_comment_item.html', {'comment': comment}, request=request)
-        return JsonResponse({'success': True, 'html': html})
-    return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+    content = (request.POST.get('content') or '').strip()
+    images = request.FILES.getlist('images')
+
+    image_error = _validate_comment_images(images)
+    if image_error:
+        return JsonResponse({'success': False, 'error': image_error}, status=400)
+
+    if not content and not images:
+        return JsonResponse({'success': False, 'error': 'Comment or image is required.'}, status=400)
+
+    if not content and images:
+        content = 'Image attachment'
+
+    comment = Comment.objects.create(task=task, user=request.user, content=content)
+    for image in images:
+        Attachment.objects.create(task=task, comment=comment, uploaded_by=request.user, file=image)
+
+    ActivityLog.objects.create(
+        user=request.user, project=task.project, task=task,
+        action='comment_added', description=f"Comment added on task '{task.title}'"
+    )
+    html = render_to_string('arva/_comment_item.html', {'comment': comment}, request=request)
+    return JsonResponse({'success': True, 'html': html})
 
 
 @login_required
@@ -69,8 +101,14 @@ def comment_reply(request, comment_id):
         return JsonResponse({'success': False}, status=403)
 
     content = request.POST.get("content", "").strip()
-    if not content:
-        return JsonResponse({'success': False}, status=400)
+    images = request.FILES.getlist('images')
+    image_error = _validate_comment_images(images)
+    if image_error:
+        return JsonResponse({'success': False, 'error': image_error}, status=400)
+    if not content and not images:
+        return JsonResponse({'success': False, 'error': 'Reply or image is required.'}, status=400)
+    if not content and images:
+        content = 'Image attachment'
 
     new_comment = Comment.objects.create(
         task=task,
@@ -78,6 +116,8 @@ def comment_reply(request, comment_id):
         parent=parent,
         content=content
     )
+    for image in images:
+        Attachment.objects.create(task=task, comment=new_comment, uploaded_by=request.user, file=image)
 
     ActivityLog.objects.create(
         user=request.user, project=task.project, task=task,
@@ -156,6 +196,41 @@ def attachment_add(request, task_id):
         html = render_to_string('arva/_attachment_item.html', {'attachment': attachment}, request=request)
         return JsonResponse({'success': True, 'html': html})
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+
+
+@login_required
+@require_POST
+def attachment_delete(request, attachment_id):
+    """Hapus attachment pada task/comment dengan validasi akses."""
+    attachment = get_object_or_404(Attachment, id=attachment_id)
+    task = attachment.task
+    project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error()
+    role = get_role(request.user, project)
+
+    can_delete = bool(
+        request.user.is_superuser or
+        project.owner_id == request.user.id or
+        (attachment.uploaded_by_id == request.user.id if attachment.uploaded_by_id else False) or
+        (attachment.comment.user_id == request.user.id if attachment.comment_id else False) or
+        role == 'admin'
+    )
+    if not can_delete:
+        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+
+    try:
+        if attachment.file:
+            attachment.file.delete(save=False)
+        attachment.delete()
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Failed to delete attachment.'}, status=500)
+
+    ActivityLog.objects.create(
+        user=request.user, project=task.project, task=task,
+        action='attachment_added', description=f"Attachment deleted on task '{task.title}'"
+    )
+    return JsonResponse({'success': True})
 
 
 # ============================================================

@@ -144,7 +144,7 @@
           <div class="task-detail-meta-label"><i class="bi bi-collection"></i>Quick stats</div>
           <div class="task-detail-stats">
             <span class="task-detail-stat"><i class="bi bi-chat-left-text"></i>{{ root_comments|length }} comments</span>
-            <span class="task-detail-stat"><i class="bi bi-paperclip"></i>{{ task.attachments.count }} attachments</span>
+            <span class="task-detail-stat"><i class="bi bi-paperclip"></i>{{ task_attachment_count|default:0 }} attachments</span>
             <span class="task-detail-stat"><i class="bi bi-list-check"></i>{{ checklist_done }}/{{ checklist_total }} checklist</span>
             <span class="task-detail-stat"><i class="bi bi-activity"></i>{{ task.activities.count }} activities</span>
           </div>

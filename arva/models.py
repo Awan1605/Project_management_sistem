@@ -25,6 +25,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from pathlib import PurePosixPath
 from .utils import get_date
 
 
@@ -478,12 +479,21 @@ class Comment(models.Model):
 class Attachment(models.Model):
     """Lampiran file pada task."""
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='attachments')
+    comment = models.ForeignKey('Comment', on_delete=models.CASCADE, null=True, blank=True, related_name='attachments')
     file = models.FileField(upload_to='attachments/')
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.file.name
+
+    @property
+    def filename(self):
+        return PurePosixPath(self.file.name or '').name
+
+    @property
+    def is_image(self):
+        return PurePosixPath(self.file.name or '').suffix.lower() in {'.png', '.jpg', '.jpeg', '.webp', '.gif'}
 
 class ChecklistItem(models.Model):
     """Item checklist pada task. Bisa dicentang (is_done) sebagai progress."""

@@ -1,40 +1,66 @@
 {% for c in comments %}
-<div class="comment-item mb-3" data-id="{{ c.id }}">
-
-    <div class="border-bottom pb-2">
-        <strong>
-            {% if show_comment_avatar|default:True %}
-            <img src="{{ c.user.userprofile.avatar_url }}" class="rounded-circle me-2" width="24" height="24">
-            {% endif %}
-            {{ c.user.username }}
-        </strong>
-        <small class="text-muted">{{ c.created_at|date:"d M Y H:i" }}</small>
-        <div>{{ c.content|linebreaks }}</div>
-
-        <div class="mt-1">
-            {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user == c.user %}
-                <button class="btn btn-link p-0 small text-danger btn-delete-comment" data-id="{{ c.id }}">
-                    Delete
-                </button>
-            {% endif %}
-
-            {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in c.task.assignees.all %}
-                <button class="btn btn-link p-0 small text-primary btn-reply-comment" data-id="{{ c.id }}">
-                    Reply
-                </button>
-            {% endif %}
+<article class="comment-item {% if c.parent_id %}comment-item--reply{% endif %}" data-id="{{ c.id }}">
+  <div class="comment-item-card">
+    <header class="comment-item-head">
+      <div class="comment-author">
+        {% if show_comment_avatar|default:True %}
+          <img src="{{ c.user.userprofile.avatar_url }}" class="comment-avatar" width="32" height="32" alt="{{ c.user.username }}">
+        {% else %}
+          <span class="comment-avatar comment-avatar-fallback">{{ c.user.username|first|upper }}</span>
+        {% endif %}
+        <div class="comment-author-meta">
+          <div class="comment-author-name">{{ c.user.username }}</div>
+          <time class="comment-time text-muted">{{ c.created_at|date:"d M Y H:i" }}</time>
         </div>
+      </div>
+      <div class="comment-actions">
+        {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user == c.user %}
+          <button class="btn btn-link p-0 small text-danger btn-delete-comment" data-id="{{ c.id }}">Delete</button>
+        {% endif %}
+        {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in c.task.assignees.all %}
+          <button class="btn btn-link p-0 small text-primary btn-reply-comment" data-id="{{ c.id }}">Reply</button>
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="comment-body">
+      <div class="comment-content">{{ c.content|linebreaksbr }}</div>
+      {% if c.attachments.all %}
+        <div class="comment-image-grid mt-2">
+          {% for att in c.attachments.all|slice:":6" %}
+            <div class="comment-attachment-item" data-attachment-id="{{ att.id }}">
+              {% if att.is_image %}
+                <a href="{{ att.file.url }}" target="_blank" rel="noopener noreferrer" class="comment-image-link">
+                  <img src="{{ att.file.url }}" alt="{{ att.filename }}" class="comment-image-thumb">
+                </a>
+              {% else %}
+                <a href="{{ att.file.url }}" target="_blank" rel="noopener noreferrer" class="comment-file-link">
+                  <i class="bi bi-paperclip me-1"></i>{{ att.filename|truncatechars:22 }}
+                </a>
+              {% endif %}
+              {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user == c.user %}
+                <button type="button" class="btn-delete-attachment comment-attachment-delete" title="Delete attachment" data-attachment-id="{{ att.id }}">
+                  <i class="bi bi-x"></i>
+                </button>
+              {% endif %}
+            </div>
+          {% endfor %}
+          {% if c.attachments.count > 6 %}
+            <div class="comment-image-more">+{{ c.attachments.count|add:"-6" }}</div>
+          {% endif %}
+        </div>
+      {% endif %}
     </div>
+  </div>
 
-    <div class="reply-form mt-2 reply-form-hidden"></div>
+  <div class="reply-form mt-2 reply-form-hidden"></div>
 
-    {% if c.replies.all %}
-        <div class="ms-4 mt-3">
-            {% include "arva/_comment_list.html" with comments=c.replies.all show_comment_avatar=show_comment_avatar %}
-        </div>
-    {% endif %}
-
-</div>
+  {% if c.replies.all %}
+    <div class="comment-replies">
+      {% include "arva/_comment_list.html" with comments=c.replies.all show_comment_avatar=show_comment_avatar %}
+    </div>
+  {% endif %}
+</article>
 {% empty %}
-<small class="text-muted">There are no comments yet.</small>
+<div class="comment-empty text-muted">There are no comments yet.</div>
 {% endfor %}
