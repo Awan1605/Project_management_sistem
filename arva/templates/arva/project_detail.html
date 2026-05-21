@@ -507,69 +507,80 @@
       </div>
       <div class="modal-body">
         {% csrf_token %}
-        <div class="task-create-grid">
-          <div class="full">
-            <label class="form-label">Task Title</label>
-            <input type="text" name="title" class="form-control form-control-sm" required>
-          </div>
-          <div class="full">
-            <label class="form-label">Description</label>
-            <textarea name="description" rows="2" class="form-control form-control-sm"></textarea>
-          </div>
-          <div>
-            <label class="form-label">Status / Column</label>
-            <select name="task_list_id" id="list-task-status" class="form-select form-select-sm" required></select>
-          </div>
-          <div class="task-structured-only">
-            <label class="form-label">Task Status</label>
-            <select name="status" id="list-task-work-status" class="form-select form-select-sm">
-              <option value="-">-</option>
-              <option value="in_progress">In Progress</option>
-              <option value="done">Done</option>
-              <option value="infeasible">Infeasible</option>
-            </select>
-          </div>
-          <div class="task-structured-only">
-            <label class="form-label">Priority</label>
-            <select name="priority" id="list-task-priority" class="form-select form-select-sm">
-              <option value="p0">P0 - Urgent</option>
-              <option value="p1">P1 - High</option>
-              <option value="p2" selected>P2 - Medium</option>
-              <option value="p3">P3 - Low</option>
-              <option value="p4">P4 - Very Low</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label">Assignee</label>
+        <input type="hidden" name="task_list_id" id="list-task-list-id">
+        <input type="hidden" name="status" id="list-task-work-status" value="-">
+        {% if not project.is_project %}
+        <input type="hidden" name="priority" id="list-task-priority" value="p2">
+        {% endif %}
+
+        <div class="task-create-modern">
+          <section class="task-create-section">
+            <div class="task-create-section-head">
+              <h6 class="mb-0">Task Name</h6>
+              <small class="text-muted">New tasks use default task status automatically.</small>
+            </div>
+            <input type="text" name="title" class="form-control form-control-sm" placeholder="Enter task name" required>
+            <div class="small text-muted mt-1">List: <span id="list-task-list-label">-</span></div>
+          </section>
+
+          <section class="task-create-section">
+            <h6 class="mb-2">Assignee</h6>
             <select name="assignees" id="list-task-assignees" class="form-select form-select-sm" multiple size="4">
               <option value="">Select assignee</option>
               {% for u in users %}
                 <option value="{{ u.id }}">{{ u.username }}</option>
               {% endfor %}
             </select>
-          </div>
-          <div class="task-structured-only">
-            <label class="form-label">Start Date</label>
-            <input type="date" name="start_date" id="list-task-start-date" class="form-control form-control-sm">
-            <div class="form-check mt-1">
-              <input class="form-check-input" type="checkbox" name="start_date_tbd" id="list-task-start-date-tbd">
-              <label class="form-check-label" for="list-task-start-date-tbd" title="To Be Determined">TBD (To Be Determined)</label>
-            </div>
-          </div>
-          <div class="task-structured-only">
-            <label class="form-label">End Date</label>
-            <input type="date" name="due_date" id="list-task-end-date" class="form-control form-control-sm">
-          </div>
-          {% if not project.is_project %}
-          <div>
-            <label class="form-label">Labels</label>
-            <select name="labels" class="form-select form-select-sm" multiple size="4">
-              {% for label in task_form.fields.labels.queryset %}
-                <option value="{{ label.id }}">{{ label.name }}</option>
-              {% endfor %}
+          </section>
+
+          {% if project.is_project %}
+          <section class="task-create-section">
+            <h6 class="mb-2">Priority</h6>
+            <select name="priority" id="list-task-priority" class="form-select form-select-sm" required>
+              <option value="p0">P0 - Urgent</option>
+              <option value="p1">P1 - High</option>
+              <option value="p2" selected>P2 - Medium</option>
+              <option value="p3">P3 - Low</option>
+              <option value="p4">P4 - Very Low</option>
             </select>
-          </div>
+          </section>
           {% endif %}
+
+          <section class="task-create-section task-create-dates">
+            <h6 class="mb-2">Start Date / TBD</h6>
+            <div class="task-create-date-grid">
+              <div>
+                <label class="form-label">Start Date</label>
+                <input type="date" name="start_date" id="list-task-start-date" class="form-control form-control-sm">
+                <div class="form-check mt-1">
+                  <input class="form-check-input" type="checkbox" name="start_date_tbd" id="list-task-start-date-tbd">
+                  <label class="form-check-label" for="list-task-start-date-tbd" title="To Be Determined">TBD (To Be Determined)</label>
+                </div>
+              </div>
+              <div>
+                <label class="form-label">End Date</label>
+                <input type="date" name="due_date" id="list-task-end-date" class="form-control form-control-sm">
+              </div>
+            </div>
+          </section>
+
+          <section class="task-create-section">
+            <h6 class="mb-2">Description</h6>
+            <div class="task-rich-editor" data-task-rich-editor>
+              <div class="task-rich-editor-toolbar" role="toolbar" aria-label="Task description formatting toolbar">
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="bold" title="Bold"><i class="bi bi-type-bold"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="italic" title="Italic"><i class="bi bi-type-italic"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="underline" title="Underline"><i class="bi bi-type-underline"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertUnorderedList" title="Bullet list"><i class="bi bi-list-ul"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertOrderedList" title="Numbered list"><i class="bi bi-list-ol"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="createLink" title="Insert link"><i class="bi bi-link-45deg"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="undo" title="Undo"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="redo" title="Redo"><i class="bi bi-arrow-clockwise"></i></button>
+              </div>
+              <div class="task-rich-editor-input" contenteditable="true" data-editor-input aria-label="Task description editor"></div>
+              <textarea id="list-task-desc" name="description" class="task-desc-input task-desc-plain d-none" data-editor-textarea rows="3" data-autoresize="true" placeholder="Add a description..." spellcheck="false"></textarea>
+            </div>
+          </section>
         </div>
       </div>
       <div class="modal-footer">

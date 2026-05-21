@@ -446,12 +446,15 @@ def task_create(request, pk):
     if project.is_project:
         data.setlist('labels', [])
         data.pop('cover_color', None)
-    if 'priority' not in data or not data['priority']:
+        if not data.get('status'):
+            data['status'] = Task.STATUS_NONE
+    if not project.is_project and ('priority' not in data or not data['priority']):
         data['priority'] = Task.PRIORITY_P2
 
     form = TaskForm(data, project=project)
     if form.is_valid():
         task = form.save(commit=False)
+        task.description = sanitize_task_description_html(task.description or '')
         task.project = project
         task.sub_project = subproject
         task.task_list = task_list

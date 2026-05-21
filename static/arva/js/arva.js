@@ -2095,8 +2095,8 @@ $(function() {
         return;
       }
       const isStructuredProject = (root?.dataset.isProject || '0') === '1';
-      const structuredOnlyFields = document.querySelectorAll('#listTaskCreateModal .task-structured-only');
-      const statusSelect = document.getElementById('list-task-status');
+      const listInput = document.getElementById('list-task-list-id');
+      const listLabel = document.getElementById('list-task-list-label');
       const form = document.getElementById('list-view-task-create-form');
       const assigneeSelect = document.getElementById('list-task-assignees');
       const startDateInput = document.getElementById('list-task-start-date');
@@ -2105,10 +2105,17 @@ $(function() {
       const prioritySelect = document.getElementById('list-task-priority');
       const workStatusSelect = document.getElementById('list-task-work-status');
       const projectEtd = (root?.dataset.projectEtd || '').trim();
-      if (!statusSelect || !form) return;
+      if (!listInput || !form) return;
       form.reset();
-      structuredOnlyFields.forEach((el) => el.classList.toggle('d-none', !isStructuredProject));
-      statusSelect.innerHTML = '';
+      const descRoot = form.querySelector('[data-task-rich-editor]');
+      const descInput = descRoot?.querySelector('[data-editor-input]');
+      const descTextarea = descRoot?.querySelector('[data-editor-textarea]');
+      if (descInput) {
+        descInput.innerHTML = '<p><br></p>';
+      }
+      if (descTextarea) {
+        descTextarea.value = '';
+      }
       if (startDateInput && startDateTbdInput) {
         startDateInput.disabled = false;
         startDateInput.required = false;
@@ -2130,17 +2137,17 @@ $(function() {
         showError('No status/column available. Create a list first.');
         return;
       }
-      options.forEach((opt) => {
-        const option = document.createElement('option');
-        option.value = opt.id;
-        option.textContent = opt.name;
-        statusSelect.appendChild(option);
-      });
-      const defaultListId = window.currentStructuredDefaultListId || '';
-      if (defaultListId) {
-        statusSelect.value = defaultListId;
-        window.currentStructuredDefaultListId = '';
+      let selectedListId = window.currentStructuredDefaultListId || '';
+      const listExists = options.some((opt) => String(opt.id) === String(selectedListId));
+      if (!selectedListId || !listExists) {
+        selectedListId = options[0].id;
       }
+      listInput.value = selectedListId;
+      const selectedList = options.find((opt) => String(opt.id) === String(selectedListId));
+      if (listLabel) {
+        listLabel.textContent = selectedList?.name || '-';
+      }
+      window.currentStructuredDefaultListId = '';
 
       if (isStructuredProject) {
         if (startDateInput) startDateInput.required = true;
@@ -2148,13 +2155,16 @@ $(function() {
           endDateInput.required = true;
           if (projectEtd) endDateInput.max = projectEtd;
         }
-        if (prioritySelect) prioritySelect.required = true;
-        if (workStatusSelect) workStatusSelect.required = true;
+        if (prioritySelect) prioritySelect.value = 'p2';
+        if (workStatusSelect) workStatusSelect.value = '-';
         if (assigneeSelect) {
           assigneeSelect.required = true;
           assigneeSelect.multiple = false;
           assigneeSelect.size = 1;
         }
+      } else {
+        if (prioritySelect) prioritySelect.value = 'p2';
+        if (workStatusSelect) workStatusSelect.value = '-';
       }
       const modalEl = document.getElementById('listTaskCreateModal');
       if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -2362,6 +2372,13 @@ $(function() {
       const isStructuredProject = (root?.dataset.isProject || '0') === '1';
       const projectEtd = (root?.dataset.projectEtd || '').trim();
       if (!projectId) return;
+
+      const createDescRoot = createForm.querySelector('[data-task-rich-editor]');
+      const createDescEditor = createDescRoot?.querySelector('[data-editor-input]');
+      const createDescTextarea = createDescRoot?.querySelector('[data-editor-textarea]');
+      if (createDescEditor && createDescTextarea) {
+        createDescTextarea.value = sanitizeRichEditorHtml(createDescEditor.innerHTML || '');
+      }
 
       const fd = new FormData(createForm);
       const title = (fd.get('title') || '').toString().trim();
@@ -3219,7 +3236,7 @@ $(function() {
     $roots.each(function() {
       const root = this;
       if (root.dataset.editorInitialized === '1') return;
-      const textarea = root.querySelector('#task-view-desc');
+      const textarea = root.querySelector('[data-editor-textarea]') || root.querySelector('#task-view-desc');
       const editor = root.querySelector('[data-editor-input]');
       if (!textarea || !editor) return;
       root.dataset.editorInitialized = '1';

@@ -374,18 +374,45 @@
   .task-list-empty {
     background: rgba(15, 23, 42, 0.02);
   }
-  .task-create-grid {
+  .task-create-modern {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .task-create-section {
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 12px;
+    background: #fff;
+    padding: 0.75rem;
+  }
+  .task-create-section h6 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .task-create-section .form-label {
+    margin-bottom: 0.2rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .task-create-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.45rem;
+    flex-wrap: wrap;
+  }
+  .task-create-date-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.6rem;
+    gap: 0.65rem;
   }
-  .task-create-grid .full {
-    grid-column: 1 / -1;
-  }
-  .task-create-grid .form-label {
-    margin-bottom: 0.2rem;
-    font-size: 0.8rem;
-    font-weight: 600;
+  .task-create-dates .form-check-label {
+    font-size: 0.78rem;
+    color: #64748b;
   }
   #task-board-wrapper {
     padding-left: 0 !important;
@@ -448,6 +475,9 @@
     }
     .project-detail-page .task-column {
       max-height: 58vh;
+    }
+    .task-create-date-grid {
+      grid-template-columns: 1fr;
     }
   }
   @media (max-width: 575.98px) {
