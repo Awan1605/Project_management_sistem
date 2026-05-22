@@ -7,7 +7,7 @@ Menangani CRUD project, archive, activity log, members, dan task lists.
 from datetime import datetime
 
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
@@ -32,6 +32,7 @@ from .helpers import (
     get_role,
     require_role,
     can_manage_project,
+    permission_denied_response,
     is_project_locked,
     closed_project_error,
     sync_project_shares,
@@ -41,6 +42,29 @@ from .helpers import (
 )
 
 User = get_user_model()
+
+
+def _can_edit_project(user, project):
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    if user.is_superuser:
+        return True
+    if project.owner_id == user.id:
+        return True
+    if project.pm_assignee_id and project.pm_assignee_id == user.id:
+        return True
+    return False
+
+
+def _project_edit_denied_message(user, project, action='edit this project'):
+    if not getattr(user, 'is_authenticated', False):
+        return f'Access denied. You must sign in to {action}.'
+    if project.is_private and not project.can_user_view(user):
+        return 'Access denied. Project is private and your account is not included in shared users.'
+    return (
+        f'Access denied. You do not have permission to {action} because only the Superuser, '
+        'project creator, or project PM can perform this action.'
+    )
 
 
 def _build_task_status_priority_case(is_structured_project):
@@ -176,7 +200,7 @@ def project_detail(request, pk):
     sort_mode = request.GET.get('sort', 'default').strip().lower()
     page_number = request.GET.get('page', 1)
     per_page = request.GET.get('per_page', '25').strip()
-    if per_page not in {'10', '25', '50', '100'}:
+    if per_page not in {'25', '50', '100'}:
         per_page = '25'
 
     base_tasks = Task.objects.filter(project=project, is_archived=False).select_related(
@@ -293,7 +317,7 @@ def project_detail(request, pk):
         'grouped_task_lists': grouped_task_lists,
         'list_page_obj': list_page_obj,
         'per_page': per_page,
-        'per_page_options': ['10', '25', '50', '100'],
+        'per_page_options': ['25', '50', '100'],
         'available_status_lists': available_status_lists,
         'structured_status_options': structured_status_options,
         'structured_priority_options': structured_priority_options,
@@ -367,8 +391,12 @@ def project_create(request):
 def project_edit(request, pk):
     """Edit project yang sudah ada (hanya pemilik yang bisa)."""
     project = get_user_project_or_404(request.user, pk)
-    if project.owner_id != request.user.id:
-        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+    if not _can_edit_project(request.user, project):
+        return permission_denied_response(
+            request,
+            _project_edit_denied_message(request.user, project),
+            code='project_edit_forbidden',
+        )
 
     form = ProjectForm(request.POST, instance=project, current_user=request.user)
     if form.is_valid():
@@ -395,11 +423,12 @@ def project_edit(request, pk):
 def project_update(request, pk):
     """Update project (hanya pemilik yang bisa)."""
     project = get_user_project_or_404(request.user, pk)
-    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return JsonResponse({
-            "success": False,
-            "error": "The project cannot be updated because you are not the owner of this project."
-        }, status=400)
+    if not _can_edit_project(request.user, project):
+        return permission_denied_response(
+            request,
+            _project_edit_denied_message(request.user, project, action='update this project'),
+            code='project_update_forbidden',
+        )
     form = ProjectForm(request.POST, instance=project, current_user=request.user)
     if form.is_valid():
         form.save()
@@ -420,11 +449,12 @@ def project_delete(request, pk):
     """Hapus project (hanya pemilik yang bisa).
     Project yang masih punya task tidak bisa dihapus."""
     project = get_user_project_or_404(request.user, pk)
-    if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return JsonResponse({
-            "success": False,
-            "error": "The project cannot be deleted because you are not the owner of this project."
-        }, status=400)
+    if not (request.user.is_superuser or project.owner_id == request.user.id):
+        return permission_denied_response(
+            request,
+            "Access denied. Only the project creator or a superuser can delete this project.",
+            code="project_delete_forbidden",
+        )
     
     if project.tasks.exists():
         return JsonResponse({
@@ -453,7 +483,11 @@ def project_close(request, pk):
     """Tutup project (hanya untuk structured project)."""
     project = get_user_project_or_404(request.user, pk)
     if not can_manage_project(request.user, project):
-        return JsonResponse({'success': False, 'error': 'You are not allowed to close this project.'}, status=403)
+        return permission_denied_response(
+            request,
+            'Access denied. You do not have permission to perform this action because only the Superuser, project creator, or project PM can close this project.',
+            code='project_close_forbidden',
+        )
     if not project.is_project:
         return JsonResponse({'success': False, 'error': 'Only structured projects can be closed.'}, status=400)
     if project.is_closed:
@@ -476,7 +510,11 @@ def project_reopen(request, pk):
     """Buka kembali project yang sudah ditutup."""
     project = get_user_project_or_404(request.user, pk)
     if not can_manage_project(request.user, project):
-        return JsonResponse({'success': False, 'error': 'You are not allowed to re-open this project.'}, status=403)
+        return permission_denied_response(
+            request,
+            'Access denied. You do not have permission to perform this action because only the Superuser, project creator, or project PM can re-open this project.',
+            code='project_reopen_forbidden',
+        )
     if not project.is_project:
         return JsonResponse({'success': False, 'error': 'Only structured projects can be reopened.'}, status=400)
     if not project.is_closed:
@@ -504,7 +542,7 @@ def project_convert_to_subproject(request, pk):
     Tidak bisa dikonversi jika project masih punya subproject."""
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     if project.subprojects.exists():
         return JsonResponse({'success': False, 'error': 'Project has sub-projects and cannot be converted.'}, status=400)
@@ -515,7 +553,7 @@ def project_convert_to_subproject(request, pk):
 
     target_project = get_user_project_or_404(request.user, target_project_id)
     if not require_role(request.user, target_project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     if str(project.id) == str(target_project.id):
         return JsonResponse({'success': False, 'error': 'Target project must be different.'}, status=400)
@@ -557,7 +595,7 @@ def project_archive(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
     if project.owner_id != request.user.id:
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     archived_lists = project.lists.filter(is_archived=True).order_by('position')
     archived_tasks = project.tasks.filter(is_archived=True).select_related('task_list').prefetch_related(
@@ -577,7 +615,7 @@ def project_activity(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
     if project.owner_id != request.user.id:
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     activities = project.activities.select_related('user', 'task').order_by('-created_at')
     q = request.GET.get('q', '').strip()
@@ -652,7 +690,7 @@ def project_members(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
     if project.owner_id != request.user.id:
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     members = project.memberships.select_related('user')
     form = ProjectMemberForm()
@@ -671,7 +709,7 @@ def project_member_add(request, pk):
     """Tambah member baru ke project."""
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     form = ProjectMemberForm(request.POST)
     form.fields['user'].queryset = User.objects.exclude(id=request.user.id)
@@ -682,10 +720,19 @@ def project_member_add(request, pk):
         member.role = ProjectMember.ROLE_MEMBER
 
         if member.user == request.user:
-            return HttpResponseForbidden("Tidak boleh menambahkan diri sendiri sebagai member.")
+            return permission_denied_response(
+                request,
+                'Access denied. You cannot add yourself as a member to this project.',
+                code='project_member_add_self_forbidden',
+            )
 
         if ProjectMember.objects.filter(project=project, user=member.user).exists():
-            return HttpResponseForbidden("User ini sudah menjadi member project.")
+            return permission_denied_response(
+                request,
+                'Access denied. This user is already a project member.',
+                status=400,
+                code='project_member_already_exists',
+            )
 
         member.save()
         return redirect('project_members', pk=project.pk)
@@ -707,7 +754,7 @@ def project_member_update(request, member_id):
     project = member.project
 
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return JsonResponse({"success": False, "error": "Forbidden"}, status=403)
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     new_role = request.POST.get("role")
 
@@ -728,7 +775,7 @@ def project_member_delete(request, member_id):
     member = get_object_or_404(ProjectMember, id=member_id)
     project = member.project
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     member.delete()
     return redirect('project_members', pk=project.pk)
 
@@ -761,9 +808,9 @@ def tasklist_create(request, pk):
     """Buat task list baru dalam project."""
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
 
     subproject = None
     subproject_id = request.POST.get('sub_project_id')
@@ -801,9 +848,9 @@ def tasklist_reorder(request, pk):
     """Ubah urutan task list dalam project."""
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
     subproject = None
     subproject_id = request.POST.get('sub_project_id')
     if project.subprojects.exists():
@@ -827,9 +874,9 @@ def tasklist_delete(request, list_id):
     tl = get_object_or_404(TaskList, id=list_id)
     project = get_user_project_or_404(request.user, tl.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
     name = tl.name
     tl.delete()
     ActivityLog.objects.create(
@@ -846,9 +893,9 @@ def tasklist_archive(request, list_id):
     tl = get_object_or_404(TaskList, id=list_id)
     project = get_user_project_or_404(request.user, tl.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
     tl.is_archived = True
     tl.save()
     tl.tasks.update(is_archived=True)
@@ -866,9 +913,9 @@ def tasklist_unarchive(request, list_id):
     tl = get_object_or_404(TaskList, id=list_id)
     project = get_user_project_or_404(request.user, tl.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
     tl.is_archived = False
     tl.save()
     ActivityLog.objects.create(

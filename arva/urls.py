@@ -89,6 +89,7 @@ urlpatterns = [
     # ============================================================
     path('task/<int:task_id>/comment/add/', views.comment_add, name='comment_add'),
     path('comment/<int:comment_id>/reply/', views.comment_reply, name="comment_reply"),
+    path('comment/<int:comment_id>/edit/', views.comment_edit, name="comment_edit"),
     path('comment/<int:comment_id>/delete/', views.comment_delete, name="comment_delete"),
     path('notifications/<int:notification_id>/read/', views.notification_mark_read, name='notification_mark_read'),
     path('notifications/<int:notification_id>/open/', views.notification_open, name='notification_open'),

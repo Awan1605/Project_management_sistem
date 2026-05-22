@@ -15,21 +15,38 @@
         </div>
       </div>
       <div class="comment-actions" role="group" aria-label="Comment actions">
-        {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user == c.user %}
-          <button class="btn btn-link p-0 small comment-action-btn comment-action-delete btn-delete-comment" data-id="{{ c.id }}" title="Delete comment">
-            <i class="bi bi-trash3 me-1"></i>Delete
-          </button>
-        {% endif %}
         {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in c.task.assignees.all %}
           <button class="btn btn-link p-0 small comment-action-btn comment-action-reply btn-reply-comment" data-id="{{ c.id }}" title="Reply">
             <i class="bi bi-reply me-1"></i>Reply
+          </button>
+        {% endif %}
+        {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user == c.user %}
+          <button class="btn btn-link p-0 small comment-action-btn comment-action-edit btn-edit-comment" data-id="{{ c.id }}" title="Edit comment">
+            <i class="bi bi-pencil-square me-1"></i>Edit
+          </button>
+        {% endif %}
+        {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user == c.user %}
+          <button class="btn btn-link p-0 small comment-action-btn comment-action-delete btn-delete-comment" data-id="{{ c.id }}" title="Delete comment">
+            <i class="bi bi-trash3 me-1"></i>Delete
           </button>
         {% endif %}
       </div>
     </header>
 
     <div class="comment-body">
-      <div class="comment-content">{{ c.content|mentionize }}</div>
+      <div class="comment-content">{% include "arva/_comment_content.html" with comment=c %}</div>
+      <textarea class="d-none comment-content-raw">{{ c.content }}</textarea>
+      <div class="comment-edit-wrap d-none">
+        <textarea class="form-control form-control-sm comment-edit-input" rows="3" placeholder="Edit comment..."></textarea>
+        <div class="comment-edit-actions">
+          <button type="button" class="btn btn-sm btn-primary btn-save-comment-edit" data-id="{{ c.id }}">
+            <i class="bi bi-check2 me-1"></i>Save
+          </button>
+          <button type="button" class="btn btn-sm btn-light btn-cancel-comment-edit">
+            <i class="bi bi-x-lg me-1"></i>Cancel
+          </button>
+        </div>
+      </div>
       {% if c.attachments.all %}
         <div class="comment-image-grid mt-2">
           {% for att in c.attachments.all|slice:":6" %}

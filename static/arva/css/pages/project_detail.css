@@ -151,6 +151,26 @@
   font-weight: 600;
   color: #0f172a;
 }
+.project-description {
+  line-height: 1.5;
+  color: #334155;
+  word-break: break-word;
+}
+.project-description p {
+  margin: 0 0 0.3rem;
+}
+.project-description p:last-child {
+  margin-bottom: 0;
+}
+.project-description ul,
+.project-description ol {
+  margin: 0.15rem 0 0.35rem 1rem;
+  padding: 0;
+}
+.project-description a {
+  color: #0369a1;
+  text-decoration: underline;
+}
   .task-list-shell {
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 14px;

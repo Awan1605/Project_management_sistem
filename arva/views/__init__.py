@@ -83,6 +83,7 @@ from .task import (
 from .comment import (
     comment_add,
     comment_reply,
+    comment_edit,
     comment_delete,
     notification_mark_read,
     notification_open,

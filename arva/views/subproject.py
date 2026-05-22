@@ -5,7 +5,7 @@ Menangani CRUD subproject, pindah subproject, dan konversi antara project/subpro
 """
 
 from django.shortcuts import get_object_or_404, render
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
@@ -18,6 +18,7 @@ from .helpers import (
     get_project_subproject_or_404,
     get_role,
     require_role,
+    permission_denied_response,
     is_project_locked,
     closed_project_error,
 )
@@ -33,7 +34,7 @@ def subproject_list(request, pk):
     project = get_user_project_or_404(request.user, pk)
     role = get_role(request.user, project)
     if role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER, ProjectMember.ROLE_VIEWER]:
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     subprojects = project.subprojects.all().order_by('-created_at')
     admin_projects = Project.objects.filter(owner=request.user).distinct().order_by('name')
@@ -55,9 +56,9 @@ def subproject_create(request, pk):
     """
     project = get_user_project_or_404(request.user, pk)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
 
     had_subprojects = project.subprojects.exists()
     form = SubProjectForm(request.POST)
@@ -97,9 +98,9 @@ def subproject_delete(request, subproject_id):
     subproject = get_object_or_404(SubProject, id=subproject_id)
     project = get_user_project_or_404(request.user, subproject.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
 
     if Task.objects.filter(sub_project=subproject).exists():
         return JsonResponse({'success': False, 'error': 'Sub-project cannot be deleted because it still has tasks.'}, status=400)
@@ -126,9 +127,9 @@ def subproject_edit(request, subproject_id):
     subproject = get_object_or_404(SubProject, id=subproject_id)
     project = get_user_project_or_404(request.user, subproject.project.id)
     if not require_role(request.user, project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
 
     form = SubProjectForm(request.POST, instance=subproject)
     if not form.is_valid():
@@ -158,9 +159,9 @@ def subproject_move(request, subproject_id):
     subproject = get_object_or_404(SubProject, id=subproject_id)
     source_project = get_user_project_or_404(request.user, subproject.project.id)
     if not require_role(request.user, source_project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(source_project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
 
     target_project_id = request.POST.get('project_id')
     if not target_project_id:
@@ -168,9 +169,9 @@ def subproject_move(request, subproject_id):
 
     target_project = get_user_project_or_404(request.user, target_project_id)
     if not require_role(request.user, target_project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     if is_project_locked(target_project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify this project/task')
 
     if str(source_project.id) == str(target_project.id):
         return JsonResponse({'success': True})
@@ -209,7 +210,7 @@ def subproject_convert_to_project(request, subproject_id):
     subproject = get_object_or_404(SubProject, id=subproject_id)
     source_project = get_user_project_or_404(request.user, subproject.project.id)
     if not require_role(request.user, source_project, [ProjectMember.ROLE_ADMIN]):
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     new_project = Project.objects.create(
         owner=source_project.owner,

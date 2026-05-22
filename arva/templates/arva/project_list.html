@@ -61,7 +61,6 @@
         <div class="page-pagination-left">
           <label for="project-per-page" class="small text-muted mb-0">Rows</label>
           <select id="project-per-page" class="form-select form-select-sm">
-            <option value="10">10</option>
             <option value="25">25</option>
             <option value="50">50</option>
             <option value="100">100</option>
@@ -134,7 +133,7 @@
                   class="{% if project.is_project %}project-table-row--project{% endif %}"
                   data-name="{{ project.name|lower }}"
                   data-owner="{{ project.owner.username|default:project.owner|lower }}"
-                  data-description="{{ project.description|default:''|lower }}"
+                  data-description="{{ project.description|default:''|striptags|lower }}"
                   data-created="{{ project.created_at|date:'Y-m-d' }}"
                   data-task-sort-created="{{ project.created_at|date:'U' }}"
                   data-task-sort-done="{% if project.is_project and project.is_closed %}1{% else %}0{% endif %}"
@@ -145,8 +144,12 @@
                       <div class="project-name">
                         {{ project.name }}
                       </div>
-                      <div class="project-list-name">
-                        {{ project.description|default:"There is no description." }}
+                      <div class="project-list-name project-desc-rich">
+                        {% if project.description %}
+                          {{ project.description|safe_richtext }}
+                        {% else %}
+                          <span class="text-muted">There is no description.</span>
+                        {% endif %}
                       </div>
                       <div class="summary-title">
                         {{ project.progress.percent }}% complete
@@ -230,6 +233,11 @@
                         <i class="bi bi-arrow-left-right"></i>
                       </button>
                       {% endif %}
+                      {% if request.user.is_superuser or project.owner_id == request.user.id %}
+                      <button type="button" class="btn btn-outline-danger btn-sm table-action btn-delete-project" data-id="{{ project.id }}" title="Delete Project">
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                      {% endif %}
                     </div>
                   </td>
                 </tr>
@@ -269,7 +277,20 @@
           </div>
           <div class="project-modal-section">
             <label class="form-label fw-semibold mb-1" for="id_description">Description</label>
-            {{ project_form.description }}
+            <div class="task-rich-editor" data-task-rich-editor>
+              <div class="task-rich-editor-toolbar" role="toolbar" aria-label="Project description formatting toolbar">
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="bold" title="Bold"><i class="bi bi-type-bold"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="italic" title="Italic"><i class="bi bi-type-italic"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="underline" title="Underline"><i class="bi bi-type-underline"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertUnorderedList" title="Bullet list"><i class="bi bi-list-ul"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertOrderedList" title="Numbered list"><i class="bi bi-list-ol"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="createLink" title="Insert link"><i class="bi bi-link-45deg"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="undo" title="Undo"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <button type="button" class="btn btn-light btn-sm" data-editor-cmd="redo" title="Redo"><i class="bi bi-arrow-clockwise"></i></button>
+              </div>
+              <div class="task-rich-editor-input" contenteditable="true" data-editor-input aria-label="Project description editor"></div>
+              <textarea id="id_description" name="description" class="task-desc-input task-desc-plain d-none" data-editor-textarea rows="4" data-autoresize="true" placeholder="Add a description..." spellcheck="false">{{ project_form.description.value|default:'' }}</textarea>
+            </div>
           </div>
           <div class="project-modal-section project-modal-section--toggle">
             <div class="form-check mb-0">

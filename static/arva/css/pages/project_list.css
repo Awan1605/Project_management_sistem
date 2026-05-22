@@ -128,11 +128,35 @@
       flex: 0 0 auto;
     }
 
-    .summary-stack {
+.summary-stack {
       display: flex;
       flex-direction: column;
       gap: 0.15rem;
     }
+
+.project-desc-rich {
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.project-desc-rich p {
+  margin: 0 0 0.2rem;
+}
+
+.project-desc-rich p:last-child {
+  margin-bottom: 0;
+}
+
+.project-desc-rich ul,
+.project-desc-rich ol {
+  margin: 0.1rem 0 0.2rem 1rem;
+  padding: 0;
+}
+
+.project-desc-rich a {
+  color: #0369a1;
+  text-decoration: underline;
+}
 
     .table-action {
       border-radius: 10px;

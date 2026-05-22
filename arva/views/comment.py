@@ -8,7 +8,7 @@ import re
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
@@ -17,7 +17,13 @@ from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.urls import reverse
 
-from .helpers import get_user_project_or_404, get_role, is_project_locked, closed_project_error
+from .helpers import (
+    get_user_project_or_404,
+    get_role,
+    is_project_locked,
+    closed_project_error,
+    permission_denied_response,
+)
 from ..models import Task, Comment, Attachment, ChecklistItem, ActivityLog, UserNotification
 from ..forms import AttachmentForm, ChecklistItemForm
 
@@ -149,10 +155,10 @@ def comment_add(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
     if role != 'admin' and request.user not in task.assignees.all():
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this task.', code='task_permission_forbidden')
 
     content = (request.POST.get('content') or '').strip()
     images = request.FILES.getlist('images')
@@ -192,11 +198,11 @@ def comment_reply(request, comment_id):
     task = parent.task
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
 
     if role != 'admin' and request.user not in task.assignees.all():
-        return JsonResponse({'success': False}, status=403)
+        return permission_denied_response(request, 'Access denied. Only project admins or task assignees can reply to comments.', code='comment_reply_forbidden')
 
     content = request.POST.get("content", "").strip()
     images = request.FILES.getlist('images')
@@ -246,12 +252,12 @@ def comment_delete(request, comment_id):
     task = comment.task
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
 
     # Hanya pemilik komentar atau owner project yang boleh menghapus
     if not (comment.user_id == request.user.id or project.owner_id == request.user.id):
-        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this project task.', code='task_permission_forbidden')
 
     ActivityLog.objects.create(
         user=request.user, project=task.project, task=task,
@@ -260,6 +266,45 @@ def comment_delete(request, comment_id):
 
     comment.delete()
     return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def comment_edit(request, comment_id):
+    """Edit komentar existing dengan validasi akses dan lock project."""
+    comment = get_object_or_404(Comment, id=comment_id)
+    task = comment.task
+    project = get_user_project_or_404(request.user, task.project.id)
+    if is_project_locked(project):
+        return closed_project_error(request, action='add comments')
+
+    role = get_role(request.user, project)
+    if not (comment.user_id == request.user.id or project.owner_id == request.user.id or role == 'admin'):
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this project task.', code='task_permission_forbidden')
+
+    content = (request.POST.get('content') or '').strip()
+    if not content:
+        return JsonResponse({'success': False, 'error': 'Comment content cannot be empty.'}, status=400)
+
+    comment.content = content
+    comment.save(update_fields=['content'])
+    _create_mention_notifications(project, task, request.user, comment)
+
+    ActivityLog.objects.create(
+        user=request.user,
+        project=task.project,
+        task=task,
+        action='comment_added',
+        description="edited a comment"
+    )
+
+    rendered_content = render_to_string('arva/_comment_content.html', {'comment': comment}, request=request)
+    return JsonResponse({
+        'success': True,
+        'comment_id': comment.id,
+        'content': comment.content,
+        'rendered_content': rendered_content,
+    })
 
 
 # ============================================================
@@ -277,10 +322,14 @@ def attachment_add(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
     if role != 'admin' and request.user not in task.assignees.all():
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(
+            request,
+            'Access denied. Only project admins or task assignees can add comments.',
+            code='comment_add_forbidden',
+        )
 
     form = AttachmentForm(request.POST, request.FILES)
     if form.is_valid():
@@ -305,7 +354,7 @@ def attachment_delete(request, attachment_id):
     task = attachment.task
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
 
     can_delete = bool(
@@ -316,7 +365,7 @@ def attachment_delete(request, attachment_id):
         role == 'admin'
     )
     if not can_delete:
-        return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this project task.', code='task_permission_forbidden')
 
     try:
         if attachment.file:
@@ -346,10 +395,10 @@ def checklist_add(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
     if role != 'admin' and request.user not in task.assignees.all():
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this task.', code='task_permission_forbidden')
 
     form = ChecklistItemForm(request.POST)
     if form.is_valid():
@@ -376,11 +425,11 @@ def checklist_edit(request, item_id):
     task = item.task
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
 
     if role != 'admin' and request.user not in task.assignees.all():
-        return JsonResponse({'success': False, 'error': "Forbidden"}, status=403)
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this project task.', code='task_permission_forbidden')
 
     new_text = request.POST.get("content", "").strip()
     if not new_text:
@@ -408,10 +457,10 @@ def checklist_toggle(request, item_id):
     item = get_object_or_404(ChecklistItem, id=item_id)
     project = get_user_project_or_404(request.user, item.task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
     if role != 'admin' and request.user not in item.task.assignees.all():
-        return HttpResponseForbidden("Forbidden")
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this task.', code='task_permission_forbidden')
 
     item.is_done = not item.is_done
     item.save()
@@ -433,11 +482,11 @@ def checklist_delete(request, item_id):
     task = item.task
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
-        return closed_project_error()
+        return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
 
     if role != 'admin' and request.user not in task.assignees.all():
-        return JsonResponse({'success': False, 'error': "Forbidden"}, status=403)
+        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this project task.', code='task_permission_forbidden')
 
     ActivityLog.objects.create(
         user=request.user, project=item.task.project, task=item.task,

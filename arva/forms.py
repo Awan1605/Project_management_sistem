@@ -19,7 +19,9 @@ Mendefinisikan seluruh form yang digunakan di aplikasi:
 """
 
 import os
+from html.parser import HTMLParser
 from django import forms
+from django.utils.html import escape
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from .models import (
@@ -38,6 +40,85 @@ TASK_COVER_COLORS = [
     ('info', 'Teal'),
     ('dark', 'Dark'),
 ]
+
+
+class _RichTextSanitizer(HTMLParser):
+    allowed_tags = {'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'a'}
+    void_tags = {'br'}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.open_tags = []
+
+    def _sanitize_href(self, href):
+        href = (href or '').strip()
+        if not href:
+            return ''
+        if href.startswith(('http://', 'https://', 'mailto:')):
+            return href
+        if href.startswith('//'):
+            return f'https:{href}'
+        if href.startswith('/'):
+            return href
+        if '://' not in href:
+            return f'https://{href}'
+        return ''
+
+    def _normalize_tag(self, tag):
+        t = (tag or '').lower()
+        if t == 'div':
+            return 'p'
+        return t
+
+    def handle_starttag(self, tag, attrs):
+        t = self._normalize_tag(tag)
+        if t not in self.allowed_tags:
+            return
+        if t == 'a':
+            href = ''
+            for key, val in attrs:
+                if (key or '').lower() == 'href':
+                    href = self._sanitize_href(val)
+                    break
+            if not href:
+                return
+            self.parts.append(f'<a href="{escape(href, quote=True)}" target="_blank" rel="noopener noreferrer nofollow">')
+            self.open_tags.append('a')
+            return
+        self.parts.append(f'<{t}>')
+        if t not in self.void_tags:
+            self.open_tags.append(t)
+
+    def handle_endtag(self, tag):
+        t = self._normalize_tag(tag)
+        if t in self.void_tags or t not in self.allowed_tags:
+            return
+        for idx in range(len(self.open_tags) - 1, -1, -1):
+            if self.open_tags[idx] == t:
+                del self.open_tags[idx]
+                self.parts.append(f'</{t}>')
+                break
+
+    def handle_data(self, data):
+        if data:
+            self.parts.append(escape(data))
+
+    def get_html(self):
+        while self.open_tags:
+            t = self.open_tags.pop()
+            self.parts.append(f'</{t}>')
+        return ''.join(self.parts)
+
+
+def sanitize_rich_text_html(value):
+    raw = (value or '').strip()
+    if not raw:
+        return ''
+    parser = _RichTextSanitizer()
+    parser.feed(raw)
+    parser.close()
+    return parser.get_html()
 
 class WebsiteSettingsForm(forms.ModelForm):
     """Form untuk mengubah pengaturan website global."""
@@ -245,6 +326,9 @@ class ProjectForm(forms.ModelForm):
             self.add_error('etd', 'ETD cannot be earlier than Start Date.')
 
         return cleaned_data
+
+    def clean_description(self):
+        return sanitize_rich_text_html(self.cleaned_data.get('description'))
 
 class SubProjectForm(forms.ModelForm):
     class Meta:

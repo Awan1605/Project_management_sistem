@@ -20,6 +20,8 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
 ]
 
+handler403 = 'arva.views.helpers.custom_permission_denied_view'
+
 # Layani file media dan statis saat mode DEBUG (pengembangan lokal)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

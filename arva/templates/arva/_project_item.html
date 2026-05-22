@@ -3,16 +3,12 @@
 <div class="col-md-4 col-sm-6 project-card-item" id="project-{{ project.id }}"
      data-name="{{ project.name|lower }}"
      data-owner="{{ project.owner.username|default:project.owner|lower }}"
-     data-description="{{ project.description|default:''|lower }}"
+     data-description="{{ project.description|default:''|striptags|lower }}"
      data-created="{{ project.created_at|date:'Y-m-d' }}"
      data-task-sort-created="{{ project.created_at|date:'U' }}"
      data-task-sort-done="{% if project.is_project and project.is_closed %}1{% else %}0{% endif %}"
      data-progress="{{ project.progress.percent }}">
   <div class="card shadow-sm h-100 project-card position-relative card-shell-rounded {% if project.is_project %}project-card--project{% endif %}">
-
-    {% comment %} <button type="button" class="btn btn-outline-danger btn-sm btn-delete-project position-absolute" data-id="{{ project.id }}" title="Delete Project">
-      <i class="bi bi-x-lg"></i>
-    </button> {% endcomment %}
 
     <div class="card-body d-flex flex-column">
       <div class="d-flex justify-content-between align-items-start mb-2">
@@ -43,9 +39,13 @@
         <span class="badge bg-light text-dark border">{{ project.progress.percent }}%</span>
       </div>
 
-      <p class="text-muted flex-grow-1 mb-3 text-clamp-2 font-size-90">
-        {{ project.description|default:"There is no description." }}
-      </p>
+      <div class="text-muted flex-grow-1 mb-3 text-clamp-2 font-size-90 project-desc-rich">
+        {% if project.description %}
+          {{ project.description|safe_richtext }}
+        {% else %}
+          <span class="text-muted">There is no description.</span>
+        {% endif %}
+      </div>
 
       {% if project.is_project %}
       <div class="project-meta-grid mb-3">
@@ -124,6 +124,11 @@
           {% if project_role == 'admin' or project_roles|get_item:project.id == 'admin' %}
           <button type="button" class="btn btn-outline-warning btn-sm btn-convert-subproject rounded-btn-10 btn-pad-6-12" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}" title="Convert to sub-project">
             <i class="bi bi-arrow-left-right"></i>
+          </button>
+          {% endif %}
+          {% if request.user.is_superuser or project.owner_id == request.user.id %}
+          <button type="button" class="btn btn-outline-danger btn-sm rounded-btn-10 btn-pad-6-12 btn-delete-project" data-id="{{ project.id }}" title="Delete Project">
+            <i class="bi bi-trash3"></i>
           </button>
           {% endif %}
         </div>

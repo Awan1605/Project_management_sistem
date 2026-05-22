@@ -5,7 +5,7 @@ Berisi fungsi-fungsi utilitas yang dipakai bersama oleh modul views lainnya.
 Termasuk: query set project, pengecekan role, pengecekan project terkunci, dll.
 """
 
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.http import JsonResponse
 from django.db.models import Q
 
@@ -141,12 +141,38 @@ def is_project_locked(project):
     return bool(project and project.is_project and project.is_closed)
 
 
-def closed_project_error():
-    """Return JsonResponse error untuk project yang sudah ditutup."""
-    return JsonResponse({
+def _wants_json(request):
+    if request is None:
+        return False
+    xrw = (request.headers.get('x-requested-with') or '').lower()
+    accept = (request.headers.get('accept') or '').lower()
+    return xrw == 'xmlhttprequest' or 'application/json' in accept
+
+
+def permission_denied_response(request, message, *, status=403, code='permission_denied', details=None):
+    payload = {
         'success': False,
-        'error': 'Project is closed. Re-open the project to make changes.'
-    }, status=400)
+        'error': message,
+        'code': code,
+    }
+    if details:
+        payload['details'] = details
+    if _wants_json(request):
+        return JsonResponse(payload, status=status)
+    return render(request, 'arva/403.html', payload, status=status)
+
+
+def closed_project_error(request=None, *, action='modify this project'):
+    """Return error untuk project yang sudah ditutup, JSON untuk AJAX dan page untuk normal request."""
+    message = f'Access denied. Project is closed and cannot be modified. Re-open the project to {action}.'
+    if request is None:
+        return JsonResponse({'success': False, 'error': message, 'code': 'project_closed'}, status=403)
+    return permission_denied_response(request, message, status=403, code='project_closed')
+
+
+def custom_permission_denied_view(request, exception=None):
+    message = 'Access denied. You do not have permission to access this page.'
+    return permission_denied_response(request, message, status=403, code='forbidden')
 
 
 # ============================================================

@@ -2538,6 +2538,7 @@ $(function() {
   $('#project-create-form').on('submit', function(e) {
     e.preventDefault();
     const $form = $(this);
+    syncRichEditorsInForm($form);
 
     $.post({
       url: '/project/create/',
@@ -2610,11 +2611,17 @@ $(function() {
 
   $("#project-edit-form").on("submit", function(e) {
     e.preventDefault();
-    const projectId = $("#task-board").data("project-id");
+    const $form = $(this);
+    syncRichEditorsInForm($form);
+    const projectId = $form.data("project-id") || $("#task-board").data("project-id");
+    if (!projectId) {
+      showError("Project ID not found.");
+      return;
+    }
 
     $.post({
       url: `/project/${projectId}/edit/`,
-      data: $(this).serialize(),
+      data: $form.serialize(),
       success: function(resp) {
         if (resp.success) {
           $("#projectEditModal").modal("hide");
@@ -2623,10 +2630,21 @@ $(function() {
         }
       },
       error: function() {
-        const errors = arguments[0]?.responseJSON?.errors;
+        const xhr = arguments[0];
+        const errors = xhr?.responseJSON?.errors;
+        const singleError = xhr?.responseJSON?.error;
         if (errors) {
           const first = Object.values(errors)[0];
           showError(Array.isArray(first) ? first[0] : String(first));
+          return;
+        }
+        if (singleError) {
+          showError(singleError);
+          return;
+        }
+        const rawText = (xhr?.responseText || "").trim();
+        if (rawText) {
+          showError(rawText.slice(0, 220));
           return;
         }
         showError("Failed to save changes.");
@@ -2753,6 +2771,13 @@ $(function() {
   $(document).on('click', '.btn-delete-project', async function () {
       const btn = $(this);
       const projectId = btn.data('id');
+      const $tableRow = btn.closest('tr');
+      const $cardItem = btn.closest('.project-card-item');
+
+      if (!projectId) {
+          showError("Project ID is missing.");
+          return;
+      }
 
       if (!await showConfirm("Are you sure you want to delete this project?", "Delete project")) {
           return;
@@ -2762,9 +2787,24 @@ $(function() {
           url: `/project/${projectId}/delete/`,
           success: function (resp) {
               if (resp.success) {
-                  $(`#project-${projectId}`).fadeOut(200, function () {
-                      $(this).remove();
-                  });
+                  let removed = false;
+                  if ($cardItem.length) {
+                      removed = true;
+                      $cardItem.fadeOut(200, function () {
+                          $(this).remove();
+                      });
+                  }
+                  if ($tableRow.length) {
+                      removed = true;
+                      $tableRow.fadeOut(200, function () {
+                          $(this).remove();
+                      });
+                  }
+                  if (!removed) {
+                      $(`#project-${projectId}`).fadeOut(200, function () {
+                          $(this).remove();
+                      });
+                  }
               } else {
                   showError(resp.error || "Failed to delete project.");
               }
@@ -3604,6 +3644,17 @@ $(function() {
           reject(new Error(xhr.responseJSON?.error || `Failed to update ${field}.`));
         }
       });
+    });
+  }
+
+  function syncRichEditorsInForm($form) {
+    if (!$form || !$form.length) return;
+    $form.find('[data-task-rich-editor]').each(function() {
+      const root = this;
+      const textarea = root.querySelector('[data-editor-textarea]') || root.querySelector('#task-view-desc');
+      const editor = root.querySelector('[data-editor-input]');
+      if (!textarea || !editor) return;
+      textarea.value = sanitizeRichEditorHtml(editor.innerHTML || '');
     });
   }
 
@@ -4670,6 +4721,73 @@ $(function() {
         } else {
           showError("Failed to delete comment.");
         }
+      }
+    });
+  });
+
+  $(document).on('click', '.btn-edit-comment', function() {
+    const $comment = $(this).closest('.comment-item');
+    const $body = $comment.find('.comment-body').first();
+    const $content = $body.find('.comment-content').first();
+    const $editWrap = $body.find('.comment-edit-wrap').first();
+    const $input = $editWrap.find('.comment-edit-input').first();
+    const raw = ($body.find('.comment-content-raw').first().val() || '').trim();
+
+    $content.addClass('d-none');
+    $editWrap.removeClass('d-none');
+    $input.val(raw).trigger('focus');
+  });
+
+  $(document).on('click', '.btn-cancel-comment-edit', function() {
+    const $body = $(this).closest('.comment-body');
+    $body.find('.comment-edit-wrap').addClass('d-none');
+    $body.find('.comment-content').removeClass('d-none');
+  });
+
+  $(document).on('click', '.btn-save-comment-edit', function() {
+    const commentId = $(this).data('id');
+    const taskId = getCurrentTaskId();
+    const $btn = $(this);
+    const $body = $btn.closest('.comment-body');
+    const $input = $body.find('.comment-edit-input').first();
+    const content = ($input.val() || '').trim();
+    if (!content) {
+      showError('Comment content cannot be empty.');
+      return;
+    }
+
+    $btn.prop('disabled', true);
+    $.post({
+      url: `/comment/${commentId}/edit/`,
+      data: { content },
+      success: function(resp) {
+        if (!resp.success) {
+          showError(resp.error || 'Failed to update comment.');
+          return;
+        }
+        if (resp.rendered_content) {
+          $body.find('.comment-content').html(resp.rendered_content);
+        } else {
+          $body.find('.comment-content').text(content);
+        }
+        $body.find('.comment-content-raw').val(resp.content || content);
+        $body.find('.comment-edit-wrap').addClass('d-none');
+        $body.find('.comment-content').removeClass('d-none');
+        if (taskId) {
+          loadTaskView(taskId);
+        }
+      },
+      error: function(xhr) {
+        if (xhr?.status === 403) {
+          showError('You do not have access to edit this comment.');
+        } else if (xhr?.status === 400 && xhr.responseJSON?.error) {
+          showError(xhr.responseJSON.error);
+        } else {
+          showError('Failed to update comment.');
+        }
+      },
+      complete: function() {
+        $btn.prop('disabled', false);
       }
     });
   });

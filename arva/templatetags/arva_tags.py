@@ -14,6 +14,7 @@ import re
 from django import template
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
+from ..forms import sanitize_rich_text_html
 from arva.models import WebsiteSettings, AISettings, UserNotification
 from django.contrib.auth.models import User
 import os
@@ -122,3 +123,8 @@ def mentionize(value):
 
     rendered = MENTION_RE.sub(_replace, escaped).replace('\n', '<br>')
     return mark_safe(rendered)
+
+
+@register.filter
+def safe_richtext(value):
+    return mark_safe(sanitize_rich_text_html(value or ''))
