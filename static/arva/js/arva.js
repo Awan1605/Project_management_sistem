@@ -1524,7 +1524,13 @@ $(function() {
     if (root.dataset.initialized === '1') return;
     root.dataset.initialized = '1';
 
-    const state = { page: 1, perPage: 10, order: 'default' };
+    const allowedPerPage = Array.isArray(config.allowedPerPage) && config.allowedPerPage.length
+      ? config.allowedPerPage.map((v) => parseInt(v, 10)).filter((v) => Number.isInteger(v) && v > 0)
+      : [10, 25, 50, 100];
+    const defaultPerPage = allowedPerPage.includes(parseInt(config.defaultPerPage, 10))
+      ? parseInt(config.defaultPerPage, 10)
+      : allowedPerPage[0];
+    const state = { page: 1, perPage: defaultPerPage, order: 'default' };
     const findEl = (selector) => root.querySelector(selector) || document.querySelector(selector);
     const searchInput = config.searchInputSelector ? findEl(config.searchInputSelector) : null;
     const perPageSelect = config.perPageSelector ? findEl(config.perPageSelector) : null;
@@ -1552,12 +1558,12 @@ $(function() {
         const parsedPage = parseInt(parsed.page, 10);
         const parsedPerPage = parseInt(parsed.perPage, 10);
         if (Number.isInteger(parsedPage) && parsedPage > 0) state.page = parsedPage;
-        if ([10, 25, 50, 100].includes(parsedPerPage)) state.perPage = parsedPerPage;
+        if (allowedPerPage.includes(parsedPerPage)) state.perPage = parsedPerPage;
         const parsedOrder = String(parsed.order || 'default').trim().toLowerCase();
         state.order = parsedOrder || 'default';
       } catch (e) {
         state.page = 1;
-        state.perPage = 10;
+        state.perPage = defaultPerPage;
         state.order = 'default';
       }
     }
@@ -1700,7 +1706,7 @@ $(function() {
     if (perPageSelect) {
       perPageSelect.addEventListener('change', () => {
         const next = parseInt(perPageSelect.value, 10);
-        if (![10, 25, 50, 100].includes(next)) return;
+        if (!allowedPerPage.includes(next)) return;
         state.perPage = next;
         state.page = 1;
         apply();
@@ -1845,6 +1851,8 @@ $(function() {
       storageKey: 'arva_my_cards_paging',
       searchInputSelector: '#mycards-search',
       extraFilterSelectors: ['#mycards-priority', '#mycards-due'],
+      allowedPerPage: [25, 50, 100],
+      defaultPerPage: 25,
       perPageSelector: '#mycards-per-page',
       orderSelectSelector: '#mycards-order',
       prevButtonSelector: '#mycards-page-prev',

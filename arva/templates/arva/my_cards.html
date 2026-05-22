@@ -70,8 +70,7 @@
         <div class="page-pagination-left">
           <label for="mycards-per-page" class="small text-muted mb-0">Rows</label>
           <select id="mycards-per-page" class="form-select form-select-sm">
-            <option value="10">10</option>
-            <option value="25">25</option>
+            <option value="25" selected>25</option>
             <option value="50">50</option>
             <option value="100">100</option>
           </select>
@@ -93,7 +92,7 @@
                  data-task-results-sort="status-created-desc"
                  data-task-results-item=".mycard-card[data-task-id]">
               {% for task in tasks %}
-                <div class="mycard-card task-card"
+                <a href="{% url 'task_detail' task.id %}" class="mycard-card task-card task-user-result-card shadow-sm text-decoration-none"
                      data-task-id="{{ task.id }}"
                      data-list-id="{{ task.task_list.id }}"
                      data-title="{{ task.title|lower }}"
@@ -102,67 +101,92 @@
                      data-task-sort-done="{% if task.project.is_project %}{% if task.status == 'done' %}1{% else %}0{% endif %}{% else %}{% if task.task_list.name|lower == 'done' %}1{% else %}0{% endif %}{% endif %}"
                      data-task-sort-created="{{ task.created_at|date:'U' }}"
                      data-updated="{{ task.updated_at|date:'Y-m-d H:i:s' }}"
-                     data-priority="{{ task.priority|default_if_none:'' }}"
+                     data-priority="{{ task.priority|default:'p2' }}"
                      data-due-date="{{ task.due_date|default_if_none:'' }}"
                      data-due-status="{% if task.is_overdue %}overdue{% elif task.is_due_today %}today{% elif task.is_due_soon %}soon{% elif task.due_date %}later{% else %}none{% endif %}">
-                  <div class="mycard-meta">
-                    <span><i class="bi bi-kanban me-1"></i>{{ task.project.name }}</span>
-                    <span class="text-muted">{{ task.task_list.name }}</span>
-                  </div>
-                  <p class="mycard-title">{{ task.title }}</p>
-                  <div class="d-flex flex-wrap gap-2 align-items-center">
-                    {% if task.task_list.name|lower == 'done' %}
-                      <span class="badge bg-success">
-                        <i class="bi bi-check2-circle me-1"></i>
-                        Completed {{ task.updated_at|date:"d M Y" }}
-                      </span>
-                      <span class="status-pill status-none">Done</span>
-                    {% elif task.due_date %}
-                      <span class="badge
-                        {% if task.is_overdue %} due-overdue
-                        {% elif task.is_due_today %} due-today
-                        {% elif task.is_due_soon %} due-soon
-                        {% else %} bg-secondary
-                        {% endif %}
-                      ">
-                        <i class="bi bi-calendar-event me-1"></i>
-                        {{ task.due_date|date:"d M Y" }}
-                      </span>
-                      <span class="status-pill
-                        {% if task.is_overdue %} status-overdue
-                        {% elif task.is_due_today %} status-today
-                        {% elif task.is_due_soon %} status-soon
-                        {% else %} status-none
-                        {% endif %}
-                      ">
-                        {% if task.is_overdue %}Overdue
-                        {% elif task.is_due_today %}Today
-                        {% elif task.is_due_soon %}Soon
-                        {% else %}Later
-                        {% endif %}
-                      </span>
-                    {% else %}
-                      <span class="text-muted">No due date</span>
-                      <span class="status-pill status-none">No due</span>
-                    {% endif %}
+                  <div class="card-body p-3">
+                    <div class="d-flex flex-wrap gap-1 justify-content-start mb-2">
+                      <span class="task-chip task-chip-priority task-chip-priority-{{ task.priority|default:'p2' }}">{{ task.get_priority_display }}</span>
+                      {% if task.project.is_project %}
+                        <span class="task-chip task-chip-status task-chip-status-{{ task.status|default:'-' }}">{{ task.get_status_display|default:"-" }}</span>
+                      {% elif task.task_list.name|lower == 'done' %}
+                        <span class="task-chip task-chip-status task-chip-status-done">Done</span>
+                      {% elif task.task_list.name|lower == 'in progress' %}
+                        <span class="task-chip task-chip-status task-chip-status-in_progress">In Progress</span>
+                      {% else %}
+                        <span class="task-chip task-chip-status task-chip-status-active">{{ task.task_list.name }}</span>
+                      {% endif %}
+                    </div>
 
-                    {% if task.priority == "low" %}
-                      <span class="priority-badge priority-low">Low</span>
-                    {% elif task.priority == "medium" %}
-                      <span class="priority-badge priority-medium">Medium</span>
-                    {% elif task.priority == "high" %}
-                      <span class="priority-badge priority-high">High</span>
-                    {% elif task.priority == "critical" %}
-                      <span class="priority-badge priority-critical">Critical</span>
-                    {% endif %}
-                  </div>
+                    <div class="fw-bold font-size-95 task-card-title-main">{{ task.title }}</div>
 
-                  <div class="mycard-actions">
-                    <a href="{% url 'project_detail' task.project.id %}" class="btn btn-outline-primary btn-sm cta-btn">
-                      <i class="bi bi-box-arrow-in-right"></i> Go to Task
-                    </a>
+                    <div class="task-structured-meta mt-2">
+                      <div class="task-structured-meta-item">
+                        <span class="task-meta-label"><i class="bi bi-person-circle me-1"></i>Reporter</span>
+                        <span class="task-meta-value">
+                          <span class="task-result-avatar">
+                            {% if task.created_by and task.created_by.userprofile %}
+                              <img class="task-result-avatar-img" src="{{ task.created_by.userprofile.avatar_url }}" alt="{{ task.created_by.username }}">
+                            {% else %}
+                              <span class="task-result-avatar-fallback">{% if task.created_by %}{{ task.created_by.username|slice:":1"|upper }}{% else %}U{% endif %}</span>
+                            {% endif %}
+                          </span>
+                          {% if task.created_by %}{{ task.created_by.username }}{% else %}-{% endif %}
+                        </span>
+                      </div>
+
+                      <div class="task-structured-meta-item">
+                        <span class="task-meta-label"><i class="bi bi-person-badge me-1"></i>Assignee</span>
+                        <span class="task-meta-value">
+                          {% with assignees=task.assignees.all %}
+                          {% with assignees|first as first_assignee %}
+                            {% if first_assignee %}
+                              <span class="task-result-avatar">
+                                {% if first_assignee.userprofile %}
+                                  <img class="task-result-avatar-img" src="{{ first_assignee.userprofile.avatar_url }}" alt="{{ first_assignee.username }}">
+                                {% else %}
+                                  <span class="task-result-avatar-fallback">{{ first_assignee.username|slice:":1"|upper }}</span>
+                                {% endif %}
+                              </span>
+                              {{ first_assignee.username }}{% if assignees|length > 1 %} +{{ assignees|length|add:"-1" }}{% endif %}
+                            {% else %}
+                              -
+                            {% endif %}
+                          {% endwith %}
+                          {% endwith %}
+                        </span>
+                      </div>
+
+                      <div class="task-structured-meta-item">
+                        <span class="task-meta-label"><i class="bi bi-play-circle me-1"></i>Start Date</span>
+                        <span class="task-meta-value">{% if task.start_date_tbd %}TBD{% elif task.start_date %}{{ task.start_date|date:"d M Y" }}{% else %}-{% endif %}</span>
+                      </div>
+
+                      <div class="task-structured-meta-item {% if task.is_overdue %}text-danger fw-semibold{% elif task.is_due_today %}text-warning-emphasis fw-semibold{% endif %}">
+                        <span class="task-meta-label"><i class="bi bi-calendar-check me-1"></i>End Date</span>
+                        <span class="task-meta-value">
+                          {% if task.due_date %}
+                            <span class="due-badge {% if task.is_overdue %}due-overdue{% elif task.is_due_today %}due-today{% elif task.is_due_soon %}due-soon{% else %}bg-success text-light{% endif %}">
+                              {{ task.due_date|date:"d M Y" }}
+                            </span>
+                          {% else %}
+                            -
+                          {% endif %}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="task-result-project-line mt-2">
+                      <span class="badge bg-light text-dark border">{{ task.project.name }}</span>
+                      <span class="badge bg-light text-dark border ms-1">{{ task.task_list.name }}</span>
+                    </div>
+
+                    <div class="mt-3 d-flex justify-content-between align-items-center task-actions">
+                      <small class="text-muted">{{ task.updated_at|timesince }} ago</small>
+                      <span class="btn btn-outline-primary btn-sm">Open</span>
+                    </div>
                   </div>
-                </div>
+                </a>
               {% endfor %}
             </div>
           {% else %}
@@ -191,7 +215,7 @@
                  data-task-results-sort="status-created-desc"
                  data-task-results-item=".task-user-result-list-row[data-task-id]">
               {% for task in tasks %}
-                <div class="task-user-result-list-row"
+                <div class="task-user-result-list-row mycards-click-row"
                      data-task-id="{{ task.id }}"
                      data-title="{{ task.title|lower }}"
                      data-project="{{ task.project.name|lower }}"
@@ -202,6 +226,7 @@
                      data-priority="{{ task.priority|default_if_none:'' }}"
                      data-due-status="{% if task.is_overdue %}overdue{% elif task.is_due_today %}today{% elif task.is_due_soon %}soon{% elif task.due_date %}later{% else %}none{% endif %}"
                      data-due-date="{{ task.due_date|default_if_none:'' }}">
+                  <a href="{% url 'task_detail' task.id %}" class="mycards-item-link" aria-label="Open task {{ task.title }}"></a>
                   <div class="task-row-main">
                     <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
                       <span class="task-chip task-chip-priority task-chip-priority-{{ task.priority|default:'p2' }}">{{ task.get_priority_display }}</span>
@@ -213,7 +238,7 @@
                         <span class="task-chip task-chip-status task-chip-status-in_progress">{{ task.task_list.name }}</span>
                       {% endif %}
                     </div>
-                    <a href="{% url 'project_detail' task.project.id %}" class="task-row-title text-decoration-none">{{ task.title }}</a>
+                    <span class="task-row-title">{{ task.title }}</span>
                     <div class="task-row-sub">{{ task.project.name }} · {{ task.task_list.name }}</div>
                   </div>
                   <div class="task-structured-list-meta">
@@ -273,7 +298,6 @@
                   <div class="task-row-activity text-end">
                     <span class="activity-dot"></span>
                     <span>{{ task.updated_at|date:"d M Y, H:i" }}</span>
-                    <a href="{% url 'project_detail' task.project.id %}" class="btn btn-outline-primary btn-sm ms-2">Open</a>
                   </div>
                 </div>
               {% empty %}
