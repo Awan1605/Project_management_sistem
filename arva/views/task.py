@@ -553,9 +553,7 @@ def task_view(request, task_id):
     role = get_role(request.user, project)
     users = User.objects.all()
     labels = Label.objects.all()
-    projects = Project.objects.filter(
-        Q(owner=request.user) | Q(memberships__user=request.user)
-    ).distinct().order_by('name')
+    projects = get_accessible_projects_queryset(request.user).order_by('name')
     project_lists = TaskList.objects.filter(
         project=project,
         sub_project=task.sub_project if task.sub_project else None,
@@ -617,9 +615,7 @@ def task_detail(request, task_id):
     role = get_role(request.user, project)
     users = User.objects.all()
     labels = Label.objects.all()
-    projects = Project.objects.filter(
-        Q(owner=request.user) | Q(memberships__user=request.user)
-    ).distinct().order_by('name')
+    projects = get_accessible_projects_queryset(request.user).order_by('name')
     project_lists = TaskList.objects.filter(
         project=project,
         sub_project=task.sub_project if task.sub_project else None,

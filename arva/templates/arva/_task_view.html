@@ -133,6 +133,48 @@
       {% endfor %}
     </ul>
   </section>
+
+  {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user_role == 'member' %}
+  <section class="task-structured-section mb-3">
+    <h6 class="fw-semibold mb-2">Advanced Move</h6>
+    <small class="text-muted d-block mb-2">Move task to another project/sub-project/list.</small>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Project</label>
+        <select id="task-move-project" class="form-select form-select-sm">
+          {% for p in projects %}
+            <option value="{{ p.id }}" {% if p.id == project.id %}selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Sub-project</label>
+        <select id="task-move-subproject" class="form-select form-select-sm">
+          {% if subprojects %}
+            {% for sp in subprojects %}
+              <option value="{{ sp.id }}" {% if selected_subproject and sp.id == selected_subproject.id %}selected{% endif %}>
+                {{ sp.name }}
+              </option>
+            {% endfor %}
+          {% else %}
+            <option value="">No sub-projects</option>
+          {% endif %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small text-muted">List</label>
+        <select id="task-move-list" class="form-select form-select-sm">
+          {% for lst in project.lists.all %}
+            <option value="{{ lst.id }}" {% if lst.id == task.task_list.id %}selected{% endif %}>{{ lst.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-outline-primary btn-sm mt-2" id="btn-move-task" data-task-id="{{ task.id }}">
+      <i class="bi bi-arrow-left-right me-1"></i> Move Task
+    </button>
+  </section>
+  {% endif %}
 </div>
 {% else %}
 <div class="d-flex justify-content-between align-items-start mb-3">
@@ -297,8 +339,23 @@
     </div>
 
     {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user_role == 'member' %}
+    <div class="sidebar-box task-stage-switcher-box">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="fw-semibold mb-0">Stage</h6>
+        <span class="task-chip task-chip-status task-chip-status-active" id="task-stage-active-badge">{{ task.task_list.name }}</span>
+      </div>
+      <label class="form-label small text-muted mb-1">Quick switch stage</label>
+      <select id="task-view-stage" class="form-select form-select-sm task-stage-select" {% if view_only or project_is_closed %}disabled{% endif %}>
+        {% for lst in project_lists %}
+          <option value="{{ lst.id }}" {% if lst.id == task.task_list.id %}selected{% endif %}>{{ lst.name }}</option>
+        {% endfor %}
+      </select>
+      <small class="text-muted d-block mt-2">Changes are saved instantly.</small>
+    </div>
+
     <div class="sidebar-box">
-      <h6 class="fw-semibold">Move Task</h6>
+      <h6 class="fw-semibold">Advanced Move</h6>
+      <small class="text-muted d-block mb-2">Use this for cross-project or specific list placement.</small>
       <div class="mb-2">
         <label class="form-label small text-muted">Project</label>
         <select id="task-move-project" class="form-select">
@@ -324,7 +381,7 @@
       <div class="mb-2">
         <label class="form-label small text-muted">List</label>
         <select id="task-move-list" class="form-select">
-          {% for lst in project_lists %}
+          {% for lst in project.lists.all %}
             <option value="{{ lst.id }}" {% if lst.id == task.task_list.id %}selected{% endif %}>{{ lst.name }}</option>
           {% endfor %}
         </select>

@@ -2968,6 +2968,38 @@ $(function() {
     });
   }
 
+  function resolveStageStatusCode(stageName) {
+    const name = String(stageName || '').trim().toLowerCase();
+    if (name === 'done') return 'done';
+    if (name === 'in progress') return 'in_progress';
+    if (name === 'infeasible') return 'infeasible';
+    return 'active';
+  }
+
+  function updateNonProjectStageBadges(stageName) {
+    const code = resolveStageStatusCode(stageName);
+    const $overview = $('#task-overview-status-badge');
+    if ($overview.length) {
+      $overview.attr('class', `task-chip task-chip-status task-chip-status-${code}`);
+      $overview.text(stageName || '-');
+    }
+    const $inline = $('#task-stage-active-badge');
+    if ($inline.length) {
+      $inline.attr('class', `task-chip task-chip-status task-chip-status-${code}`);
+      $inline.text(stageName || '-');
+    }
+  }
+
+  function moveTaskCardToListColumn(taskId, listId) {
+    const $card = $(`.task-card[data-task-id='${taskId}']`);
+    const $targetColumn = $(`.task-column[data-list-id='${listId}']`);
+    if (!$card.length || !$targetColumn.length) return;
+    const $oldColumn = $card.closest('.task-column');
+    $card.appendTo($targetColumn);
+    if ($oldColumn.length && typeof checkEmptyState === 'function') checkEmptyState($oldColumn);
+    if (typeof checkEmptyState === 'function') checkEmptyState($targetColumn);
+  }
+
   function renderTaskSkeleton() {
     return `
       <div class="task-skeleton">
@@ -3011,6 +3043,55 @@ $(function() {
     inlineUpdate(taskId, 'status', $(this).val(), function() {
       loadTaskView(taskId);
     });
+  });
+
+  $(document).on('change', '#task-view-stage', function() {
+    const taskId = getCurrentTaskId();
+    const $select = $(this);
+    const previousValue = ($select.data('prev') || '').toString();
+    const nextValue = $select.val();
+    const nextLabel = $select.find('option:selected').text().trim();
+    const prevLabel = previousValue ? $select.find(`option[value="${previousValue}"]`).text().trim() : '';
+    if (!taskId || !nextValue) return;
+    if (previousValue && String(previousValue) === String(nextValue)) return;
+
+    $select.prop('disabled', true).addClass('is-updating');
+    updateNonProjectStageBadges(nextLabel);
+
+    $.post({
+      url: `/task/${taskId}/move/`,
+      data: { task_list_id: nextValue },
+      headers: { "X-CSRFToken": csrftoken },
+      success: function(resp) {
+        if (!resp.success) {
+          updateNonProjectStageBadges(prevLabel);
+          $select.val(previousValue);
+          showError(resp.error || 'Failed to update stage.');
+          return;
+        }
+        $select.data('prev', nextValue);
+        moveTaskCardToListColumn(taskId, nextValue);
+        if ($('#task-board').length && typeof reloadProjectDetailBoard === 'function') {
+          reloadProjectDetailBoard(false);
+        }
+        showSuccess('Task stage updated.');
+      },
+      error: function(xhr) {
+        if (previousValue) {
+          updateNonProjectStageBadges(prevLabel);
+          $select.val(previousValue);
+        }
+        const msg = xhr.responseJSON?.error || 'Failed to update stage.';
+        showError(msg);
+      },
+      complete: function() {
+        $select.prop('disabled', false).removeClass('is-updating');
+      }
+    });
+  });
+
+  $(document).on('focus mousedown', '#task-view-stage', function() {
+    $(this).data('prev', $(this).val() || '');
   });
 
   $(document).on('change', '#task-view-start-date', function() {
@@ -3126,6 +3207,12 @@ $(function() {
         const scope = $('#taskViewModal').length ? $('#taskViewModal') : $('#task-view-body');
         autoResizeTextareas(scope);
         initTaskRichEditors(scope);
+        const $stage = $('#task-view-stage');
+        if ($stage.length) {
+          $stage.data('prev', $stage.val() || '');
+          const label = $stage.find('option:selected').text().trim();
+          updateNonProjectStageBadges(label);
+        }
       } else {
         $('#task-view-body').html('<div class="text-danger">You are not allowed to view this task.</div>');
       }
@@ -3492,6 +3579,13 @@ $(function() {
 
     $('#taskViewModal').modal('hide');
     $('#taskMoveModal').modal('hide');
+
+    // Always refresh after move so data/state is fully synchronized.
+    if ($('#task-board').length && typeof reloadProjectDetailBoard === 'function') {
+      reloadProjectDetailBoard(false);
+      return;
+    }
+    window.location.reload();
   }
 
   $(document).on('change', '#task-move-project', function() {
@@ -5169,6 +5263,13 @@ $(document).on("click", "#btn-save-member", function () {
 
   if ($('#task-board').length) {
     initSortable();
+  }
+
+  const $initialStageSelect = $('#task-view-stage');
+  if ($initialStageSelect.length) {
+    $initialStageSelect.data('prev', $initialStageSelect.val() || '');
+    const initialStageLabel = $initialStageSelect.find('option:selected').text().trim();
+    updateNonProjectStageBadges(initialStageLabel);
   }
 });
 
