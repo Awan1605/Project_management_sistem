@@ -2502,6 +2502,170 @@ $(function() {
     });
   }
 
+  function evaluatePasswordStrength(value) {
+    const v = String(value || '');
+    let score = 0;
+    if (v.length >= 8) score += 1;
+    if (/[A-Z]/.test(v)) score += 1;
+    if (/[a-z]/.test(v)) score += 1;
+    if (/\d/.test(v)) score += 1;
+    if (/[^A-Za-z0-9]/.test(v)) score += 1;
+    return score;
+  }
+
+  function initMyProfilePage() {
+    const updateForm = document.getElementById('profile-update-form');
+    const passwordForm = document.getElementById('profile-password-form');
+    if (!updateForm && !passwordForm) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const open = (params.get('open') || '').toLowerCase();
+    if (open === 'update') {
+      const modalEl = document.getElementById('profileUpdateModal');
+      if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    } else if (open === 'password') {
+      const modalEl = document.getElementById('profilePasswordModal');
+      if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+
+    const avatarInput = document.getElementById('profile-avatar-input');
+    const avatarPreview = document.getElementById('profile-avatar-preview');
+    const avatarIconSelect = document.getElementById('profile-avatar-icon-select');
+    const providedAvatarGrid = document.getElementById('provided-avatar-grid');
+    if (avatarInput && avatarPreview) {
+      avatarInput.addEventListener('change', () => {
+        const file = avatarInput.files && avatarInput.files[0];
+        if (!file) return;
+        const type = (file.type || '').toLowerCase();
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(type)) {
+          showError('Avatar must be PNG, JPG, or WEBP.');
+          avatarInput.value = '';
+          return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+          showError('Avatar file size must be 2 MB or less.');
+          avatarInput.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          avatarPreview.src = e.target?.result || avatarPreview.src;
+        };
+        reader.readAsDataURL(file);
+        if (providedAvatarGrid) {
+          providedAvatarGrid.querySelectorAll('.provided-avatar-item.active').forEach((el) => el.classList.remove('active'));
+        }
+        if (avatarIconSelect) {
+          avatarIconSelect.value = '';
+        }
+      });
+    }
+    if (avatarIconSelect && avatarPreview && providedAvatarGrid) {
+      providedAvatarGrid.addEventListener('click', (event) => {
+        const button = event.target.closest('.provided-avatar-item[data-avatar-icon]');
+        if (!button) return;
+        const icon = (button.getAttribute('data-avatar-icon') || '').trim();
+        avatarIconSelect.value = icon;
+        providedAvatarGrid.querySelectorAll('.provided-avatar-item.active').forEach((el) => el.classList.remove('active'));
+        button.classList.add('active');
+        if (avatarInput) {
+          avatarInput.value = '';
+        }
+        if (icon) {
+          avatarPreview.src = `/static/arva/img/profile/${icon}`;
+        }
+      });
+    }
+
+    if (updateForm) {
+      updateForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(updateForm);
+        fetch('/profile/update/', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: formData
+        }).then(async (resp) => ({ ok: resp.ok, data: await resp.json() }))
+          .then(({ ok, data }) => {
+            if (!ok || !data.success) {
+              const errors = data?.errors;
+              if (errors) {
+                const first = Object.values(errors)[0];
+                showError(Array.isArray(first) ? first[0] : String(first));
+                return;
+              }
+              showError(data?.error || 'Failed to update profile.');
+              return;
+            }
+            $('#profileUpdateModal').modal('hide');
+            const user = data.user || {};
+            if (user.avatar_url) {
+              $('#profile-avatar-main').attr('src', user.avatar_url);
+              $('.topbar-profile-btn .avatar-sm').attr('src', user.avatar_url);
+            }
+            if (typeof user.username === 'string') {
+              $('#profile-username').text(user.username || '-');
+              $('#profile-fullname').text(user.full_name || '-');
+              $('#profile-email').text(user.email || '-');
+            }
+            showSuccess('Profile updated successfully.');
+          })
+          .catch(() => showError('Failed to update profile.'));
+      });
+    }
+
+    const newPasswordInput = document.getElementById('new-password-input');
+    const strengthBar = document.getElementById('password-strength-bar');
+    const strengthText = document.getElementById('password-strength-text');
+    if (newPasswordInput && strengthBar && strengthText) {
+      newPasswordInput.addEventListener('input', () => {
+        const score = evaluatePasswordStrength(newPasswordInput.value);
+        const widths = ['0%', '20%', '40%', '60%', '80%', '100%'];
+        const colors = ['#94a3b8', '#ef4444', '#f97316', '#eab308', '#22c55e', '#16a34a'];
+        const labels = ['-', 'Very weak', 'Weak', 'Medium', 'Strong', 'Very strong'];
+        strengthBar.style.width = widths[score];
+        strengthBar.style.backgroundColor = colors[score];
+        strengthText.textContent = `Strength: ${labels[score]}`;
+      });
+    }
+
+    if (passwordForm) {
+      passwordForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(passwordForm);
+        fetch('/profile/change-password/', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: formData
+        }).then(async (resp) => ({ ok: resp.ok, data: await resp.json() }))
+          .then(({ ok, data }) => {
+            if (!ok || !data.success) {
+              const errors = data?.errors;
+              if (errors) {
+                const first = Object.values(errors)[0];
+                showError(Array.isArray(first) ? first[0] : String(first));
+                return;
+              }
+              showError(data?.error || 'Failed to change password.');
+              return;
+            }
+            $('#profilePasswordModal').modal('hide');
+            passwordForm.reset();
+            if (strengthBar) strengthBar.style.width = '0%';
+            if (strengthText) strengthText.textContent = 'Strength: -';
+            showSuccess(data.message || 'Password has been changed successfully.');
+          })
+          .catch(() => showError('Failed to change password.'));
+      });
+    }
+  }
+
   initSidebarToggleDesktop();
   initProjectListPage();
   initSubprojectListPage();
@@ -2512,6 +2676,7 @@ $(function() {
   initWebsiteSettingsPage();
   initProjectDetailPage();
   initTaskRichEditors($(document));
+  initMyProfilePage();
 
   $(document).on('click', '.theme-select', function() {
     const theme = $(this).data('theme');

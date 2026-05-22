@@ -97,6 +97,9 @@ from .comment import (
 )
 
 from .user import (
+    my_profile,
+    my_profile_update,
+    my_profile_change_password,
     user_settings,
     website_settings,
     user_performance,

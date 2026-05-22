@@ -1,0 +1,154 @@
+{% extends "arva/base.html" %}
+{% load static %}
+{% block title %}My Profile{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'arva/css/pages/my_profile.css' %}?v=202605221520">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4 profile-page">
+  <div class="card border-0 shadow-sm profile-card">
+    <div class="card-body p-4">
+      <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+        <img id="profile-avatar-main" src="{{ profile_user.userprofile.avatar_url }}" alt="{{ profile_user.username }}" class="profile-avatar-lg">
+        <div class="flex-grow-1 min-w-0">
+          <h4 class="mb-1">{{ profile_user.get_full_name|default:profile_user.username }}</h4>
+          <div class="text-muted">{{ profile_user.email }}</div>
+          <div class="small text-muted mt-1">
+            <span class="me-2"><i class="bi bi-person-badge me-1"></i>{{ role_label }}</span>
+            <span><i class="bi bi-calendar-event me-1"></i>Joined {{ profile_user.date_joined|date:"d M Y" }}</span>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#profileUpdateModal">
+            <i class="bi bi-pencil-square me-1"></i>Update Profile
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#profilePasswordModal">
+            <i class="bi bi-shield-lock me-1"></i>Change Password
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mt-3">
+    <div class="card-body p-4">
+      <h6 class="fw-semibold mb-3">My Profile</h6>
+      <div class="row g-3 profile-meta-grid">
+        <div class="col-md-6">
+          <div class="profile-meta-item">
+            <span class="k">Username</span>
+            <span class="v" id="profile-username">{{ profile_user.username }}</span>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="profile-meta-item">
+            <span class="k">Full Name</span>
+            <span class="v" id="profile-fullname">{{ profile_user.get_full_name|default:"-" }}</span>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="profile-meta-item">
+            <span class="k">Email</span>
+            <span class="v" id="profile-email">{{ profile_user.email }}</span>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="profile-meta-item">
+            <span class="k">Role</span>
+            <span class="v">{{ role_label }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="profileUpdateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" id="profile-update-form" enctype="multipart/form-data">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-person-gear me-2"></i>Update Profile</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {% csrf_token %}
+        <div class="profile-avatar-preview-wrap mb-3">
+          <img id="profile-avatar-preview" src="{{ profile_user.userprofile.avatar_url }}" alt="Preview" class="profile-avatar-preview">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Full Name</label>
+          <input type="text" name="full_name" class="form-control" value="{{ profile_user.get_full_name }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Username</label>
+          <input type="text" name="username" class="form-control" value="{{ profile_user.username }}" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control" value="{{ profile_user.email }}" required>
+        </div>
+        <div class="mb-1">
+          <label class="form-label">Avatar</label>
+          <input type="file" name="avatar" id="profile-avatar-input" class="form-control" accept="image/png,image/jpeg,image/webp">
+          <div class="small text-muted mt-1">Allowed: PNG/JPG/WEBP, max 2 MB.</div>
+        </div>
+        <div class="mb-1 mt-2">
+          <label class="form-label">Choose Provided Avatar</label>
+          <input type="hidden" name="avatar_icon" id="profile-avatar-icon-select" value="{{ profile_user.userprofile.avatar_icon|default:'' }}">
+          <div class="provided-avatar-grid" id="provided-avatar-grid">
+            <button type="button" class="provided-avatar-item {% if not profile_user.userprofile.avatar_icon %}active{% endif %}" data-avatar-icon="">
+              <span class="provided-avatar-none">No icon</span>
+            </button>
+            {% for icon_name, icon_label in avatar_icon_choices %}
+            <button type="button" class="provided-avatar-item {% if profile_user.userprofile.avatar_icon == icon_name %}active{% endif %}" data-avatar-icon="{{ icon_name }}" title="{{ icon_label }}" aria-label="{{ icon_label }}">
+              <img src="{% static 'arva/img/profile/' %}{{ icon_name }}" alt="{{ icon_label }}">
+            </button>
+            {% endfor %}
+          </div>
+          <div class="small text-muted mt-1">Click one avatar to select it.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="profilePasswordModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" id="profile-password-form">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-shield-lock me-2"></i>Change Password</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {% csrf_token %}
+        <div class="mb-2">
+          <label class="form-label">Current Password</label>
+          <input type="password" name="current_password" class="form-control" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">New Password</label>
+          <input type="password" name="new_password" id="new-password-input" class="form-control" required>
+          <div class="password-strength mt-1">
+            <div class="password-strength-bar" id="password-strength-bar"></div>
+          </div>
+          <div class="small text-muted mt-1" id="password-strength-text">Strength: -</div>
+        </div>
+        <div class="mb-1">
+          <label class="form-label">Confirm Password</label>
+          <input type="password" name="confirm_password" class="form-control" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Update Password</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

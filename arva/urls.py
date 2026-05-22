@@ -124,6 +124,9 @@ urlpatterns = [
     # PENGATURAN
     # ============================================================
     path('settings/', views.user_settings, name='user_settings'),
+    path('profile/', views.my_profile, name='my_profile'),
+    path('profile/update/', views.my_profile_update, name='my_profile_update'),
+    path('profile/change-password/', views.my_profile_change_password, name='my_profile_change_password'),
     path('settings/website/', views.website_settings, name='website_settings'),
     path('settings/ai/', views.ai_settings, name='ai_settings'),
     path('profile/theme/update/', views.update_user_theme, name='update_user_theme'),

@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
 from django.db.models import Q, Max
 
@@ -21,7 +22,7 @@ from ..models import (
 )
 from ..forms import (
     CreateUserInlineForm, UserEditForm, AdminPasswordResetForm,
-    AvatarUploadForm, WebsiteSettingsForm
+    AvatarUploadForm, WebsiteSettingsForm, MyProfileUpdateForm, MyPasswordChangeForm
 )
 
 User = get_user_model()
@@ -30,6 +31,80 @@ User = get_user_model()
 # ============================================================
 # PENGATURAN USER
 # ============================================================
+
+@login_required
+def my_profile(request):
+    user_obj = request.user
+    profile = user_obj.userprofile
+    avatar_icon_choices = AvatarUploadForm.ICON_CHOICES
+    context = {
+        'profile_obj': profile,
+        'profile_user': user_obj,
+        'role_label': 'Superuser' if user_obj.is_superuser else ('Staff' if user_obj.is_staff else 'Member'),
+        'avatar_icon_choices': avatar_icon_choices,
+    }
+    return render(request, 'arva/my_profile.html', context)
+
+
+@login_required
+@require_POST
+def my_profile_update(request):
+    form = MyProfileUpdateForm(request.POST, request.FILES, user=request.user)
+    if not form.is_valid():
+        return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+
+    user_obj = request.user
+    full_name = (form.cleaned_data.get('full_name') or '').strip()
+    if full_name:
+        parts = full_name.split(None, 1)
+        user_obj.first_name = parts[0]
+        user_obj.last_name = parts[1] if len(parts) > 1 else ''
+    else:
+        user_obj.first_name = ''
+        user_obj.last_name = ''
+    user_obj.username = form.cleaned_data['username']
+    user_obj.email = form.cleaned_data['email']
+    user_obj.save(update_fields=['first_name', 'last_name', 'username', 'email'])
+
+    avatar = form.cleaned_data.get('avatar')
+    avatar_icon = form.cleaned_data.get('avatar_icon') or ''
+    profile = user_obj.userprofile
+    if avatar:
+        if profile.avatar:
+            profile.avatar.delete(save=False)
+        profile.avatar = avatar
+        profile.avatar_icon = ''
+        profile.save(update_fields=['avatar', 'avatar_icon'])
+    elif avatar_icon:
+        if profile.avatar:
+            profile.avatar.delete(save=False)
+            profile.avatar = None
+        profile.avatar_icon = avatar_icon
+        profile.save(update_fields=['avatar', 'avatar_icon'])
+
+    return JsonResponse({
+        'success': True,
+        'user': {
+            'username': user_obj.username,
+            'full_name': user_obj.get_full_name(),
+            'email': user_obj.email,
+            'avatar_url': user_obj.userprofile.avatar_url,
+        }
+    })
+
+
+@login_required
+@require_POST
+def my_profile_change_password(request):
+    form = MyPasswordChangeForm(request.POST, user=request.user)
+    if not form.is_valid():
+        return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+
+    user_obj = request.user
+    user_obj.set_password(form.cleaned_data['new_password'])
+    user_obj.save(update_fields=['password'])
+    update_session_auth_hash(request, user_obj)
+    return JsonResponse({'success': True, 'message': 'Password has been changed successfully.'})
 
 @login_required
 def user_settings(request):

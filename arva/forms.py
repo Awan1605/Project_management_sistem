@@ -24,6 +24,7 @@ from django import forms
 from django.utils.html import escape
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.password_validation import validate_password
 from .models import (
     Project, SubProject, Task, Comment, Attachment,
     Label, TaskList, ChecklistItem, ProjectMember,
@@ -238,6 +239,91 @@ class UserProfileEditForm(forms.ModelForm):
             if qs.exists():
                 raise forms.ValidationError("Email sudah digunakan.")
         return email
+
+
+class MyProfileUpdateForm(forms.Form):
+    full_name = forms.CharField(max_length=150, required=False)
+    username = forms.CharField(max_length=150, required=True)
+    email = forms.EmailField(required=True)
+    avatar = forms.ImageField(required=False)
+    avatar_icon = forms.ChoiceField(required=False, choices=())
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        icon_choices = [
+            (filename, filename)
+            for filename in os.listdir("static/arva/img/profile")
+            if filename.endswith((".png", ".jpg", ".jpeg", ".webp"))
+        ]
+        self.fields['avatar_icon'].choices = [("", "No icon selected")] + icon_choices
+
+    def clean_username(self):
+        username = (self.cleaned_data.get('username') or '').strip()
+        if not username:
+            raise forms.ValidationError('Username is required.')
+        qs = User.objects.filter(username=username)
+        if self.user:
+            qs = qs.exclude(pk=self.user.pk)
+        if qs.exists():
+            raise forms.ValidationError('Username is already in use.')
+        return username
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip()
+        qs = User.objects.filter(email=email)
+        if self.user:
+            qs = qs.exclude(pk=self.user.pk)
+        if qs.exists():
+            raise forms.ValidationError('Email is already in use.')
+        return email
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get('avatar')
+        if not avatar:
+            return avatar
+        if avatar.size > 2 * 1024 * 1024:
+            raise forms.ValidationError('Avatar file size must be 2 MB or less.')
+        content_type = (getattr(avatar, 'content_type', '') or '').lower()
+        allowed = {'image/png', 'image/jpeg', 'image/webp'}
+        if content_type not in allowed:
+            raise forms.ValidationError('Avatar must be PNG, JPG, or WEBP.')
+        return avatar
+
+    def clean_avatar_icon(self):
+        value = (self.cleaned_data.get('avatar_icon') or '').strip()
+        if not value:
+            return ''
+        valid = {c[0] for c in self.fields['avatar_icon'].choices if c[0]}
+        if value not in valid:
+            raise forms.ValidationError('Selected avatar icon is invalid.')
+        return value
+
+
+class MyPasswordChangeForm(forms.Form):
+    current_password = forms.CharField(required=True, widget=forms.PasswordInput())
+    new_password = forms.CharField(required=True, widget=forms.PasswordInput())
+    confirm_password = forms.CharField(required=True, widget=forms.PasswordInput())
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+    def clean_current_password(self):
+        value = self.cleaned_data.get('current_password') or ''
+        if self.user and not self.user.check_password(value):
+            raise forms.ValidationError('Current password is invalid.')
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        new_password = cleaned.get('new_password') or ''
+        confirm_password = cleaned.get('confirm_password') or ''
+        if new_password and confirm_password and new_password != confirm_password:
+            self.add_error('confirm_password', 'Password confirmation does not match.')
+        if self.user and new_password:
+            validate_password(new_password, self.user)
+        return cleaned
 
 
 class AdminPasswordResetForm(forms.Form):
