@@ -216,6 +216,14 @@ def _serialize_task_detail_payload(task, project):
             'initial': (primary_assignee.username[:1].upper() if primary_assignee and primary_assignee.username else 'U'),
             'extra_count': max(len(assignees) - 1, 0),
         },
+        'assignees': [
+            {
+                'username': u.username,
+                'avatar_url': (getattr(getattr(u, 'userprofile', None), 'avatar_url', '') or ''),
+                'initial': (u.username[:1].upper() if u.username else 'U'),
+            }
+            for u in assignees
+        ],
         'start_date': {
             'is_tbd': bool(task.start_date_tbd),
             'display': 'TBD' if task.start_date_tbd else (task.start_date.strftime('%d %b %Y') if task.start_date else '-'),
@@ -571,6 +579,8 @@ def task_view(request, task_id):
         ),
     )
     task_attachments = task.attachments.filter(comment__isnull=True)
+    task_comment_count = task.comments.filter(parent__isnull=True).count()
+    task_reply_count = task.comments.filter(parent__isnull=False).count()
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return JsonResponse({'success': False, 'error': 'Forbidden'}, status=403)
@@ -580,6 +590,7 @@ def task_view(request, task_id):
     percent = int((done / total) * 100) if total > 0 else 0
 
     view_only = bool(is_project_locked(project) or not (role == "admin" or request.user in task.assignees.all()))
+    detail_read_only = request.GET.get('detail_read_only') in {'1', 'true', 'yes'}
     html = render_to_string('arva/_task_view.html', {
         'task': task,
         'project': project,
@@ -598,6 +609,7 @@ def task_view(request, task_id):
         'root_comments': comments,
         'task_attachments': task_attachments,
         "view_only": view_only,
+        "detail_read_only": detail_read_only,
         'project_is_closed': is_project_locked(project),
     }, request=request)
 
@@ -633,6 +645,8 @@ def task_detail(request, task_id):
         ),
     )
     task_attachments = task.attachments.filter(comment__isnull=True)
+    task_comment_count = task.comments.filter(parent__isnull=True).count()
+    task_reply_count = task.comments.filter(parent__isnull=False).count()
 
     if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
         return HttpResponseForbidden("Forbidden")
@@ -661,10 +675,13 @@ def task_detail(request, task_id):
         'root_comments': comments,
         'task_attachments': task_attachments,
         'task_attachment_count': task_attachments.count(),
+        'task_comment_count': task_comment_count,
+        'task_reply_count': task_reply_count,
         "view_only": view_only,
         'project_is_closed': is_project_locked(project),
         'task_detail_url': request.build_absolute_uri(reverse('task_detail', args=[task.id])),
         'overview_description_html': sanitize_task_description_html(task.description or ''),
+        'detail_read_only': True,
     })
 
 

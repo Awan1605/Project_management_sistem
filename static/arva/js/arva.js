@@ -3194,7 +3194,9 @@ $(function() {
     if (typeof ensureTaskCommentPasteTask === 'function') {
       ensureTaskCommentPasteTask(taskId);
     }
-    $.get(`/task/${taskId}/view/`, function(resp) {
+    const isTaskDetailPage = !$('#taskViewModal').length && !!$('#task-view-body').length;
+    const query = isTaskDetailPage ? '?detail_read_only=1' : '';
+    $.get(`/task/${taskId}/view/${query}`, function(resp) {
       if (resp.success) {
         hideMentionMenu();
         if (typeof resetAllReplyDrafts === 'function') {
@@ -3278,10 +3280,18 @@ $(function() {
     }
 
     const $assignee = $('#task-overview-assignee');
-    if ($assignee.length && taskData.assignee) {
-      const html = renderPerson(taskData.assignee);
-      const extra = Number(taskData.assignee.extra_count || 0);
-      $assignee.html(extra > 0 ? `${html}<small class="text-muted ms-1">+${extra}</small>` : html);
+    if ($assignee.length) {
+      if (Array.isArray(taskData.assignees) && taskData.assignees.length) {
+        const listHtml = taskData.assignees.map((person) => {
+          const personHtml = renderPerson(person);
+          return `<span class="d-inline-flex align-items-center gap-1 me-2 mb-1">${personHtml}</span>`;
+        }).join('');
+        $assignee.html(`<div class="d-flex flex-wrap gap-1">${listHtml}</div>`);
+      } else if (taskData.assignee) {
+        const html = renderPerson(taskData.assignee);
+        const extra = Number(taskData.assignee.extra_count || 0);
+        $assignee.html(extra > 0 ? `${html}<small class="text-muted ms-1">+${extra}</small>` : html);
+      }
     }
 
     const $start = $('#task-overview-start-date');
@@ -3342,10 +3352,42 @@ $(function() {
       return '';
     };
 
+    const linkifyText = (text) => {
+      const content = String(text || '');
+      if (!content) return document.createTextNode('');
+      const regex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+      let lastIndex = 0;
+      let match;
+      const fragment = document.createDocumentFragment();
+      while ((match = regex.exec(content)) !== null) {
+        const start = match.index;
+        const rawUrl = match[0];
+        if (start > lastIndex) {
+          fragment.appendChild(document.createTextNode(content.slice(lastIndex, start)));
+        }
+        const href = sanitizeUrl(rawUrl);
+        if (href) {
+          const anchor = document.createElement('a');
+          anchor.setAttribute('href', href);
+          anchor.setAttribute('target', '_blank');
+          anchor.setAttribute('rel', 'noopener noreferrer nofollow');
+          anchor.textContent = rawUrl;
+          fragment.appendChild(anchor);
+        } else {
+          fragment.appendChild(document.createTextNode(rawUrl));
+        }
+        lastIndex = start + rawUrl.length;
+      }
+      if (lastIndex < content.length) {
+        fragment.appendChild(document.createTextNode(content.slice(lastIndex)));
+      }
+      return fragment.childNodes.length ? fragment : document.createTextNode(content);
+    };
+
     const sanitizeNode = (node) => {
       if (!node) return null;
       if (node.nodeType === Node.TEXT_NODE) {
-        return document.createTextNode(node.textContent || '');
+        return linkifyText(node.textContent || '');
       }
       if (node.nodeType !== Node.ELEMENT_NODE) {
         return null;
@@ -3383,6 +3425,16 @@ $(function() {
       if (safe) output.appendChild(safe);
     });
     return output.innerHTML.trim();
+  }
+
+  function sanitizeUrlForEditor(raw) {
+    const value = (raw || '').trim();
+    if (!value) return '';
+    if (/^(https?:|mailto:)/i.test(value)) return value;
+    if (/^\/\//.test(value)) return `https:${value}`;
+    if (/^www\./i.test(value)) return `https://${value}`;
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(value)) return `https://${value}`;
+    return '';
   }
 
   function initTaskRichEditors($scope) {
@@ -3440,10 +3492,15 @@ $(function() {
         const text = event.clipboardData?.getData('text/plain') || '';
         const trimmed = text.trim();
         if (!trimmed) return;
-        const isUrlOnly = /^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed);
+        const isUrlOnly = /^(https?:\/\/|www\.)[^\s]+$/i.test(trimmed);
         if (!isUrlOnly) return;
         event.preventDefault();
-        const href = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+        const href = sanitizeUrlForEditor(trimmed);
+        if (!href) {
+          document.execCommand('insertText', false, trimmed);
+          syncToTextarea(false);
+          return;
+        }
         document.execCommand('insertHTML', false, `<a href="${href}" target="_blank" rel="noopener noreferrer nofollow">${trimmed}</a>`);
         syncToTextarea(false);
       });
@@ -3458,7 +3515,8 @@ $(function() {
           const selectedText = window.getSelection()?.toString() || '';
           const raw = window.prompt('Enter link URL', selectedText && /^https?:\/\//i.test(selectedText) ? selectedText : 'https://');
           if (!raw) return;
-          const href = raw.trim().startsWith('http') || raw.trim().startsWith('mailto:') ? raw.trim() : `https://${raw.trim()}`;
+          const href = sanitizeUrlForEditor(raw.trim());
+          if (!href) return;
           document.execCommand('createLink', false, href);
           const selection = window.getSelection();
           if (selection?.anchorNode?.parentElement?.tagName === 'A') {
@@ -3526,6 +3584,170 @@ $(function() {
         }
       }
       showError('Failed to share task link.');
+    }
+  });
+
+  function inlineUpdateRequest(taskId, field, value) {
+    return new Promise((resolve, reject) => {
+      $.post({
+        url: `/task/${taskId}/inline-update/`,
+        data: { field, value },
+        headers: { "X-CSRFToken": csrftoken },
+        success: function(resp) {
+          if (resp && resp.success) {
+            resolve(resp);
+          } else {
+            reject(new Error(resp?.error || `Failed to update ${field}.`));
+          }
+        },
+        error: function(xhr) {
+          reject(new Error(xhr.responseJSON?.error || `Failed to update ${field}.`));
+        }
+      });
+    });
+  }
+
+  function collectTaskEditSnapshot() {
+    const editModalEditor = document.querySelector('#taskEditModal [data-task-rich-editor] [data-editor-input]');
+    if (editModalEditor) {
+      $('#task-edit-desc').val(sanitizeRichEditorHtml(editModalEditor.innerHTML || ''));
+    }
+    const assigneesVal = $('#task-edit-assignees').val();
+    const labelsVal = $('#task-edit-labels').val();
+    return {
+      title: ($('#task-edit-title').val() || '').trim(),
+      status: ($('#task-edit-status').val() || '').trim(),
+      priority: ($('#task-edit-priority').val() || '').trim(),
+      start_date_tbd: $('#task-edit-start-date-tbd').is(':checked') ? '1' : '0',
+      start_date: ($('#task-edit-start-date').val() || '').trim(),
+      due_date: ($('#task-edit-due-date').val() || '').trim(),
+      description: ($('#task-edit-desc').val() || '').trim(),
+      assignees: Array.isArray(assigneesVal) ? assigneesVal.join(',') : (assigneesVal || ''),
+      labels: Array.isArray(labelsVal) ? labelsVal.join(',') : (labelsVal || ''),
+    };
+  }
+
+  function openTaskEditModal() {
+    const $modal = $('#taskEditModal');
+    if (!$modal.length) return;
+    $('#task-edit-title').val($('#task-view-title').val() || $('#task-overview-title').text().trim());
+    if ($('#task-edit-status').length) {
+      const statusFromView = $('#task-view-status').val();
+      if (statusFromView) $('#task-edit-status').val(statusFromView);
+    }
+    $('#task-edit-priority').val($('#task-view-priority').val() || 'p2');
+    if ($('#task-view-start-date').length) {
+      const startVal = $('#task-view-start-date').val();
+      if (startVal !== undefined && startVal !== null && String(startVal).trim() !== '') {
+        $('#task-edit-start-date').val(startVal);
+      }
+    }
+    if ($('#task-view-due').length) {
+      const dueVal = $('#task-view-due').val();
+      if (dueVal !== undefined && dueVal !== null && String(dueVal).trim() !== '') {
+        $('#task-edit-due-date').val(dueVal);
+      }
+    }
+
+    let startTbd = $('#task-edit-start-date-tbd').is(':checked');
+    if ($('#task-view-start-date-tbd').length) {
+      startTbd = $('#task-view-start-date-tbd').is(':checked');
+      $('#task-edit-start-date-tbd').prop('checked', startTbd);
+    }
+    $('#task-edit-start-tbd-pill').toggleClass('is-active', startTbd);
+    $('#task-edit-start-date').prop('disabled', startTbd);
+
+    if ($('#task-view-assignees').length) {
+      const assignees = $('#task-view-assignees').val();
+      if (assignees !== undefined && assignees !== null) {
+        $('#task-edit-assignees').val(assignees || []);
+      }
+    }
+    if ($('#task-view-labels').length) {
+      const labels = $('#task-view-labels').val();
+      if (labels !== undefined && labels !== null) {
+        $('#task-edit-labels').val(labels || []);
+      }
+    }
+
+    if ($('#task-view-desc').length) {
+      const descVal = $('#task-view-desc').val();
+      if (descVal !== undefined && descVal !== null && String(descVal).trim() !== '') {
+        $('#task-edit-desc').val(descVal);
+      }
+    }
+    const editor = $modal[0].querySelector('[data-task-rich-editor] [data-editor-input]');
+    if (editor) {
+      editor.innerHTML = sanitizeRichEditorHtml($('#task-edit-desc').val() || '') || '<p><br></p>';
+    }
+    initTaskRichEditors($modal);
+
+    $modal.data('snapshot', collectTaskEditSnapshot());
+    $modal.modal('show');
+  }
+
+  $(document).on('click', '#btn-edit-task-detail', function() {
+    openTaskEditModal();
+  });
+
+  $(document).on('change', '#task-edit-start-date-tbd', function() {
+    const checked = $(this).is(':checked');
+    $('#task-edit-start-tbd-pill').toggleClass('is-active', checked);
+    if (checked) {
+      $('#task-edit-start-date').val('').prop('disabled', true);
+    } else {
+      $('#task-edit-start-date').prop('disabled', false);
+    }
+  });
+
+  $(document).on('click', '#btn-save-task-edit', async function() {
+    const $btn = $(this);
+    const taskId = getCurrentTaskId();
+    const $modal = $('#taskEditModal');
+    if (!taskId || !$modal.length) return;
+
+    const before = $modal.data('snapshot') || {};
+    const after = collectTaskEditSnapshot();
+    const updates = [];
+
+    const maybePush = (field, next, prev) => {
+      if (String(next || '') !== String(prev || '')) updates.push({ field, value: next });
+    };
+
+    maybePush('title', after.title, before.title);
+    if ($('#task-edit-status').length) {
+      maybePush('status', after.status, before.status);
+    }
+    maybePush('priority', after.priority, before.priority);
+    maybePush('start_date_tbd', after.start_date_tbd, before.start_date_tbd);
+    maybePush('start_date', after.start_date, before.start_date);
+    maybePush('due_date', after.due_date, before.due_date);
+    maybePush('assignees', after.assignees, before.assignees);
+    if ($('#task-edit-labels').length) {
+      maybePush('labels', after.labels, before.labels);
+    }
+    maybePush('description', after.description, before.description);
+
+    if (!updates.length) {
+      $modal.modal('hide');
+      return;
+    }
+
+    $btn.addClass('is-saving').text('Saving...');
+    try {
+      let lastResp = null;
+      for (const upd of updates) {
+        // eslint-disable-next-line no-await-in-loop
+        lastResp = await inlineUpdateRequest(taskId, upd.field, upd.value);
+      }
+      if (lastResp?.task) updateTaskDetailUI(lastResp.task);
+      loadTaskView(taskId);
+      $modal.modal('hide');
+      showSuccess('Task updated successfully.');
+    } catch (err) {
+      showError(err.message || 'Failed to update task.');
+    } finally {
+      $btn.removeClass('is-saving').text('Save Changes');
     }
   });
 
@@ -3892,6 +4114,59 @@ $(function() {
     resetTaskCommentPasteState(null);
     resetAllReplyDrafts();
     hideMentionMenu();
+  });
+
+  function ensureCommentAttachmentPreviewModal() {
+    let modalEl = document.getElementById('commentAttachmentPreviewModal');
+    if (modalEl) return modalEl;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div class="modal fade" id="commentAttachmentPreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="commentAttachmentPreviewTitle">Attachment Preview</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div id="commentAttachmentPreviewBody" class="text-center"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `.trim();
+    modalEl = wrapper.firstElementChild;
+    document.body.appendChild(modalEl);
+    return modalEl;
+  }
+
+  function isPreviewableImageUrl(url) {
+    const clean = String(url || '').split('?')[0].toLowerCase();
+    return /\.(png|jpe?g|webp|gif|bmp|svg)$/.test(clean);
+  }
+
+  $(document).on('click', '.js-comment-attachment-preview', function(e) {
+    e.preventDefault();
+    const url = $(this).data('attachment-url') || $(this).attr('href') || '';
+    if (!url) return;
+    const name = ($(this).data('attachment-name') || 'Attachment Preview').toString();
+    const modalEl = ensureCommentAttachmentPreviewModal();
+    const $title = $('#commentAttachmentPreviewTitle');
+    const $body = $('#commentAttachmentPreviewBody');
+
+    $title.text(name);
+    if (isPreviewableImageUrl(url)) {
+      $body.html(`<img src="${url}" alt="${$('<div>').text(name).html()}" class="img-fluid rounded border">`);
+    } else {
+      const safeUrl = $('<div>').text(String(url)).html();
+      $body.html(`
+        <iframe src="${safeUrl}" style="width:100%;height:70vh;border:1px solid rgba(15,23,42,0.12);border-radius:10px;"></iframe>
+        <div class="mt-2 text-muted small">Preview is shown in popup only.</div>
+      `);
+    }
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
   });
 
   $(document).on('click', '#btn-add-comment', function() {

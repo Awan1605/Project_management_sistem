@@ -6,8 +6,9 @@
 {% endif %}
 {% if project_is_project %}
 <div class="task-structured-shell">
+  {% if not detail_read_only %}
   <section class="task-structured-section task-structured-header-plain mb-3">
-    <input type="text" id="task-view-title" class="task-title-plain" value="{{ task.title }}" spellcheck="false" placeholder="Task name..." {% if view_only or project_is_closed %}disabled{% endif %}>
+    <input type="text" id="task-view-title" class="task-title-plain" value="{{ task.title }}" spellcheck="false" placeholder="Task name..." {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
   </section>
 
   <section class="task-structured-section mb-3">
@@ -24,7 +25,7 @@
       </div>
       <div>
         <label class="form-label small text-muted mb-1">Priority</label>
-        <select id="task-view-priority" class="form-select form-select-sm" {% if view_only or project_is_closed %}disabled{% endif %}>
+        <select id="task-view-priority" class="form-select form-select-sm" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
           <option value="p0" {% if task.priority == 'p0' %}selected{% endif %}>P0 - Urgent</option>
           <option value="p1" {% if task.priority == 'p1' %}selected{% endif %}>P1 - High</option>
           <option value="p2" {% if task.priority == 'p2' %}selected{% endif %}>P2 - Medium</option>
@@ -47,7 +48,7 @@
       </div>
       <div>
         <label class="form-label small text-muted mb-1">Assignee</label>
-        <select id="task-view-assignees" class="form-select form-select-sm" {% if view_only or project_is_closed %}disabled{% endif %}>
+        <select id="task-view-assignees" class="form-select form-select-sm" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
           <option value="">Select assignee</option>
           {% for u in users %}
             <option value="{{ u.id }}" {% if u in task.assignees.all %}selected{% endif %}>{{ u.username }}</option>
@@ -58,22 +59,22 @@
         <div class="d-flex justify-content-between align-items-center mb-1">
           <label class="form-label small text-muted mb-0" for="task-view-start-date">Start Date</label>
           <label class="tbd-pill {% if task.start_date_tbd %}is-active{% endif %}" title="To Be Determined">
-            <input type="checkbox" id="task-view-start-date-tbd" {% if task.start_date_tbd %}checked{% endif %} {% if view_only or project_is_closed %}disabled{% endif %}>
+            <input type="checkbox" id="task-view-start-date-tbd" {% if task.start_date_tbd %}checked{% endif %} {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
             <span>TBD</span>
           </label>
         </div>
-        <input type="date" id="task-view-start-date" class="form-control form-control-sm" value="{{ task.start_date|date:'Y-m-d' }}" {% if view_only or project_is_closed or task.start_date_tbd %}disabled{% endif %}>
+        <input type="date" id="task-view-start-date" class="form-control form-control-sm" value="{{ task.start_date|date:'Y-m-d' }}" {% if view_only or project_is_closed or task.start_date_tbd or detail_read_only %}disabled{% endif %}>
       </div>
       <div>
         <label class="form-label small text-muted mb-1">End Date</label>
-        <input type="date" id="task-view-due" class="form-control form-control-sm" value="{{ task.due_date|date:'Y-m-d' }}" {% if view_only or project_is_closed %}disabled{% endif %}>
+        <input type="date" id="task-view-due" class="form-control form-control-sm" value="{{ task.due_date|date:'Y-m-d' }}" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
       </div>
     </div>
   </section>
 
   <section class="task-structured-section mb-3">
     <h6 class="fw-semibold mb-2">Description</h6>
-    <div class="task-rich-editor" data-task-rich-editor {% if view_only or project_is_closed %}data-disabled="1"{% endif %}>
+    <div class="task-rich-editor" data-task-rich-editor {% if view_only or project_is_closed or detail_read_only %}data-disabled="1"{% endif %}>
       <div class="task-rich-editor-toolbar" role="toolbar" aria-label="Description formatting toolbar">
         <button type="button" class="btn btn-light btn-sm" data-editor-cmd="bold" title="Bold"><i class="bi bi-type-bold"></i></button>
         <button type="button" class="btn btn-light btn-sm" data-editor-cmd="italic" title="Italic"><i class="bi bi-type-italic"></i></button>
@@ -84,32 +85,11 @@
         <button type="button" class="btn btn-light btn-sm" data-editor-cmd="undo" title="Undo"><i class="bi bi-arrow-counterclockwise"></i></button>
         <button type="button" class="btn btn-light btn-sm" data-editor-cmd="redo" title="Redo"><i class="bi bi-arrow-clockwise"></i></button>
       </div>
-      <div class="task-rich-editor-input" contenteditable="{% if view_only or project_is_closed %}false{% else %}true{% endif %}" data-editor-input aria-label="Task description editor"></div>
-      <textarea id="task-view-desc" class="task-desc-input task-desc-plain d-none" rows="3" data-autoresize="true" placeholder="Add a description..." spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description|default:'' }}</textarea>
+      <div class="task-rich-editor-input" contenteditable="{% if view_only or project_is_closed or detail_read_only %}false{% else %}true{% endif %}" data-editor-input aria-label="Task description editor"></div>
+      <textarea id="task-view-desc" class="task-desc-input task-desc-plain d-none" rows="3" data-autoresize="true" placeholder="Add a description..." spellcheck="false" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>{{ task.description|default:'' }}</textarea>
     </div>
   </section>
-
-  <section class="task-structured-section mb-3">
-    <h6 class="fw-semibold mb-2">Comments</h6>
-    <div class="task-comment-composer">
-      <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if view_only or project_is_closed %}disabled{% endif %}></textarea>
-      <div class="task-comment-composer-toolbar mt-2">
-        <label class="btn btn-light btn-sm mb-0 {% if view_only or project_is_closed %}disabled{% endif %}">
-          <i class="bi bi-image me-1"></i>Add image
-          <input type="file" id="task-view-comment-image-input" class="d-none" accept="image/png,image/jpeg,image/webp" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
-        </label>
-        <small class="text-muted">Tip: paste screenshots with Ctrl+V.</small>
-      </div>
-    </div>
-    <div class="task-comment-paste-previews mt-2"></div>
-    <div class="progress task-comment-upload-progress mt-2 d-none" role="progressbar" aria-label="Comment upload progress">
-      <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
-    </div>
-    <button class="btn btn-primary btn-sm mt-2" id="btn-add-comment" {% if view_only or project_is_closed %}disabled{% endif %}>Add Comment</button>
-    <div id="task-view-comments" class="mt-3 task-comment-thread">
-      {% include "arva/_comment_list.html" with comments=root_comments show_comment_avatar=True %}
-    </div>
-  </section>
+  {% endif %}
 
   <section class="task-structured-section mb-3">
     <h6 class="fw-semibold mb-2">Attachments</h6>
@@ -132,6 +112,28 @@
       <small class="text-muted">There are no attachments yet.</small>
       {% endfor %}
     </ul>
+  </section>
+
+  <section class="task-structured-section mb-3">
+    <h6 class="fw-semibold mb-2">Comments</h6>
+    <div class="task-comment-composer">
+      <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if view_only or project_is_closed %}disabled{% endif %}></textarea>
+      <div class="task-comment-composer-toolbar mt-2">
+        <label class="btn btn-light btn-sm mb-0 {% if view_only or project_is_closed %}disabled{% endif %}">
+          <i class="bi bi-image me-1"></i>Add image
+          <input type="file" id="task-view-comment-image-input" class="d-none" accept="image/png,image/jpeg,image/webp" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
+        </label>
+        <small class="text-muted">Tip: paste screenshots with Ctrl+V.</small>
+      </div>
+    </div>
+    <div class="task-comment-paste-previews mt-2"></div>
+    <div class="progress task-comment-upload-progress mt-2 d-none" role="progressbar" aria-label="Comment upload progress">
+      <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+    </div>
+    <button class="btn btn-primary btn-sm mt-2" id="btn-add-comment" {% if view_only or project_is_closed %}disabled{% endif %}>Add Comment</button>
+    <div id="task-view-comments" class="mt-3 task-comment-thread">
+      {% include "arva/_comment_list.html" with comments=root_comments show_comment_avatar=True %}
+    </div>
   </section>
 
   {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user_role == 'member' %}
@@ -177,10 +179,11 @@
   {% endif %}
 </div>
 {% else %}
+{% if not detail_read_only %}
 <div class="d-flex justify-content-between align-items-start mb-3">
 
   <div class="flex-grow-1 me-3">
-    <input type="text" id="task-view-title" class="form-control border-0 bg-transparent fw-bold" value="{{ task.title }}" spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>
+    <input type="text" id="task-view-title" class="form-control border-0 bg-transparent fw-bold" value="{{ task.title }}" spellcheck="false" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
     <div class="mt-2 d-flex flex-wrap gap-1">
       {% for label in task.labels.all %}
       <span class="label-chip" style="background-color: #{{ label.color }}; color: #ffffff;">{{ label.name }}</span>
@@ -191,7 +194,7 @@
   </div>
 
   <div class="text-end">
-    <select id="task-view-priority" class="form-select form-select-sm priority-select mb-2" {% if view_only or project_is_closed %}disabled{% endif %}>
+    <select id="task-view-priority" class="form-select form-select-sm priority-select mb-2" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
       <option value="p0" {% if task.priority == 'p0' %}selected{% endif %}>P0 - Urgent</option>
       <option value="p1" {% if task.priority == 'p1' %}selected{% endif %}>P1 - High</option>
       <option value="p2" {% if task.priority == 'p2' %}selected{% endif %}>P2 - Medium</option>
@@ -205,22 +208,24 @@
     <div class="task-date-range d-flex flex-row gap-2 justify-content-end">
       <div class="task-date-field">
         <label class="form-label small text-muted mb-1 text-start d-block" for="task-view-start-date">Start Date</label>
-        <input type="date" id="task-view-start-date" class="form-control form-control-sm" value="{{ task.start_date|date:'Y-m-d' }}" {% if view_only or project_is_closed %}disabled{% endif %}>
+        <input type="date" id="task-view-start-date" class="form-control form-control-sm" value="{{ task.start_date|date:'Y-m-d' }}" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
       </div>
       <div class="task-date-field">
         <label class="form-label small text-muted mb-1 text-start d-block" for="task-view-due">End Date</label>
-        <input type="date" id="task-view-due" class="form-control form-control-sm due-input" value="{{ task.due_date|date:'Y-m-d' }}" {% if view_only or project_is_closed %}disabled{% endif %}>
+        <input type="date" id="task-view-due" class="form-control form-control-sm due-input" value="{{ task.due_date|date:'Y-m-d' }}" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
       </div>
     </div>
   </div>
 
 </div>
+{% endif %}
 
 <div class="row">
   <div class="col-md-8">
+    {% if not detail_read_only %}
     <div class="section-box">
       <h6 class="fw-semibold mb-2">Description</h6>
-      <div class="task-rich-editor" data-task-rich-editor {% if view_only or project_is_closed %}data-disabled="1"{% endif %}>
+      <div class="task-rich-editor" data-task-rich-editor {% if view_only or project_is_closed or detail_read_only %}data-disabled="1"{% endif %}>
         <div class="task-rich-editor-toolbar" role="toolbar" aria-label="Description formatting toolbar">
           <button type="button" class="btn btn-light btn-sm" data-editor-cmd="bold" title="Bold"><i class="bi bi-type-bold"></i></button>
           <button type="button" class="btn btn-light btn-sm" data-editor-cmd="italic" title="Italic"><i class="bi bi-type-italic"></i></button>
@@ -231,10 +236,11 @@
           <button type="button" class="btn btn-light btn-sm" data-editor-cmd="undo" title="Undo"><i class="bi bi-arrow-counterclockwise"></i></button>
           <button type="button" class="btn btn-light btn-sm" data-editor-cmd="redo" title="Redo"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
-        <div class="task-rich-editor-input" contenteditable="{% if view_only or project_is_closed %}false{% else %}true{% endif %}" data-editor-input aria-label="Task description editor"></div>
-        <textarea id="task-view-desc" class="task-desc-input task-desc-plain d-none" rows="2" data-autoresize="true" placeholder="Add a description..." spellcheck="false" {% if view_only or project_is_closed %}disabled{% endif %}>{{ task.description|default:'' }}</textarea>
+        <div class="task-rich-editor-input" contenteditable="{% if view_only or project_is_closed or detail_read_only %}false{% else %}true{% endif %}" data-editor-input aria-label="Task description editor"></div>
+        <textarea id="task-view-desc" class="task-desc-input task-desc-plain d-none" rows="2" data-autoresize="true" placeholder="Add a description..." spellcheck="false" {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>{{ task.description|default:'' }}</textarea>
       </div>
     </div>
+    {% endif %}
 
     <div class="section-box">
       <div class="d-flex justify-content-between align-items-center">
@@ -319,6 +325,7 @@
   </div>
 
   <div class="col-md-4">
+    {% if not detail_read_only %}
     <div class="sidebar-box">
       <h6 class="fw-semibold">Reporter</h6>
       <div class="small text-muted">
@@ -329,7 +336,7 @@
     <div class="sidebar-box">
       <h6 class="fw-semibold">Assignees</h6>
       <select id="task-view-assignees" class="form-select" multiple
-        {% if view_only or project_is_closed %}disabled{% endif %}>
+        {% if view_only or project_is_closed or detail_read_only %}disabled{% endif %}>
         {% for u in users %}
           <option value="{{ u.id }}" {% if u in task.assignees.all %}selected{% endif %}>
             {{ u.username }}
@@ -337,6 +344,7 @@
         {% endfor %}
       </select>
     </div>
+    {% endif %}
 
     {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user_role == 'member' %}
     <div class="sidebar-box task-stage-switcher-box">
@@ -392,10 +400,11 @@
     </div>
     {% endif %}
 
+    {% if not detail_read_only %}
     <div class="sidebar-box">
       <h6 class="fw-semibold">Labels</h6>
       <select id="task-view-labels" class="form-select" multiple size="5"
-        {% if user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
+        {% if detail_read_only or user_role == 'viewer' and user in task.assignees.all %}disabled{% endif %}>
         {% for label in labels %}
           <option value="{{ label.id }}" {% if label in task.labels.all %}selected{% endif %}>
             {{ label.name }}
@@ -403,6 +412,7 @@
         {% endfor %}
       </select>
     </div>
+    {% endif %}
 
     <div class="sidebar-box">
       <h6 class="fw-semibold">Activity</h6>

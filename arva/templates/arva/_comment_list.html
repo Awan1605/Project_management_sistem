@@ -31,11 +31,11 @@
           {% for att in c.attachments.all|slice:":6" %}
             <div class="comment-attachment-item" data-attachment-id="{{ att.id }}">
               {% if att.is_image %}
-                <a href="{{ att.file.url }}" target="_blank" rel="noopener noreferrer" class="comment-image-link">
+                <a href="{{ att.file.url }}" class="comment-image-link js-comment-attachment-preview" data-attachment-url="{{ att.file.url }}" data-attachment-name="{{ att.filename|default:'Attachment' }}">
                   <img src="{{ att.file.url }}" alt="{{ att.filename }}" class="comment-image-thumb">
                 </a>
               {% else %}
-                <a href="{{ att.file.url }}" target="_blank" rel="noopener noreferrer" class="comment-file-link">
+                <a href="{{ att.file.url }}" class="comment-file-link js-comment-attachment-preview" data-attachment-url="{{ att.file.url }}" data-attachment-name="{{ att.filename|default:'Attachment' }}">
                   <i class="bi bi-paperclip me-1"></i>{{ att.filename|truncatechars:22 }}
                 </a>
               {% endif %}

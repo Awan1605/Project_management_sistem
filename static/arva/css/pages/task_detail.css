@@ -99,6 +99,11 @@ body[data-theme='dark'] .task-page-lock-banner {
   margin-bottom: 1rem;
 }
 
+.task-overview-edit-btn {
+  margin-top: 0.15rem;
+  white-space: nowrap;
+}
+
 .task-detail-kicker {
   font-size: 0.82rem;
   color: #64748b;
@@ -323,6 +328,14 @@ body[data-theme='dark'] .task-page-lock-banner {
   .task-detail-meta-grid {
     grid-template-columns: 1fr;
   }
+  .task-detail-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .task-overview-edit-btn {
+    align-self: flex-start;
+    margin-top: 0;
+  }
   .task-detail-body .task-structured-meta-grid {
     grid-template-columns: 1fr;
   }
@@ -373,4 +386,40 @@ body[data-theme='dark'] .task-detail-body .task-activity-scroll {
 body.layout-sidebar.theme-dark .task-detail-description,
 body[data-theme='dark'] .task-detail-description {
   color: #cbd5e1;
+}
+
+.task-edit-modal--drawer .modal-dialog {
+  max-width: 720px;
+  margin: 0 0 0 auto;
+  height: 100%;
+  transform: translateX(100%);
+  transition: transform 0.22s ease-in-out;
+}
+
+.task-edit-modal--drawer.show .modal-dialog {
+  transform: translateX(0);
+}
+
+.task-edit-modal--drawer .modal-content {
+  height: 100%;
+  border-radius: 16px 0 0 16px;
+  border: 0;
+}
+
+.task-edit-section {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: #fff;
+  margin-bottom: 0.65rem;
+}
+
+.task-edit-section h6 {
+  font-weight: 700;
+  margin-bottom: 0.55rem;
+}
+
+#btn-save-task-edit.is-saving {
+  opacity: 0.7;
+  pointer-events: none;
 }
