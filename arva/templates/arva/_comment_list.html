@@ -14,12 +14,16 @@
           <time class="comment-time text-muted">{{ c.created_at|date:"d M Y H:i" }}</time>
         </div>
       </div>
-      <div class="comment-actions">
+      <div class="comment-actions" role="group" aria-label="Comment actions">
         {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user == c.user %}
-          <button class="btn btn-link p-0 small text-danger btn-delete-comment" data-id="{{ c.id }}">Delete</button>
+          <button class="btn btn-link p-0 small comment-action-btn comment-action-delete btn-delete-comment" data-id="{{ c.id }}" title="Delete comment">
+            <i class="bi bi-trash3 me-1"></i>Delete
+          </button>
         {% endif %}
         {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in c.task.assignees.all %}
-          <button class="btn btn-link p-0 small text-primary btn-reply-comment" data-id="{{ c.id }}">Reply</button>
+          <button class="btn btn-link p-0 small comment-action-btn comment-action-reply btn-reply-comment" data-id="{{ c.id }}" title="Reply">
+            <i class="bi bi-reply me-1"></i>Reply
+          </button>
         {% endif %}
       </div>
     </header>

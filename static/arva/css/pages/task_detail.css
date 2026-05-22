@@ -423,3 +423,279 @@ body[data-theme='dark'] .task-detail-description {
   opacity: 0.7;
   pointer-events: none;
 }
+
+/* ============================================================
+   Task Detail - Modern Comments Thread
+   ============================================================ */
+.task-detail-body .task-comment-thread {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.task-detail-body .comment-item {
+  position: relative;
+}
+
+.task-detail-body .comment-item-card {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  padding: 0.75rem 0.8rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.task-detail-body .comment-item-card:hover {
+  border-color: rgba(14, 165, 233, 0.35);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.task-detail-body .comment-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.task-detail-body .comment-author {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.task-detail-body .comment-avatar,
+.task-detail-body .comment-avatar-fallback {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 34px;
+}
+
+.task-detail-body .comment-avatar {
+  border: 1px solid rgba(15, 23, 42, 0.15);
+}
+
+.task-detail-body .comment-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.task-detail-body .comment-author-meta {
+  min-width: 0;
+}
+
+.task-detail-body .comment-author-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.task-detail-body .comment-time {
+  font-size: 0.75rem;
+  color: #64748b !important;
+}
+
+.task-detail-body .comment-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.task-detail-body .comment-action-btn {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.18rem 0.45rem !important;
+  text-decoration: none;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.task-detail-body .comment-action-reply {
+  color: #0369a1 !important;
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.task-detail-body .comment-action-delete {
+  color: #b91c1c !important;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.task-detail-body .comment-action-btn:hover {
+  text-decoration: none;
+  filter: brightness(0.95);
+}
+
+.task-detail-body .comment-body {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.task-detail-body .comment-content {
+  font-size: 0.88rem;
+  color: #1e293b;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.task-detail-body .comment-content a {
+  color: #0369a1;
+  text-decoration: underline;
+}
+
+.task-detail-body .comment-content .comment-mention {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #075985;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.task-detail-body .comment-content .comment-mention:hover {
+  background: rgba(14, 165, 233, 0.2);
+}
+
+.task-detail-body .comment-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 50px);
+  gap: 0.45rem;
+}
+
+.task-detail-body .comment-attachment-item {
+  position: relative;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f8fafc;
+  width: 50px;
+  height: 50px;
+  min-height: 50px;
+}
+
+.task-detail-body .comment-image-link,
+.task-detail-body .comment-file-link {
+  display: block;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.task-detail-body .comment-file-link {
+  padding: 0.55rem 0.6rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  min-height: 72px;
+}
+
+.task-detail-body .comment-image-thumb {
+  width: 100%;
+  height: 50px;
+  max-height: 50px;
+  object-fit: cover;
+  display: block;
+}
+
+.task-detail-body .comment-attachment-delete {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  border: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.7);
+  color: #fff;
+  font-size: 0.62rem;
+  line-height: 1;
+}
+
+.task-detail-body .comment-attachment-delete:hover {
+  background: rgba(185, 28, 28, 0.95);
+}
+
+.task-detail-body .comment-item--reply {
+  margin-left: 1.5rem;
+}
+
+.task-detail-body .comment-item--reply .comment-item-card {
+  border-left: 3px solid rgba(14, 165, 233, 0.35);
+  background: #ffffff;
+}
+
+.task-detail-body .comment-replies {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.task-detail-body .reply-form-panel {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: #f8fafc;
+}
+
+.task-detail-body .reply-actions {
+  margin-top: 0.55rem;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.task-detail-body .comment-empty {
+  border: 1px dashed rgba(148, 163, 184, 0.55);
+  border-radius: 12px;
+  padding: 0.8rem;
+  text-align: center;
+  font-size: 0.86rem;
+}
+
+body.layout-sidebar.theme-dark .task-detail-body .comment-item-card,
+body[data-theme='dark'] .task-detail-body .comment-item-card,
+body.layout-sidebar.theme-dark .task-detail-body .reply-form-panel,
+body[data-theme='dark'] .task-detail-body .reply-form-panel,
+body.layout-sidebar.theme-dark .task-detail-body .comment-attachment-item,
+body[data-theme='dark'] .task-detail-body .comment-attachment-item,
+body.layout-sidebar.theme-dark .task-detail-body .comment-empty,
+body[data-theme='dark'] .task-detail-body .comment-empty {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+body.layout-sidebar.theme-dark .task-detail-body .comment-author-name,
+body[data-theme='dark'] .task-detail-body .comment-author-name,
+body.layout-sidebar.theme-dark .task-detail-body .comment-content,
+body[data-theme='dark'] .task-detail-body .comment-content,
+body.layout-sidebar.theme-dark .task-detail-body .comment-file-link,
+body[data-theme='dark'] .task-detail-body .comment-file-link {
+  color: #e2e8f0;
+}
+
+body.layout-sidebar.theme-dark .task-detail-body .comment-content .comment-mention,
+body[data-theme='dark'] .task-detail-body .comment-content .comment-mention {
+  background: rgba(56, 189, 248, 0.18);
+  color: #bae6fd;
+}
+
+@media (max-width: 767.98px) {
+  .task-detail-body .comment-item--reply {
+    margin-left: 0.75rem;
+  }
+  .task-detail-body .comment-item-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
