@@ -454,7 +454,14 @@ def my_cards(request):
     tasks = Task.objects.filter(
         project__in=accessible_projects,
         is_archived=False
-    ).select_related('project', 'task_list').annotate(
+    ).select_related(
+        'project',
+        'task_list',
+        'created_by',
+        'created_by__userprofile',
+    ).prefetch_related(
+        Prefetch('assignees', queryset=User.objects.select_related('userprofile').order_by('username'))
+    ).annotate(
         _status_priority=_task_search_status_priority_case()
     ).order_by('_status_priority', '-created_at', '-id')
     return render(request, 'arva/my_cards.html', {'tasks': tasks})

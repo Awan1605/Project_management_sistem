@@ -1853,10 +1853,9 @@ $(function() {
       summarySelector: '#mycards-page-summary',
       paginationControlsSelector: '#mycards-pagination-controls',
       cardSelector: '.mycard-card',
-      tableBodySelector: '#mycards-table tbody',
-      tableRowSelector: 'tr[data-task-id]',
-      emptyTableRowSelector: '#mycards-table tbody tr:not([data-task-id])',
-      sortButtonSelector: '.sort-btn',
+      tableBodySelector: '#mycards-list-body',
+      tableRowSelector: '.task-user-result-list-row[data-task-id]',
+      emptyTableRowSelector: '#mycards-list-body .mycards-empty-row',
       matchesFilters: (el, filters) => {
         const text = `${el.dataset.title || ''} ${el.dataset.project || ''} ${el.dataset.list || ''}`;
         const priority = filters.extras[0] || '';
@@ -3478,7 +3477,7 @@ $(function() {
       checkEmptyState($column);
     }
 
-    $(`#mycards-table tbody tr[data-task-id='${taskId}']`).remove();
+    $(`#mycards-list-body .task-user-result-list-row[data-task-id='${taskId}']`).remove();
     if ($('#mycards-search').length) {
       $('#mycards-search').trigger('input');
     }

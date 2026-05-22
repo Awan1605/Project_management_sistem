@@ -179,123 +179,115 @@
         </div>
 
         <div class="tab-pane fade show active table-density-compact" id="table-view" role="tabpanel" aria-labelledby="table-view-tab" tabindex="0">
-          <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0 table-modern" id="mycards-table">
-              <thead>
-                <tr>
-                  <th>
-                    <button class="sort-btn" data-sort-key="summary" type="button">
-                      Title <i class="bi bi-arrow-down-up"></i>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="sort-btn" data-sort-key="due" type="button">
-                      Due <i class="bi bi-arrow-down-up"></i>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="sort-btn" data-sort-key="priority" type="button">
-                      Priority <i class="bi bi-arrow-down-up"></i>
-                    </button>
-                  </th>
-                  <th class="text-end">Action</th>
-                </tr>
-              </thead>
-              <tbody data-task-results-sort="status-created-desc" data-task-results-item="tr[data-task-id]">
-                {% for task in tasks %}
-                  <tr data-task-id="{{ task.id }}"
-                    data-title="{{ task.title|lower }}"
-                    data-project="{{ task.project.name|lower }}"
-                    data-list="{{ task.task_list.name|lower }}"
-                    data-task-sort-done="{% if task.project.is_project %}{% if task.status == 'done' %}1{% else %}0{% endif %}{% else %}{% if task.task_list.name|lower == 'done' %}1{% else %}0{% endif %}{% endif %}"
-                    data-task-sort-created="{{ task.created_at|date:'U' }}"
-                    data-updated="{{ task.updated_at|date:'Y-m-d H:i:s' }}"
-                    data-priority="{{ task.priority|default_if_none:'' }}"
-                    data-due-status="{% if task.is_overdue %}overdue{% elif task.is_due_today %}today{% elif task.is_due_soon %}soon{% elif task.due_date %}later{% else %}none{% endif %}"
-                    data-due-date="{{ task.due_date|default_if_none:'' }}"
-                  >
-                    <td>
-                      <div class="summary-stack">
-                        <div class="project-name">
-                          <span class="badge bg-light text-dark border">{{ task.task_list.name }}</span>
-                          {{ task.project.name }}
-                        </div>
-                        <div class="summary-title">
-                          {{ task.title }}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                    {% if task.task_list.name|lower == 'done' %}
-                      <span class="badge bg-success">
-                        <i class="bi bi-check2-circle me-1"></i>
-                        Completed {{ task.updated_at|date:"d M Y" }}
+          <div class="task-user-results-list-shell mycards-list-shell">
+            <div class="task-user-results-list-head">
+              <span>Priority / Status + Task</span>
+              <span>Reporter / Assignee</span>
+              <span>Start / End</span>
+              <span class="text-end">Recent Activity</span>
+            </div>
+            <div id="mycards-list-body"
+                 class="task-user-results-list-body"
+                 data-task-results-sort="status-created-desc"
+                 data-task-results-item=".task-user-result-list-row[data-task-id]">
+              {% for task in tasks %}
+                <div class="task-user-result-list-row"
+                     data-task-id="{{ task.id }}"
+                     data-title="{{ task.title|lower }}"
+                     data-project="{{ task.project.name|lower }}"
+                     data-list="{{ task.task_list.name|lower }}"
+                     data-task-sort-done="{% if task.project.is_project %}{% if task.status == 'done' %}1{% else %}0{% endif %}{% else %}{% if task.task_list.name|lower == 'done' %}1{% else %}0{% endif %}{% endif %}"
+                     data-task-sort-created="{{ task.created_at|date:'U' }}"
+                     data-updated="{{ task.updated_at|date:'Y-m-d H:i:s' }}"
+                     data-priority="{{ task.priority|default_if_none:'' }}"
+                     data-due-status="{% if task.is_overdue %}overdue{% elif task.is_due_today %}today{% elif task.is_due_soon %}soon{% elif task.due_date %}later{% else %}none{% endif %}"
+                     data-due-date="{{ task.due_date|default_if_none:'' }}">
+                  <div class="task-row-main">
+                    <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                      <span class="task-chip task-chip-priority task-chip-priority-{{ task.priority|default:'p2' }}">{{ task.get_priority_display }}</span>
+                      {% if task.project.is_project %}
+                        <span class="task-chip task-chip-status task-chip-status-{{ task.status|default:'-' }}">{{ task.get_status_display|default:"-" }}</span>
+                      {% elif task.task_list.name|lower == 'done' %}
+                        <span class="task-chip task-chip-status task-chip-status-done">Done</span>
+                      {% else %}
+                        <span class="task-chip task-chip-status task-chip-status-in_progress">{{ task.task_list.name }}</span>
+                      {% endif %}
+                    </div>
+                    <a href="{% url 'project_detail' task.project.id %}" class="task-row-title text-decoration-none">{{ task.title }}</a>
+                    <div class="task-row-sub">{{ task.project.name }} · {{ task.task_list.name }}</div>
+                  </div>
+                  <div class="task-structured-list-meta">
+                    <span>
+                      <span class="task-meta-label">Reporter</span>
+                      <span class="task-meta-value d-inline-flex align-items-center gap-1">
+                        <span class="task-result-avatar task-result-avatar-sm">
+                          {% if task.created_by and task.created_by.userprofile %}
+                            <img class="task-result-avatar-img" src="{{ task.created_by.userprofile.avatar_url }}" alt="{{ task.created_by.username }}">
+                          {% else %}
+                            <span class="task-result-avatar-fallback">{% if task.created_by %}{{ task.created_by.username|slice:":1"|upper }}{% else %}U{% endif %}</span>
+                          {% endif %}
+                        </span>
+                        {% if task.created_by %}{{ task.created_by.username }}{% else %}-{% endif %}
                       </span>
-                      <span class="status-pill status-none">Done</span>
-                    {% elif task.due_date %}
-                      <span class="badge
-                        {% if task.is_overdue %} due-overdue
-                        {% elif task.is_due_today %} due-today
-                        {% elif task.is_due_soon %} due-soon
-                          {% else %} bg-secondary
+                    </span>
+                    <span>
+                      <span class="task-meta-label">Assignee</span>
+                      <span class="task-meta-value d-inline-flex align-items-center gap-1">
+                        {% with assignees=task.assignees.all %}
+                        {% with assignees|first as first_assignee %}
+                          {% if first_assignee %}
+                            <span class="task-result-avatar task-result-avatar-sm">
+                              {% if first_assignee.userprofile %}
+                                <img class="task-result-avatar-img" src="{{ first_assignee.userprofile.avatar_url }}" alt="{{ first_assignee.username }}">
+                              {% else %}
+                                <span class="task-result-avatar-fallback">{{ first_assignee.username|slice:":1"|upper }}</span>
+                              {% endif %}
+                            </span>
+                            {{ first_assignee.username }}{% if assignees|length > 1 %} +{{ assignees|length|add:"-1" }}{% endif %}
+                          {% else %}
+                            -
                           {% endif %}
-                        ">
-                          <i class="bi bi-calendar-event me-1"></i>
-                        {{ task.due_date|date:"d M Y" }}
-                        </span>
-                        <span class="status-pill
-                          {% if task.is_overdue %} status-overdue
-                          {% elif task.is_due_today %} status-today
-                          {% elif task.is_due_soon %} status-soon
-                          {% else %} status-none
-                          {% endif %}
-                        ">
-                          {% if task.is_overdue %}Overdue
-                          {% elif task.is_due_today %}Today
-                          {% elif task.is_due_soon %}Soon
-                          {% else %}Later
-                          {% endif %}
-                        </span>
-                      {% else %}
-                        <span class="text-muted">No due date</span>
-                        <span class="status-pill status-none">No due</span>
-                      {% endif %}
-                    </td>
-                    <td>
-                      {% if task.priority == "low" %}
-                        <span class="priority-badge priority-low">Low</span>
-                      {% elif task.priority == "medium" %}
-                        <span class="priority-badge priority-medium">Medium</span>
-                      {% elif task.priority == "high" %}
-                        <span class="priority-badge priority-high">High</span>
-                      {% elif task.priority == "critical" %}
-                        <span class="priority-badge priority-critical">Critical</span>
-                      {% else %}
-                        <span class="text-muted">{{ task.get_priority_display }}</span>
-                      {% endif %}
-                    </td>
-
-                    <td class="text-end">
-                      <a href="{% url 'project_detail' task.project.id %}" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-box-arrow-in-right"></i> Go to Task
-                      </a>
-                    </td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="5" class="text-center empty-state">
-                      <div class="text-muted mb-3">
-                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                        No task is assigned to you.
-                      </div>
-                      <a href="{% url 'project_list' %}" class="btn btn-primary btn-sm cta-btn">
-                        <i class="bi bi-kanban me-1"></i> View Tasks
-                      </a>
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+                        {% endwith %}
+                        {% endwith %}
+                      </span>
+                    </span>
+                  </div>
+                  <div class="task-structured-list-meta">
+                    <span>
+                      <span class="task-meta-label">Start</span>
+                      <span class="task-meta-value">{% if task.start_date_tbd %}TBD{% elif task.start_date %}{{ task.start_date|date:"d M Y" }}{% else %}-{% endif %}</span>
+                    </span>
+                    <span>
+                      <span class="task-meta-label">End</span>
+                      <span class="task-meta-value">
+                        {% if task.due_date %}
+                          <span class="due-badge {% if task.is_overdue %}due-overdue{% elif task.is_due_today %}due-today{% elif task.is_due_soon %}due-soon{% else %}bg-success text-light{% endif %}">
+                            {{ task.due_date|date:"d M Y" }}
+                          </span>
+                        {% else %}
+                          -
+                        {% endif %}
+                      </span>
+                    </span>
+                  </div>
+                  <div class="task-row-activity text-end">
+                    <span class="activity-dot"></span>
+                    <span>{{ task.updated_at|date:"d M Y, H:i" }}</span>
+                    <a href="{% url 'project_detail' task.project.id %}" class="btn btn-outline-primary btn-sm ms-2">Open</a>
+                  </div>
+                </div>
+              {% empty %}
+                <div class="mycards-empty-row text-center empty-state">
+                  <div class="text-muted mb-3">
+                    <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                    No task is assigned to you.
+                  </div>
+                  <a href="{% url 'project_list' %}" class="btn btn-primary btn-sm cta-btn">
+                    <i class="bi bi-kanban me-1"></i> View Tasks
+                  </a>
+                </div>
+              {% endfor %}
+            </div>
           </div>
         </div>
       </div>
