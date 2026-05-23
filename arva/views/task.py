@@ -583,14 +583,11 @@ def task_view(request, task_id):
     task_comment_count = task.comments.filter(parent__isnull=True).count()
     task_reply_count = task.comments.filter(parent__isnull=False).count()
 
-    if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
-        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
-
     total = task.checklist_total
     done = task.checklist_done
     percent = int((done / total) * 100) if total > 0 else 0
 
-    view_only = bool(is_project_locked(project) or not (role == "admin" or request.user in task.assignees.all()))
+    view_only = bool(is_project_locked(project))
     detail_read_only = request.GET.get('detail_read_only') in {'1', 'true', 'yes'}
     html = render_to_string('arva/_task_view.html', {
         'task': task,
@@ -649,14 +646,11 @@ def task_detail(request, task_id):
     task_comment_count = task.comments.filter(parent__isnull=True).count()
     task_reply_count = task.comments.filter(parent__isnull=False).count()
 
-    if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
-        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
-
     total = task.checklist_total
     done = task.checklist_done
     percent = int((done / total) * 100) if total > 0 else 0
 
-    view_only = bool(is_project_locked(project) or not (role == "admin" or request.user in task.assignees.all()))
+    view_only = bool(is_project_locked(project))
 
     return render(request, 'arva/task_detail.html', {
         'task': task,
@@ -695,8 +689,6 @@ def task_update(request, task_id):
     if is_project_locked(project):
         return closed_project_error(request, action='modify this project/task')
     role = get_role(request.user, project)
-    if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
-        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
     data = request.POST.copy()
     if project.is_project:
         data.setlist('labels', [])
@@ -730,15 +722,11 @@ def task_delete(request, task_id):
     if is_project_locked(project):
         return closed_project_error(request, action='modify this project/task')
     
-    # Check permission: admin project ATAU creator task
-    role = get_role(request.user, project)
-    is_admin = role == ProjectMember.ROLE_ADMIN
-    is_creator = task.created_by == request.user if hasattr(task, 'created_by') else False
-    
-    if not is_admin and not is_creator:
+    task_creator_id = getattr(task, 'created_by_id', None)
+    if not (request.user.is_superuser or task_creator_id == request.user.id):
         return permission_denied_response(
             request,
-            'Access denied. Only the project creator, project PM, superuser, or task creator can delete this task.',
+            'Access denied. Only the task creator or a superuser can delete this task.',
             code='task_delete_forbidden',
         )
     
@@ -765,10 +753,6 @@ def task_move(request, task_id):
     project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(project):
         return closed_project_error(request, action='modify this project/task')
-    role = get_role(request.user, project)
-    if role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER] or        (role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all()):
-        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
-
     new_list_id = request.POST.get('task_list_id')
     ordered_ids = request.POST.getlist('ordered_ids[]')
 
@@ -806,12 +790,6 @@ def task_transfer(request, task_id):
     source_project = get_user_project_or_404(request.user, task.project.id)
     if is_project_locked(source_project):
         return closed_project_error(request, action='modify this project/task')
-    source_role = get_role(request.user, source_project)
-    if source_role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER] or (
-        source_role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all()
-    ):
-        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
-
     target_project_id = request.POST.get('project_id')
     target_list_id = request.POST.get('task_list_id')
     if not target_project_id:
@@ -820,10 +798,6 @@ def task_transfer(request, task_id):
     target_project = get_user_project_or_404(request.user, target_project_id)
     if is_project_locked(target_project):
         return closed_project_error(request, action='modify this project/task')
-    target_role = get_role(request.user, target_project)
-    if target_role not in [ProjectMember.ROLE_ADMIN, ProjectMember.ROLE_MEMBER]:
-        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
-
     target_subproject = None
     target_subproject_id = request.POST.get('sub_project_id')
     if target_project.subprojects.exists():
@@ -923,8 +897,6 @@ def task_inline_update(request, task_id):
     if is_project_locked(project):
         return closed_project_error(request, action='modify this project/task')
     role = get_role(request.user, project)
-    if role != ProjectMember.ROLE_ADMIN and request.user not in task.assignees.all():
-        return permission_denied_response(request, 'Access denied. You do not have permission to perform this action.', code='permission_forbidden')
 
     field = request.POST.get('field')
     value = request.POST.get('value', '')

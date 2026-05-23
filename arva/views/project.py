@@ -47,13 +47,7 @@ User = get_user_model()
 def _can_edit_project(user, project):
     if not getattr(user, 'is_authenticated', False):
         return False
-    if user.is_superuser:
-        return True
-    if project.owner_id == user.id:
-        return True
-    if project.pm_assignee_id and project.pm_assignee_id == user.id:
-        return True
-    return False
+    return bool(project and project.can_user_view(user))
 
 
 def _project_edit_denied_message(user, project, action='edit this project'):
@@ -61,10 +55,7 @@ def _project_edit_denied_message(user, project, action='edit this project'):
         return f'Access denied. You must sign in to {action}.'
     if project.is_private and not project.can_user_view(user):
         return 'Access denied. Project is private and your account is not included in shared users.'
-    return (
-        f'Access denied. You do not have permission to {action} because only the Superuser, '
-        'project creator, or project PM can perform this action.'
-    )
+    return f'Access denied. You do not have permission to {action}.'
 
 
 def _build_task_status_priority_case(is_structured_project):
@@ -449,7 +440,8 @@ def project_delete(request, pk):
     """Hapus project (hanya pemilik yang bisa).
     Project yang masih punya task tidak bisa dihapus."""
     project = get_user_project_or_404(request.user, pk)
-    if not (request.user.is_superuser or project.owner_id == request.user.id):
+    project_creator_id = project.owner_id or getattr(project, 'created_by_id', None)
+    if not (request.user.is_superuser or project_creator_id == request.user.id):
         return permission_denied_response(
             request,
             "Access denied. Only the project creator or a superuser can delete this project.",

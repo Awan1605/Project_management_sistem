@@ -193,14 +193,17 @@
           <i class="bi bi-arrow-left-right"></i>
         </button>
         {% endif %}
-        {% if not project.is_closed and user_role == 'admin' %}
+        {% if not project.is_closed %}
         <button class="btn btn-outline-warning btn-sm btn-archive-task">
           <i class="bi bi-archive"></i>
         </button>
-  
-        <button class="btn btn-outline-danger btn-sm btn-delete-task">
-          <i class="bi bi-trash"></i>
-        </button>
+        {% endif %}
+        {% if not project.is_closed %}
+          {% if request.user.is_superuser or task.created_by_id == request.user.id %}
+          <button class="btn btn-outline-danger btn-sm btn-delete-task">
+            <i class="bi bi-trash"></i>
+          </button>
+          {% endif %}
         {% endif %}
       </div>
     </div>

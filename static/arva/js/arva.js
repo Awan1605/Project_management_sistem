@@ -2815,6 +2815,12 @@ $(function() {
         showError("Failed to save changes.");
       }
     });
+
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.task-row-action-toggle') || e.target.closest('.task-row-actions-menu')) {
+        e.stopPropagation();
+      }
+    });
   });
 
   $(document).on('change', '#subproject-select', function() {
@@ -5077,23 +5083,35 @@ $(function() {
     });
   });
 
-  $(document).on('click', '.btn-delete-task', async function() {
+  $(document).on('click', '.btn-delete-task', async function(e) {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!await showConfirm('Are you sure you want to delete this task?', 'Delete task')) return;
-    const card = $(this).closest('.task-card');
-    const taskId = card.data('task-id');
+    const $trigger = $(this);
+    const taskId = $trigger.data('task-id')
+      || $trigger.closest('.task-card').data('task-id')
+      || $trigger.closest('.task-list-row').data('task-id');
+    if (!taskId) {
+      showError('Failed to resolve task id.');
+      return;
+    }
 
     $.post({
       url: `/task/${taskId}/delete/`,
       success: function(resp) {
         if (resp.success) {
-          card.remove();
+          $(`.task-card[data-task-id='${taskId}']`).remove();
+          $(`.task-list-row[data-task-id='${taskId}']`).remove();
         }
       },
       error: function(xhr) {
+        const serverError = xhr?.responseJSON?.error;
         if (xhr.status === 403) {
-          showError('You do not have access to delete this task.');
+          showError(serverError || 'You do not have access to delete this task.');
         } else {
-          showError('Failed to delete task');
+          showError(serverError || 'Failed to delete task');
         }
       }
     });
