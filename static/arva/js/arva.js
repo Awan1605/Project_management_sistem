@@ -3417,6 +3417,14 @@ $(function() {
         if (typeof resetTaskCommentPasteState === 'function') {
           resetTaskCommentPasteState(taskId);
         }
+        if (isTaskDetailPage && resp.stats) {
+          const commentsText = `${resp.stats.comment_count || 0} comments · ${resp.stats.reply_count || 0} replies`;
+          const attachmentsText = `${resp.stats.attachment_count || 0} attachments`;
+          const attachmentTypeText = `${resp.stats.image_count || 0} images · ${resp.stats.file_count || 0} files`;
+          $('#task-overview-stat-comments').html(`<i class="bi bi-chat-left-text"></i>${commentsText}`);
+          $('#task-overview-stat-attachments').html(`<i class="bi bi-paperclip"></i>${attachmentsText}`);
+          $('#task-overview-stat-attachment-types').html(`<i class="bi bi-images"></i>${attachmentTypeText}`);
+        }
         const scope = $('#taskViewModal').length ? $('#taskViewModal') : $('#task-view-body');
         autoResizeTextareas(scope);
         initTaskRichEditors(scope);
@@ -4134,8 +4142,21 @@ $(function() {
   });
 
   const COMMENT_IMAGE_ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
-  const COMMENT_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
-  const COMMENT_IMAGE_MAX_COUNT = 5;
+  const COMMENT_FILE_ALLOWED_TYPES = new Set([
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'application/zip',
+    'application/x-zip-compressed',
+  ]);
+  const COMMENT_FILE_ALLOWED_EXTENSIONS = new Set([
+    '.png', '.jpg', '.jpeg', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.zip'
+  ]);
+  const COMMENT_ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024;
+  const COMMENT_ATTACHMENT_MAX_COUNT = 10;
   const COMMENT_IMAGE_TARGET_SIZE = 1200 * 1024;
   const COMMENT_IMAGE_MAX_DIMENSION = 1920;
   const taskCommentPasteState = {
@@ -4155,7 +4176,47 @@ $(function() {
       $preview: $scope.find('.task-comment-paste-previews').first(),
       $progressWrap: $scope.find('.task-comment-upload-progress').first(),
       $progressBar: $scope.find('.task-comment-upload-progress .progress-bar').first(),
+      $warning: $scope.find('#task-comment-warning').first(),
     };
+  }
+
+  function hideMainCommentWarning() {
+    const { $warning } = getCommentComposerElements();
+    if ($warning.length) $warning.addClass('d-none');
+  }
+
+  function showMainCommentWarning() {
+    const { $warning } = getCommentComposerElements();
+    if ($warning.length) $warning.removeClass('d-none');
+  }
+
+  function getFileExtension(name) {
+    const value = String(name || '').toLowerCase().trim();
+    const idx = value.lastIndexOf('.');
+    if (idx < 0) return '';
+    return value.slice(idx);
+  }
+
+  function isImageAttachment(file) {
+    const type = (file?.type || '').toLowerCase();
+    return COMMENT_IMAGE_ALLOWED_TYPES.has(type);
+  }
+
+  function isAllowedCommentAttachment(file) {
+    if (!file) return false;
+    const type = (file.type || '').toLowerCase();
+    const ext = getFileExtension(file.name || '');
+    return COMMENT_IMAGE_ALLOWED_TYPES.has(type) || COMMENT_FILE_ALLOWED_TYPES.has(type) || COMMENT_FILE_ALLOWED_EXTENSIONS.has(ext);
+  }
+
+  function attachmentIconClass(file) {
+    const ext = getFileExtension(file?.name || '');
+    if (ext === '.pdf') return 'bi-file-earmark-pdf text-danger';
+    if (ext === '.doc' || ext === '.docx') return 'bi-file-earmark-word text-primary';
+    if (ext === '.xls' || ext === '.xlsx') return 'bi-file-earmark-excel text-success';
+    if (ext === '.zip') return 'bi-file-earmark-zip text-warning';
+    if (ext === '.txt') return 'bi-file-earmark-text text-secondary';
+    return 'bi-file-earmark text-secondary';
   }
 
   function renderTaskCommentPastePreviews() {
@@ -4164,11 +4225,16 @@ $(function() {
     $preview.empty();
     taskCommentPasteState.items.forEach((item, index) => {
       const $item = $('<div class="task-comment-paste-item"></div>');
-      const $thumb = $('<img class="task-comment-paste-thumb" alt="Pasted image preview">').attr('src', item.previewUrl);
+      let $previewNode;
+      if (item.previewUrl) {
+        $previewNode = $('<img class="task-comment-paste-thumb" alt="Attachment preview">').attr('src', item.previewUrl);
+      } else {
+        $previewNode = $(`<div class="task-comment-file-thumb"><i class="bi ${attachmentIconClass(item.file)}"></i></div>`);
+      }
       const $meta = $('<div class="task-comment-paste-meta"></div>').text(`${item.file.name} (${formatCommentBytes(item.file.size)})`);
-      const $remove = $('<button type="button" class="task-comment-paste-remove" title="Remove image"><i class="bi bi-x"></i></button>')
+      const $remove = $('<button type="button" class="task-comment-paste-remove" title="Remove attachment"><i class="bi bi-x"></i></button>')
         .attr('data-index', index);
-      $item.append($thumb, $meta, $remove);
+      $item.append($previewNode, $meta, $remove);
       $preview.append($item);
     });
   }
@@ -4255,42 +4321,48 @@ $(function() {
     });
   }
 
-  async function addCommentImagesFromFiles(files) {
+  async function addCommentAttachmentsFromFiles(files) {
     if (!files || !files.length) return;
-    const remaining = Math.max(0, COMMENT_IMAGE_MAX_COUNT - taskCommentPasteState.items.length);
+    const remaining = Math.max(0, COMMENT_ATTACHMENT_MAX_COUNT - taskCommentPasteState.items.length);
     if (!remaining) {
-      showError(`Maximum ${COMMENT_IMAGE_MAX_COUNT} images per comment.`);
+      showError(`Maximum ${COMMENT_ATTACHMENT_MAX_COUNT} attachments per comment.`);
       return;
     }
 
     const inputFiles = Array.from(files).slice(0, remaining);
     for (const rawFile of inputFiles) {
-      const type = (rawFile.type || '').toLowerCase();
-      if (!COMMENT_IMAGE_ALLOWED_TYPES.has(type)) {
-        showError('Only PNG, JPG, and WEBP images are supported.');
+      if (!isAllowedCommentAttachment(rawFile)) {
+        showError('Unsupported file type. Allowed: PNG/JPG/WEBP, PDF, DOC/DOCX, XLS/XLSX, TXT, ZIP.');
         continue;
       }
-      if (rawFile.size > 15 * 1024 * 1024) {
-        showError('Image is too large to process. Please use an image under 15 MB.');
+      if (rawFile.size > COMMENT_ATTACHMENT_MAX_SIZE) {
+        showError('Each attachment must be 10 MB or smaller.');
         continue;
       }
       try {
-        const compressedFile = await compressPastedImage(rawFile);
-        if (compressedFile.size > COMMENT_IMAGE_MAX_SIZE) {
-          showError('Compressed image is still too large (max 5 MB).');
-          continue;
+        if (isImageAttachment(rawFile)) {
+          const compressedFile = await compressPastedImage(rawFile);
+          if (compressedFile.size > COMMENT_ATTACHMENT_MAX_SIZE) {
+            showError('Compressed image is still too large (max 10 MB).');
+            continue;
+          }
+          taskCommentPasteState.items.push({
+            file: compressedFile,
+            previewUrl: URL.createObjectURL(compressedFile),
+          });
+        } else {
+          taskCommentPasteState.items.push({
+            file: rawFile,
+            previewUrl: null,
+          });
         }
-        taskCommentPasteState.items.push({
-          file: compressedFile,
-          previewUrl: URL.createObjectURL(compressedFile),
-        });
       } catch (err) {
-        showError(err?.message || 'Failed to process pasted image.');
+        showError(err?.message || 'Failed to process attachment.');
       }
     }
 
     if (files.length > remaining) {
-      showError(`Only ${COMMENT_IMAGE_MAX_COUNT} images can be attached to one comment.`);
+      showError(`Only ${COMMENT_ATTACHMENT_MAX_COUNT} attachments can be attached to one comment.`);
     }
 
     renderTaskCommentPastePreviews();
@@ -4303,13 +4375,16 @@ $(function() {
 
     const clipboardData = e.originalEvent?.clipboardData;
     const items = Array.from(clipboardData?.items || []);
-    const imageItems = items.filter((item) => item.kind === 'file' && (item.type || '').toLowerCase().startsWith('image/'));
-    if (!imageItems.length) return;
+    const fileItems = items.filter((item) => item.kind === 'file');
+    let files = fileItems.map((item) => item.getAsFile()).filter(Boolean);
+    if (!files.length) {
+      files = Array.from(clipboardData?.files || []).filter(Boolean);
+    }
+    if (!files.length) return;
 
     e.preventDefault();
-
-    const files = imageItems.map((item) => item.getAsFile()).filter(Boolean);
-    await addCommentImagesFromFiles(files);
+    hideMainCommentWarning();
+    await addCommentAttachmentsFromFiles(files);
   });
 
   $(document).on('change', '#task-view-comment-image-input', async function() {
@@ -4317,8 +4392,35 @@ $(function() {
     if (!taskId || this.disabled) return;
     ensureTaskCommentPasteTask(taskId);
     const files = this.files || [];
-    await addCommentImagesFromFiles(files);
+    hideMainCommentWarning();
+    await addCommentAttachmentsFromFiles(files);
     this.value = '';
+  });
+
+  $(document).on('change', '#task-view-comment-attachment-input', async function() {
+    const taskId = getCurrentTaskId();
+    if (!taskId || this.disabled) return;
+    ensureTaskCommentPasteTask(taskId);
+    const files = this.files || [];
+    hideMainCommentWarning();
+    await addCommentAttachmentsFromFiles(files);
+    this.value = '';
+  });
+
+  $(document).on('dragover', '#task-view-comment-input', function(e) {
+    if (this.disabled) return;
+    e.preventDefault();
+  });
+
+  $(document).on('drop', '#task-view-comment-input', async function(e) {
+    const taskId = getCurrentTaskId();
+    if (!taskId || this.disabled) return;
+    ensureTaskCommentPasteTask(taskId);
+    const files = e.originalEvent?.dataTransfer?.files;
+    if (!files || !files.length) return;
+    e.preventDefault();
+    hideMainCommentWarning();
+    await addCommentAttachmentsFromFiles(files);
   });
 
   $(document).on('click', '.task-comment-paste-remove', function() {
@@ -4398,12 +4500,16 @@ $(function() {
 
     const content = ($('#task-view-comment-input').val() || '').trim();
     const hasImages = taskCommentPasteState.items.length > 0;
-    if (!content && !hasImages) return;
+    if (!content && !hasImages) {
+      showMainCommentWarning();
+      return;
+    }
+    hideMainCommentWarning();
 
     const formData = new FormData();
     formData.append('content', content);
     taskCommentPasteState.items.forEach((item) => {
-      formData.append('images', item.file, item.file.name);
+      formData.append('attachments', item.file, item.file.name);
     });
 
     const { $progressWrap, $progressBar } = getCommentComposerElements();
@@ -4642,50 +4748,59 @@ $(function() {
     $previewWrap.empty();
     items.forEach((item, idx) => {
       const $item = $('<div class="reply-preview-item"></div>');
-      const $img = $('<img class="reply-preview-thumb" alt="Reply image preview">').attr('src', item.previewUrl);
-      const $remove = $('<button type="button" class="reply-preview-remove" title="Remove image"><i class="bi bi-x"></i></button>')
+      const $preview = item.previewUrl
+        ? $('<img class="reply-preview-thumb" alt="Reply image preview">').attr('src', item.previewUrl)
+        : $(`<div class="task-comment-file-thumb"><i class="bi ${attachmentIconClass(item.file)}"></i></div>`);
+      const $meta = $('<div class="task-comment-paste-meta"></div>').text(`${item.file.name} (${formatCommentBytes(item.file.size)})`);
+      const $remove = $('<button type="button" class="reply-preview-remove" title="Remove attachment"><i class="bi bi-x"></i></button>')
         .attr('data-comment-id', commentId)
         .attr('data-index', idx);
-      $item.append($img, $remove);
+      $item.append($preview, $meta, $remove);
       $previewWrap.append($item);
     });
   }
 
-  async function addReplyImages(commentId, files, $container) {
+  async function addReplyAttachments(commentId, files, $container) {
     if (!files || !files.length) return;
     const draft = getReplyDraft(commentId);
-    const remaining = Math.max(0, COMMENT_IMAGE_MAX_COUNT - draft.length);
+    const remaining = Math.max(0, COMMENT_ATTACHMENT_MAX_COUNT - draft.length);
     if (!remaining) {
-      showError(`Maximum ${COMMENT_IMAGE_MAX_COUNT} images per reply.`);
+      showError(`Maximum ${COMMENT_ATTACHMENT_MAX_COUNT} attachments per reply.`);
       return;
     }
     const inputFiles = Array.from(files).slice(0, remaining);
     for (const rawFile of inputFiles) {
-      const type = (rawFile.type || '').toLowerCase();
-      if (!COMMENT_IMAGE_ALLOWED_TYPES.has(type)) {
-        showError('Only PNG, JPG, and WEBP images are supported.');
+      if (!isAllowedCommentAttachment(rawFile)) {
+        showError('Unsupported file type. Allowed: PNG/JPG/WEBP, PDF, DOC/DOCX, XLS/XLSX, TXT, ZIP.');
         continue;
       }
-      if (rawFile.size > 15 * 1024 * 1024) {
-        showError('Image is too large to process. Please use an image under 15 MB.');
+      if (rawFile.size > COMMENT_ATTACHMENT_MAX_SIZE) {
+        showError('Each attachment must be 10 MB or smaller.');
         continue;
       }
       try {
-        const compressedFile = await compressPastedImage(rawFile);
-        if (compressedFile.size > COMMENT_IMAGE_MAX_SIZE) {
-          showError('Compressed image is still too large (max 5 MB).');
-          continue;
+        if (isImageAttachment(rawFile)) {
+          const compressedFile = await compressPastedImage(rawFile);
+          if (compressedFile.size > COMMENT_ATTACHMENT_MAX_SIZE) {
+            showError('Compressed image is still too large (max 10 MB).');
+            continue;
+          }
+          draft.push({
+            file: compressedFile,
+            previewUrl: URL.createObjectURL(compressedFile),
+          });
+        } else {
+          draft.push({
+            file: rawFile,
+            previewUrl: null,
+          });
         }
-        draft.push({
-          file: compressedFile,
-          previewUrl: URL.createObjectURL(compressedFile),
-        });
       } catch (err) {
-        showError(err?.message || 'Failed to process pasted image.');
+        showError(err?.message || 'Failed to process attachment.');
       }
     }
     if (files.length > remaining) {
-      showError(`Only ${COMMENT_IMAGE_MAX_COUNT} images can be attached to one reply.`);
+      showError(`Only ${COMMENT_ATTACHMENT_MAX_COUNT} attachments can be attached to one reply.`);
     }
     renderReplyDraftPreview($container, commentId);
   }
@@ -4698,12 +4813,17 @@ $(function() {
       <div class="reply-form-panel">
         <textarea class="form-control reply-input" rows="2" placeholder="Write a reply..."></textarea>
         <div class="reply-form-toolbar mt-2">
-          <label class="btn btn-light btn-sm mb-0">
-            <i class="bi bi-image me-1"></i>Add image
-            <input type="file" class="d-none reply-image-input" accept="image/png,image/jpeg,image/webp" multiple data-comment-id="${commentId}">
+          <label class="btn btn-light btn-sm mb-0 comment-toolbar-icon-btn" title="Upload Image" aria-label="Upload Image">
+            <i class="bi bi-image"></i>
+            <input type="file" class="d-none reply-image-input" accept="image/png,image/jpeg,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip,application/x-zip-compressed" multiple data-comment-id="${commentId}">
           </label>
-          <small class="text-muted">Tip: paste screenshots with Ctrl+V.</small>
+          <label class="btn btn-light btn-sm mb-0 comment-toolbar-icon-btn" title="Upload Attachment" aria-label="Upload Attachment">
+            <i class="bi bi-paperclip"></i>
+            <input type="file" class="d-none reply-attachment-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip,application/x-zip-compressed" multiple data-comment-id="${commentId}">
+          </label>
+          <small class="text-muted">Tip: paste or drop files.</small>
         </div>
+        <div class="comment-submit-warning d-none reply-submit-warning">Please write a comment or attach a file before submitting.</div>
         <div class="reply-paste-previews"></div>
         <div class="progress reply-progress d-none" role="progressbar" aria-label="Reply upload progress">
           <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
@@ -4727,6 +4847,11 @@ $(function() {
   });
 
   $(document).on('input click', '#task-view-comment-input, .reply-input', function() {
+    if ($(this).is('#task-view-comment-input')) {
+      hideMainCommentWarning();
+    } else {
+      $(this).closest('.reply-form').find('.reply-submit-warning').addClass('d-none');
+    }
     if (this.disabled) return;
     const meta = extractMentionQuery(this);
     if (!meta) {
@@ -4786,18 +4911,47 @@ $(function() {
     if (!commentId || this.disabled) return;
     const clipboardData = e.originalEvent?.clipboardData;
     const items = Array.from(clipboardData?.items || []);
-    const imageItems = items.filter((item) => item.kind === 'file' && (item.type || '').toLowerCase().startsWith('image/'));
-    if (!imageItems.length) return;
+    const fileItems = items.filter((item) => item.kind === 'file');
+    let files = fileItems.map((item) => item.getAsFile()).filter(Boolean);
+    if (!files.length) {
+      files = Array.from(clipboardData?.files || []).filter(Boolean);
+    }
+    if (!files.length) return;
     e.preventDefault();
-    const files = imageItems.map((item) => item.getAsFile()).filter(Boolean);
-    await addReplyImages(commentId, files, $container);
+    $container.find('.reply-submit-warning').addClass('d-none');
+    await addReplyAttachments(commentId, files, $container);
   });
 
   $(document).on('change', '.reply-image-input', async function() {
     const commentId = $(this).data('comment-id');
     const $container = $(this).closest('.reply-form');
-    await addReplyImages(commentId, this.files || [], $container);
+    $container.find('.reply-submit-warning').addClass('d-none');
+    await addReplyAttachments(commentId, this.files || [], $container);
     this.value = '';
+  });
+
+  $(document).on('change', '.reply-attachment-input', async function() {
+    const commentId = $(this).data('comment-id');
+    const $container = $(this).closest('.reply-form');
+    $container.find('.reply-submit-warning').addClass('d-none');
+    await addReplyAttachments(commentId, this.files || [], $container);
+    this.value = '';
+  });
+
+  $(document).on('dragover', '.reply-input', function(e) {
+    if (this.disabled) return;
+    e.preventDefault();
+  });
+
+  $(document).on('drop', '.reply-input', async function(e) {
+    const $container = $(this).closest('.reply-form');
+    const commentId = $container.closest('.comment-item').data('id');
+    if (!commentId || this.disabled) return;
+    const files = e.originalEvent?.dataTransfer?.files;
+    if (!files || !files.length) return;
+    e.preventDefault();
+    $container.find('.reply-submit-warning').addClass('d-none');
+    await addReplyAttachments(commentId, files, $container);
   });
 
   $(document).on('click', '.reply-preview-remove', function() {
@@ -4820,12 +4974,16 @@ $(function() {
     const content = container.find('.reply-input').val().trim();
     const taskId = getCurrentTaskId();
     const draft = getReplyDraft(commentId);
-    if (!content && !draft.length) return;
+    if (!content && !draft.length) {
+      container.find('.reply-submit-warning').removeClass('d-none');
+      return;
+    }
+    container.find('.reply-submit-warning').addClass('d-none');
 
     const formData = new FormData();
     formData.append('content', content);
     draft.forEach((item) => {
-      formData.append('images', item.file, item.file.name);
+      formData.append('attachments', item.file, item.file.name);
     });
     const $progress = container.find('.reply-progress');
     const $progressBar = container.find('.reply-progress .progress-bar');
@@ -5046,38 +5204,6 @@ $(function() {
           showError("You do not have access to change this task's checklist.");
         } else {
           showError('Failed to update checklist status.');
-        }
-      }
-    });
-  });
-
-  $(document).on('change', '#task-view-upload', function() {
-        const taskId = getCurrentTaskId();
-    if (!taskId) return;
-
-    const fileInput = this;
-    if (!fileInput.files.length) return;
-
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
-
-    $.ajax({
-      url: `/task/${taskId}/attachment/add/`,
-      method: 'POST',
-      data: formData,
-      processData: false,
-      contentType: false,
-      success: function(resp) {
-        if (resp.success) {
-          fileInput.value = '';
-          loadTaskView(taskId);
-        }
-      },
-      error: function(xhr) {
-        if (xhr.status === 403) {
-          showError('You do not have access to upload attachments on this task.');
-        } else {
-          showError('Failed to upload attachment.');
         }
       }
     });

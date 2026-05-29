@@ -729,6 +729,20 @@
   background: #f8fafc;
 }
 
+.task-comment-file-thumb {
+  width: 100%;
+  height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.task-comment-file-thumb i {
+  font-size: 1.35rem;
+}
+
 .task-comment-paste-meta {
   padding: 0.25rem 0.4rem 0.35rem;
   font-size: 0.72rem;
@@ -770,9 +784,56 @@
 .task-comment-composer-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.comment-toolbar-icon-btn {
+  background: #245bad;
+  color: #ffffff;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid #1e4f98;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+}
+
+.comment-toolbar-icon-btn i {
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+.comment-toolbar-icon-btn:hover {
+  background: #1e4f98;
+  border-color: #194583;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.comment-toolbar-icon-btn:active {
+  background: #183e76;
+  border-color: #153766;
+  transform: translateY(0);
+}
+
+.comment-toolbar-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 0.18rem rgba(36, 91, 173, 0.28);
+}
+
+.comment-submit-warning {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: #b42318;
+  background: rgba(180, 35, 24, 0.08);
+  border: 1px solid rgba(180, 35, 24, 0.22);
+  border-radius: 8px;
+  padding: 0.32rem 0.5rem;
 }
 
 .task-comment-thread {
@@ -934,7 +995,7 @@
 .reply-form-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: normal;
   gap: 0.45rem;
   flex-wrap: wrap;
 }
@@ -955,16 +1016,17 @@
 
 .reply-preview-item {
   position: relative;
-  width: 90px;
+  width: 120px;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
+  background: #fff;
 }
 
 .reply-preview-thumb {
   display: block;
   width: 100%;
-  height: 70px;
+  height: 86px;
   object-fit: cover;
 }
 

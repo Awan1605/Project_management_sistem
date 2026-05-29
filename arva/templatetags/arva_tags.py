@@ -104,6 +104,7 @@ def unread_notification_count(user):
 
 
 MENTION_RE = re.compile(r'(^|\s)@([A-Za-z0-9_.+-]{2,150})')
+URL_RE = re.compile(r'(?P<url>(?:https?://|www\.)[^\s<]+)', re.IGNORECASE)
 
 
 @register.filter
@@ -121,7 +122,14 @@ def mentionize(value):
             return f'{prefix}<a href="/users/?q={username}" class="comment-mention">@{username}</a>'
         return f'{prefix}@{username}'
 
-    rendered = MENTION_RE.sub(_replace, escaped).replace('\n', '<br>')
+    rendered = MENTION_RE.sub(_replace, escaped)
+
+    def _url_replace(match):
+        url = (match.group('url') or '').strip()
+        href = url if url.lower().startswith(('http://', 'https://')) else f'https://{url}'
+        return f'<a href="{href}" target="_blank" rel="noopener noreferrer nofollow">{url}</a>'
+
+    rendered = URL_RE.sub(_url_replace, rendered).replace('\n', '<br>')
     return mark_safe(rendered)
 
 

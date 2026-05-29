@@ -21,7 +21,7 @@ from django.contrib.auth import get_user_model
 from django.utils.html import strip_tags
 
 from ..models import (
-    Project, ProjectMember, Task, TaskList, ActivityLog, Label, Comment, UserNotification,
+    Project, ProjectMember, Task, TaskList, ActivityLog, Label, Comment, Attachment, UserNotification,
 )
 from ..forms import TaskForm
 from ..utils import EmailThread
@@ -41,6 +41,26 @@ from .helpers import (
 )
 
 User = get_user_model()
+
+
+def _task_comment_attachment_stats(task):
+    """Count image/file attachments stored in main+reply comments for a task."""
+    attachments = Attachment.objects.filter(task=task, comment__isnull=False)
+    image_filter = (
+        Q(file__iendswith='.jpg') |
+        Q(file__iendswith='.jpeg') |
+        Q(file__iendswith='.png') |
+        Q(file__iendswith='.gif') |
+        Q(file__iendswith='.webp')
+    )
+    image_count = attachments.filter(image_filter).count()
+    total_count = attachments.count()
+    file_count = max(total_count - image_count, 0)
+    return {
+        'total_count': total_count,
+        'image_count': image_count,
+        'file_count': file_count,
+    }
 
 
 def _notify_new_assignees(task, actor, previous_assignee_ids=None):
@@ -580,6 +600,7 @@ def task_view(request, task_id):
         ),
     )
     task_attachments = task.attachments.filter(comment__isnull=True)
+    attachment_stats = _task_comment_attachment_stats(task)
     task_comment_count = task.comments.filter(parent__isnull=True).count()
     task_reply_count = task.comments.filter(parent__isnull=False).count()
 
@@ -611,7 +632,17 @@ def task_view(request, task_id):
         'project_is_closed': is_project_locked(project),
     }, request=request)
 
-    return JsonResponse({'success': True, 'html': html})
+    return JsonResponse({
+        'success': True,
+        'html': html,
+        'stats': {
+            'comment_count': task_comment_count,
+            'reply_count': task_reply_count,
+            'attachment_count': attachment_stats['total_count'],
+            'image_count': attachment_stats['image_count'],
+            'file_count': attachment_stats['file_count'],
+        },
+    })
 
 
 @login_required
@@ -643,6 +674,7 @@ def task_detail(request, task_id):
         ),
     )
     task_attachments = task.attachments.filter(comment__isnull=True)
+    attachment_stats = _task_comment_attachment_stats(task)
     task_comment_count = task.comments.filter(parent__isnull=True).count()
     task_reply_count = task.comments.filter(parent__isnull=False).count()
 
@@ -669,7 +701,9 @@ def task_detail(request, task_id):
         'checklist_percent': percent,
         'root_comments': comments,
         'task_attachments': task_attachments,
-        'task_attachment_count': task_attachments.count(),
+        'task_attachment_count': attachment_stats['total_count'],
+        'task_image_attachment_count': attachment_stats['image_count'],
+        'task_file_attachment_count': attachment_stats['file_count'],
         'task_comment_count': task_comment_count,
         'task_reply_count': task_reply_count,
         "view_only": view_only,

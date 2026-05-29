@@ -92,40 +92,22 @@
   {% endif %}
 
   <section class="task-structured-section mb-3">
-    <h6 class="fw-semibold mb-2">Attachments</h6>
-    {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in task.assignees.all %}
-    <input type="file" id="task-view-upload" class="form-control mb-2" {% if view_only or project_is_closed %}disabled{% endif %}>
-    {% endif %}
-      <ul class="list-unstyled mb-0">
-      {% for att in task_attachments %}
-      <li class="d-flex align-items-center mb-2" data-id="{{ att.id }}">
-        <div class="attachment-file">
-          <i class="bi bi-paperclip me-1"></i>
-          <a href="{{ att.file.url }}" target="_blank">{{ att.file.name|slice:"30" }}</a>
-        </div>
-        <small class="text-muted ms-2">({{ att.uploaded_at|date:"d M Y H:i" }})</small>
-        {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in task.assignees.all %}
-        <button class="btn btn-sm btn-light text-danger ms-auto btn-delete-attachment">x</button>
-        {% endif %}
-      </li>
-      {% empty %}
-      <small class="text-muted">There are no attachments yet.</small>
-      {% endfor %}
-    </ul>
-  </section>
-
-  <section class="task-structured-section mb-3">
     <h6 class="fw-semibold mb-2"><i class="bi bi-chat-left-text"></i>Comments & Discussion</h6>
     <div class="task-comment-composer">
       <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if view_only or project_is_closed %}disabled{% endif %}></textarea>
       <div class="task-comment-composer-toolbar mt-2">
-        <label class="btn btn-light btn-sm mb-0 {% if view_only or project_is_closed %}disabled{% endif %}">
-          <i class="bi bi-image me-1"></i>Add image
-          <input type="file" id="task-view-comment-image-input" class="d-none" accept="image/png,image/jpeg,image/webp" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
+        <label class="btn btn-light btn-sm mb-0 comment-toolbar-icon-btn {% if view_only or project_is_closed %}disabled{% endif %}" title="Upload Image" aria-label="Upload Image">
+          <i class="bi bi-image"></i>
+          <input type="file" id="task-view-comment-image-input" class="d-none" accept="image/png,image/jpeg,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip,application/x-zip-compressed" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
         </label>
-        <small class="text-muted">Tip: paste screenshots with Ctrl+V.</small>
+        <label class="btn btn-light btn-sm mb-0 comment-toolbar-icon-btn {% if view_only or project_is_closed %}disabled{% endif %}" title="Upload Attachment" aria-label="Upload Attachment">
+          <i class="bi bi-paperclip"></i>
+          <input type="file" id="task-view-comment-attachment-input" class="d-none" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip,application/x-zip-compressed" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
+        </label>
+        <small class="text-muted">Paste/drop files supported.</small>
       </div>
     </div>
+    <div class="comment-submit-warning d-none" id="task-comment-warning">Please write a comment or attach a file before submitting.</div>
     <div class="task-comment-paste-previews mt-2"></div>
     <div class="progress task-comment-upload-progress mt-2 d-none" role="progressbar" aria-label="Comment upload progress">
       <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
@@ -277,40 +259,22 @@
     </div>
 
     <div class="section-box">
-      <h6 class="fw-semibold">Attachments</h6>
-      {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in task.assignees.all %}
-      <input type="file" id="task-view-upload" class="form-control mb-2" {% if view_only or project_is_closed %}disabled{% endif %}>
-      {% endif %}
-      <ul class="list-unstyled">
-        {% for att in task_attachments %}
-        <li class="d-flex align-items-center mb-2" data-id="{{ att.id }}">
-          <div class="attachment-file">
-            <i class="bi bi-paperclip me-1"></i>
-            <a href="{{ att.file.url }}" target="_blank">{{ att.file.name|slice:"30" }}</a>
-          </div>
-          <small class="text-muted ms-2">({{ att.uploaded_at|date:"d M Y H:i" }})</small>
-          {% if not project_is_closed and user_role == 'admin' or not project_is_closed and user in task.assignees.all %}
-          <button class="btn btn-sm btn-light text-danger ms-auto btn-delete-attachment">x</button>
-          {% endif %}
-        </li>
-        {% empty %}
-        <small class="text-muted">There are no attachments yet.</small>
-        {% endfor %}
-      </ul>
-    </div>
-
-    <div class="section-box">
       <h6 class="fw-semibold"><i class="bi bi-chat-left-text"></i>Comments & Discussion</h6>
       <div class="task-comment-composer">
         <textarea id="task-view-comment-input" class="form-control" rows="3" placeholder="Add a comment..." {% if view_only or project_is_closed %}disabled{% endif %}></textarea>
         <div class="task-comment-composer-toolbar mt-2">
-          <label class="btn btn-light btn-sm mb-0 {% if view_only or project_is_closed %}disabled{% endif %}">
-            <i class="bi bi-image me-1"></i>Add image
-            <input type="file" id="task-view-comment-image-input" class="d-none" accept="image/png,image/jpeg,image/webp" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
+          <label class="btn btn-light btn-sm mb-0 comment-toolbar-icon-btn {% if view_only or project_is_closed %}disabled{% endif %}" title="Upload Image" aria-label="Upload Image">
+            <i class="bi bi-image"></i>
+            <input type="file" id="task-view-comment-image-input" class="d-none" accept="image/png,image/jpeg,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip,application/x-zip-compressed" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
           </label>
-          <small class="text-muted">Tip: paste screenshots with Ctrl+V.</small>
+          <label class="btn btn-light btn-sm mb-0 comment-toolbar-icon-btn {% if view_only or project_is_closed %}disabled{% endif %}" title="Upload Attachment" aria-label="Upload Attachment">
+            <i class="bi bi-paperclip"></i>
+            <input type="file" id="task-view-comment-attachment-input" class="d-none" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip,application/x-zip-compressed" multiple {% if view_only or project_is_closed %}disabled{% endif %}>
+          </label>
+          <small class="text-muted">Paste/drop files supported.</small>
         </div>
       </div>
+      <div class="comment-submit-warning d-none" id="task-comment-warning">Please write a comment or attach a file before submitting.</div>
       <div class="task-comment-paste-previews mt-2"></div>
       <div class="progress task-comment-upload-progress mt-2 d-none" role="progressbar" aria-label="Comment upload progress">
         <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>

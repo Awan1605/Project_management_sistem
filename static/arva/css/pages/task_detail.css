@@ -293,11 +293,6 @@ body[data-theme='dark'] .task-page-lock-banner {
   background: #fff;
 }
 
-.task-detail-body .attachment-file {
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  background: #fff;
-}
-
 .task-detail-body .task-activity-scroll {
   border: 1px solid rgba(15, 23, 42, 0.08) !important;
   background: #fff;
@@ -375,8 +370,6 @@ body.layout-sidebar.theme-dark .task-detail-workspace .card-body,
 body[data-theme='dark'] .task-detail-workspace .card-body,
 body.layout-sidebar.theme-dark .task-detail-body #task-view-comments .comment-box,
 body[data-theme='dark'] .task-detail-body #task-view-comments .comment-box,
-body.layout-sidebar.theme-dark .task-detail-body .attachment-file,
-body[data-theme='dark'] .task-detail-body .attachment-file,
 body.layout-sidebar.theme-dark .task-detail-body .task-activity-scroll,
 body[data-theme='dark'] .task-detail-body .task-activity-scroll {
   background: rgba(15, 23, 42, 0.72);

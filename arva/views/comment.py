@@ -4,6 +4,7 @@ Views Komentar, Lampiran, dan Checklist
 Menangani operasi terkait komentar, balasan, lampiran, dan checklist pada task.
 """
 
+import os
 import re
 
 from django.contrib import messages
@@ -29,25 +30,37 @@ from ..forms import AttachmentForm, ChecklistItemForm
 
 ALLOWED_COMMENT_IMAGE_TYPES = {'image/png', 'image/jpeg', 'image/webp'}
 ALLOWED_COMMENT_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
-MAX_COMMENT_IMAGE_SIZE = 5 * 1024 * 1024
-MAX_COMMENT_IMAGE_COUNT = 5
+ALLOWED_COMMENT_FILE_TYPES = {
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'application/zip',
+    'application/x-zip-compressed',
+}
+ALLOWED_COMMENT_FILE_EXTENSIONS = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.zip'}
+MAX_COMMENT_ATTACHMENT_SIZE = 10 * 1024 * 1024
+MAX_COMMENT_ATTACHMENT_COUNT = 10
 MENTION_PATTERN = re.compile(r'(^|\s)@([A-Za-z0-9_.+-]{2,150})')
 User = get_user_model()
 
 
-def _validate_comment_images(images):
-    if len(images) > MAX_COMMENT_IMAGE_COUNT:
-        return f'Maximum {MAX_COMMENT_IMAGE_COUNT} pasted images per comment.'
+def _validate_comment_attachments(files):
+    if len(files) > MAX_COMMENT_ATTACHMENT_COUNT:
+        return f'Maximum {MAX_COMMENT_ATTACHMENT_COUNT} attachments per comment.'
 
-    for image in images:
-        name = get_valid_filename(image.name or 'pasted-image')
-        lowered = name.lower()
-        extension = f".{lowered.split('.')[-1]}" if '.' in lowered else ''
-        content_type = (getattr(image, 'content_type', '') or '').lower()
-        if content_type not in ALLOWED_COMMENT_IMAGE_TYPES and extension not in ALLOWED_COMMENT_IMAGE_EXTENSIONS:
-            return 'Only PNG, JPG, and WEBP images are allowed.'
-        if image.size > MAX_COMMENT_IMAGE_SIZE:
-            return 'Each pasted image must be 5 MB or smaller.'
+    for uploaded in files:
+        filename = get_valid_filename(uploaded.name or 'attachment')
+        extension = os.path.splitext(filename.lower())[1]
+        content_type = (getattr(uploaded, 'content_type', '') or '').lower()
+        is_image = content_type in ALLOWED_COMMENT_IMAGE_TYPES or extension in ALLOWED_COMMENT_IMAGE_EXTENSIONS
+        is_document = content_type in ALLOWED_COMMENT_FILE_TYPES or extension in ALLOWED_COMMENT_FILE_EXTENSIONS
+        if not (is_image or is_document):
+            return 'Unsupported file type. Allowed: PNG/JPG/WEBP, PDF, DOC/DOCX, XLS/XLSX, TXT, ZIP.'
+        if uploaded.size > MAX_COMMENT_ATTACHMENT_SIZE:
+            return 'Each attachment must be 10 MB or smaller.'
     return None
 
 
@@ -161,21 +174,21 @@ def comment_add(request, task_id):
         return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this task.', code='task_permission_forbidden')
 
     content = (request.POST.get('content') or '').strip()
-    images = request.FILES.getlist('images')
+    attachments = request.FILES.getlist('attachments') or request.FILES.getlist('images')
 
-    image_error = _validate_comment_images(images)
-    if image_error:
-        return JsonResponse({'success': False, 'error': image_error}, status=400)
+    attachment_error = _validate_comment_attachments(attachments)
+    if attachment_error:
+        return JsonResponse({'success': False, 'error': attachment_error}, status=400)
 
-    if not content and not images:
-        return JsonResponse({'success': False, 'error': 'Comment or image is required.'}, status=400)
+    if not content and not attachments:
+        return JsonResponse({'success': False, 'error': 'Comment or attachment is required.'}, status=400)
 
-    if not content and images:
-        content = 'Image attachment'
+    if not content and attachments:
+        content = 'Attachment'
 
     comment = Comment.objects.create(task=task, user=request.user, content=content)
-    for image in images:
-        Attachment.objects.create(task=task, comment=comment, uploaded_by=request.user, file=image)
+    for uploaded in attachments:
+        Attachment.objects.create(task=task, comment=comment, uploaded_by=request.user, file=uploaded)
     _create_mention_notifications(project, task, request.user, comment)
 
     ActivityLog.objects.create(
@@ -205,14 +218,14 @@ def comment_reply(request, comment_id):
         return permission_denied_response(request, 'Access denied. Only project admins or task assignees can reply to comments.', code='comment_reply_forbidden')
 
     content = request.POST.get("content", "").strip()
-    images = request.FILES.getlist('images')
-    image_error = _validate_comment_images(images)
-    if image_error:
-        return JsonResponse({'success': False, 'error': image_error}, status=400)
-    if not content and not images:
-        return JsonResponse({'success': False, 'error': 'Reply or image is required.'}, status=400)
-    if not content and images:
-        content = 'Image attachment'
+    attachments = request.FILES.getlist('attachments') or request.FILES.getlist('images')
+    attachment_error = _validate_comment_attachments(attachments)
+    if attachment_error:
+        return JsonResponse({'success': False, 'error': attachment_error}, status=400)
+    if not content and not attachments:
+        return JsonResponse({'success': False, 'error': 'Reply or attachment is required.'}, status=400)
+    if not content and attachments:
+        content = 'Attachment'
 
     new_comment = Comment.objects.create(
         task=task,
@@ -220,8 +233,8 @@ def comment_reply(request, comment_id):
         parent=parent,
         content=content
     )
-    for image in images:
-        Attachment.objects.create(task=task, comment=new_comment, uploaded_by=request.user, file=image)
+    for uploaded in attachments:
+        Attachment.objects.create(task=task, comment=new_comment, uploaded_by=request.user, file=uploaded)
     _create_mention_notifications(project, task, request.user, new_comment)
 
     ActivityLog.objects.create(
@@ -255,8 +268,8 @@ def comment_delete(request, comment_id):
         return closed_project_error(request, action='modify task comments/checklist/attachments')
     role = get_role(request.user, project)
 
-    # Hanya pemilik komentar atau owner project yang boleh menghapus
-    if not (comment.user_id == request.user.id or project.owner_id == request.user.id):
+    # Hanya pemilik komentar yang boleh menghapus komentar (termasuk reply).
+    if comment.user_id != request.user.id:
         return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this project task.', code='task_permission_forbidden')
 
     ActivityLog.objects.create(
@@ -278,8 +291,7 @@ def comment_edit(request, comment_id):
     if is_project_locked(project):
         return closed_project_error(request, action='add comments')
 
-    role = get_role(request.user, project)
-    if not (comment.user_id == request.user.id or project.owner_id == request.user.id or role == 'admin'):
+    if comment.user_id != request.user.id:
         return permission_denied_response(request, 'Access denied. You do not have permission to perform this action on this project task.', code='task_permission_forbidden')
 
     content = (request.POST.get('content') or '').strip()
