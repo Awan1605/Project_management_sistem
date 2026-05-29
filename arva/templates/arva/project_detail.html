@@ -580,7 +580,7 @@
               <div>
                 <label class="form-label">End Date</label>
                 <input type="date" name="due_date" id="list-task-end-date" class="form-control form-control-sm">
-                {% if project.etd %}
+                {% if project.is_project and project.etd %}
                 <div class="small text-muted mt-1">Project ETD: {{ project.etd|date:"d M Y" }}</div>
                 {% endif %}
                 <div class="invalid-feedback d-block d-none" id="list-task-end-date-feedback"></div>

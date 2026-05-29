@@ -201,7 +201,7 @@
 </div>
 
 {% if not view_only and not project_is_closed %}
-<div class="modal fade task-edit-modal task-edit-modal--drawer" id="taskEditModal" tabindex="-1" aria-hidden="true" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}">
+<div class="modal fade task-edit-modal task-edit-modal--drawer" id="taskEditModal" tabindex="-1" aria-hidden="true" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}" data-project-is-project="{{ project_is_project|yesno:'1,0' }}">
   <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
@@ -244,7 +244,7 @@
             <div class="col-md-6">
               <label class="form-label small text-muted">End Date</label>
               <input type="date" id="task-edit-due-date" class="form-control form-control-sm" value="{{ task.due_date|date:'Y-m-d' }}">
-              {% if project.etd %}
+              {% if project_is_project and project.etd %}
               <div class="small text-muted mt-1">Project ETD: {{ project.etd|date:"d M Y" }}</div>
               {% endif %}
               <div class="invalid-feedback d-block d-none" id="task-edit-due-feedback"></div>

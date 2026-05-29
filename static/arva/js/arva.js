@@ -2639,6 +2639,16 @@ $(function() {
     const listCreateSubmitBtn = document.getElementById('list-task-create-submit');
     const validateCreateTaskDueDateRealtime = () => {
       if (!listEndDateInput) return true;
+      const isStructuredProject = (getBoardRoot()?.dataset.isProject || '0') === '1';
+      if (!isStructuredProject) {
+        listEndDateInput.classList.remove('is-invalid');
+        if (listEndDateFeedback) {
+          listEndDateFeedback.classList.add('d-none');
+          listEndDateFeedback.textContent = '';
+        }
+        if (listCreateSubmitBtn && createForm?.dataset.submitting !== '1') listCreateSubmitBtn.disabled = false;
+        return true;
+      }
       const etd = (getBoardRoot()?.dataset.projectEtd || '').trim();
       const due = (listEndDateInput.value || '').trim();
       if (!etd || !due || due <= etd) {
@@ -4232,11 +4242,18 @@ $(function() {
   function validateTaskEditDueDateRealtime() {
     const $modal = $('#taskEditModal');
     if (!$modal.length) return true;
+    const isStructuredProject = String($modal.data('project-is-project') || '') === '1';
     const etd = ($modal.data('project-etd') || '').toString().trim();
     const $due = $('#task-edit-due-date');
     const $feedback = $('#task-edit-due-feedback');
     const $saveBtn = $('#btn-save-task-edit');
     const due = ($due.val() || '').toString().trim();
+    if (!isStructuredProject) {
+      $due.removeClass('is-invalid');
+      $feedback.addClass('d-none').text('');
+      $saveBtn.prop('disabled', false);
+      return true;
+    }
     if (!etd || !due || due <= etd) {
       $due.removeClass('is-invalid');
       $feedback.addClass('d-none').text('');
