@@ -19,6 +19,7 @@ from django.db.models import Q, Max, Prefetch, Case, When, IntegerField, Value, 
 from django.db.models.functions import Concat, Lower
 from django.contrib.auth import get_user_model
 from django.utils.html import strip_tags
+from django.core.cache import cache
 
 from ..models import (
     Project, ProjectMember, Task, TaskList, ActivityLog, Label, Comment, Attachment, UserNotification,
@@ -307,6 +308,26 @@ def _apply_task_search_sort(queryset, sort_mode):
     return tasks.order_by('_status_priority', '-created_at', '-id')
 
 
+def _task_create_response_payload(task, project, request):
+    html = render_to_string('arva/_task_card.html', {
+        'task': task,
+        'project': project,
+        'user_role': get_role(request.user, project),
+    }, request=request)
+    list_row_html = render_to_string('arva/_task_list_row.html', {
+        'task': task,
+        'project': project,
+        'user_role': get_role(request.user, project),
+    }, request=request)
+    return {
+        'success': True,
+        'html': html,
+        'list_row_html': list_row_html,
+        'task_id': task.id,
+        'task_list_id': task.task_list_id,
+    }
+
+
 # ============================================================
 # TASK BOARD VIEWS
 # ============================================================
@@ -525,6 +546,16 @@ def task_create(request, pk):
             return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
 
     data = request.POST.copy()
+    idempotency_key = (request.headers.get('X-Idempotency-Key') or '').strip()
+    if idempotency_key:
+        cache_key = f'arva:task-create:{request.user.id}:{pk}:{idempotency_key}'
+        cached_task_id = cache.get(cache_key)
+        if cached_task_id:
+            existing_task = Task.objects.filter(id=cached_task_id, project=project).first()
+            if existing_task:
+                payload = _task_create_response_payload(existing_task, project, request)
+                payload['duplicate_prevented'] = True
+                return JsonResponse(payload)
     if project.is_project:
         data.setlist('labels', [])
         data.pop('cover_color', None)
@@ -551,23 +582,9 @@ def task_create(request, pk):
             user=request.user, project=project, task=task,
             action='task_created', description=f"Task '{task.title}' created"
         )
-        html = render_to_string('arva/_task_card.html', {
-            'task': task,
-            'project': project,
-            'user_role': get_role(request.user, project),
-        }, request=request)
-        list_row_html = render_to_string('arva/_task_list_row.html', {
-            'task': task,
-            'project': project,
-            'user_role': get_role(request.user, project),
-        }, request=request)
-        return JsonResponse({
-            'success': True,
-            'html': html,
-            'list_row_html': list_row_html,
-            'task_id': task.id,
-            'task_list_id': task.task_list_id,
-        })
+        if idempotency_key:
+            cache.set(cache_key, task.id, timeout=20)
+        return JsonResponse(_task_create_response_payload(task, project, request))
     return JsonResponse({'success': False, 'errors': form.errors}, status=400)
 
 

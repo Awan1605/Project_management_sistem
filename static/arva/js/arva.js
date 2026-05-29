@@ -33,6 +33,11 @@ function getCookie(name) {
   }
   return cookieValue;
 }
+
+function createRequestIdempotencyKey(prefix = 'req') {
+  const seed = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${seed}`;
+}
 const csrftoken = getCookie('csrftoken');
 $.ajaxSetup({
   headers: {
@@ -2447,6 +2452,8 @@ $(function() {
       }
 
       const fd = new FormData(createForm);
+      const submitBtn = createForm.querySelector('button[type="submit"]');
+      if (createForm.dataset.submitting === '1') return;
       const title = (fd.get('title') || '').toString().trim();
       const listId = (fd.get('task_list_id') || '').toString();
       if (!title) return showError('Task title is required.');
@@ -2464,11 +2471,18 @@ $(function() {
         if (projectEtd && endDate > projectEtd) return showError('End Date must not exceed project ETD.');
       }
 
+      createForm.dataset.submitting = '1';
+      const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Creating...';
+      }
       fetch(`/project/${projectId}/task/create/`, {
         method: 'POST',
         headers: {
           'X-CSRFToken': (document.querySelector('#list-view-task-create-form [name=csrfmiddlewaretoken]')?.value || ''),
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Idempotency-Key': createRequestIdempotencyKey('task-create-modal'),
         },
         body: fd
       }).then((resp) => resp.json()).then((resp) => {
@@ -2498,7 +2512,15 @@ $(function() {
         }
         const modalEl = document.getElementById('listTaskCreateModal');
         bootstrap.Modal.getInstance(modalEl)?.hide();
-      }).catch(() => showError('Failed to create task.'));
+        showSuccess('Task created successfully.');
+      }).catch(() => showError('Failed to create task.'))
+      .finally(() => {
+        createForm.dataset.submitting = '0';
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml || 'Create Task';
+        }
+      });
     });
   }
 
@@ -3087,6 +3109,7 @@ $(function() {
   $(document).on('submit', '.add-card-form', function(e) {
     e.preventDefault();
     const $form = $(this);
+    if ($form.data('submitting')) return;
     const title = $form.find('textarea[name="title"]').val().trim();
     if (!title) return;
 
@@ -3095,8 +3118,18 @@ $(function() {
 
     const data = $form.serialize() + `&task_list_id=${listId}`;
 
-    $.post({
+    const $submitBtn = $form.find('button[type="submit"]').first();
+    const originalBtnHtml = $submitBtn.length ? $submitBtn.html() : '';
+    $form.data('submitting', true);
+    if ($submitBtn.length) {
+      $submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Creating...');
+    }
+    $.ajax({
       url: `/project/${projectId}/task/create/`,
+      method: 'POST',
+      headers: {
+        'X-Idempotency-Key': createRequestIdempotencyKey('task-create-quick'),
+      },
       data: data,
       success: function(resp) {
         if (resp.success) {
@@ -3107,6 +3140,7 @@ $(function() {
           checkEmptyState($(resp.target));
           $form[0].reset();
           initSortable();
+          showSuccess('Task created successfully.');
         }
       },
       error: function(xhr) {
@@ -3116,6 +3150,12 @@ $(function() {
           showError(xhr.responseJSON.error);
         } else {
           showError('Failed to create task');
+        }
+      },
+      complete: function() {
+        $form.data('submitting', false);
+        if ($submitBtn.length) {
+          $submitBtn.prop('disabled', false).html(originalBtnHtml || 'Add Card');
         }
       }
     });

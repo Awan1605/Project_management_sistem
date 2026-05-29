@@ -447,7 +447,7 @@ body[data-theme='dark'] .task-detail-description {
 .task-detail-body .task-comment-composer-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.6rem;
 }
 
