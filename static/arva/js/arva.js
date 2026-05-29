@@ -2114,9 +2114,170 @@ $(function() {
 
     const storageKey = 'arva_project_detail_view_mode';
     const sortState = { key: '', dir: 'asc' };
+    const createTaskAttachmentState = [];
+    const CREATE_TASK_ATTACHMENT_MAX_COUNT = 10;
+    const CREATE_TASK_ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024;
+    const CREATE_TASK_IMAGE_ALLOWED_TYPES = new Set([
+      'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+    ]);
+    const CREATE_TASK_IMAGE_ALLOWED_EXT = new Set([
+      '.png', '.jpg', '.jpeg', '.gif', '.webp'
+    ]);
+    const CREATE_TASK_ATTACHMENT_ALLOWED_TYPES = new Set([
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'application/zip',
+      'application/x-zip-compressed',
+    ]);
+    const CREATE_TASK_ATTACHMENT_ALLOWED_EXT = new Set([
+      '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.zip'
+    ]);
 
     function getBoardRoot() {
       return document.getElementById('task-board');
+    }
+
+    function getCreateTaskAttachmentFileExt(name) {
+      const value = String(name || '').toLowerCase().trim();
+      const idx = value.lastIndexOf('.');
+      if (idx < 0) return '';
+      return value.slice(idx);
+    }
+
+    function isAllowedCreateTaskAttachment(file) {
+      if (!file) return false;
+      const type = (file.type || '').toLowerCase();
+      const ext = getCreateTaskAttachmentFileExt(file.name || '');
+      return CREATE_TASK_ATTACHMENT_ALLOWED_TYPES.has(type) || CREATE_TASK_ATTACHMENT_ALLOWED_EXT.has(ext);
+    }
+
+    function isAllowedCreateTaskImage(file) {
+      if (!file) return false;
+      const type = (file.type || '').toLowerCase();
+      const ext = getCreateTaskAttachmentFileExt(file.name || '');
+      return CREATE_TASK_IMAGE_ALLOWED_TYPES.has(type) || CREATE_TASK_IMAGE_ALLOWED_EXT.has(ext);
+    }
+
+    function resetCreateTaskAttachments() {
+      createTaskAttachmentState.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      createTaskAttachmentState.length = 0;
+      const wrap = document.getElementById('list-task-attachment-previews');
+      if (wrap) wrap.innerHTML = '';
+      const warning = document.getElementById('list-task-attachment-warning');
+      if (warning) {
+        warning.classList.add('d-none');
+        warning.textContent = '';
+      }
+    }
+
+    function showCreateTaskAttachmentWarning(message) {
+      const warning = document.getElementById('list-task-attachment-warning');
+      if (!warning) return;
+      if (!message) {
+        warning.classList.add('d-none');
+        warning.textContent = '';
+        return;
+      }
+      warning.classList.remove('d-none');
+      warning.textContent = message;
+    }
+
+    function renderCreateTaskAttachmentPreviews() {
+      const wrap = document.getElementById('list-task-attachment-previews');
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      createTaskAttachmentState.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'task-comment-paste-item';
+        const isImage = !!item.previewUrl;
+        if (isImage) {
+          const img = document.createElement('img');
+          img.className = 'task-comment-paste-thumb';
+          img.src = item.previewUrl;
+          img.alt = 'Attachment preview';
+          card.appendChild(img);
+        } else {
+          const iconWrap = document.createElement('div');
+          iconWrap.className = 'task-comment-file-thumb';
+          iconWrap.innerHTML = '<i class="bi bi-file-earmark text-secondary"></i>';
+          card.appendChild(iconWrap);
+        }
+        const meta = document.createElement('div');
+        meta.className = 'task-comment-paste-meta';
+        meta.textContent = `${item.file.name} (${formatCommentBytes(item.file.size)})`;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'task-comment-paste-remove';
+        remove.title = 'Remove attachment';
+        remove.setAttribute('data-list-task-attachment-remove', String(index));
+        remove.innerHTML = '<i class="bi bi-x"></i>';
+        card.appendChild(meta);
+        card.appendChild(remove);
+        wrap.appendChild(card);
+      });
+    }
+
+    async function addCreateTaskAttachments(files) {
+      if (!files || !files.length) return;
+      showCreateTaskAttachmentWarning('');
+      const remaining = Math.max(0, CREATE_TASK_ATTACHMENT_MAX_COUNT - createTaskAttachmentState.length);
+      if (!remaining) {
+        showCreateTaskAttachmentWarning(`Maximum ${CREATE_TASK_ATTACHMENT_MAX_COUNT} attachments.`);
+        return;
+      }
+      const selected = Array.from(files).slice(0, remaining);
+      for (const rawFile of selected) {
+        if (!isAllowedCreateTaskAttachment(rawFile)) {
+          showCreateTaskAttachmentWarning('Unsupported file type.');
+          continue;
+        }
+        if (rawFile.size > CREATE_TASK_ATTACHMENT_MAX_SIZE) {
+          showCreateTaskAttachmentWarning('Each attachment must be 10 MB or smaller.');
+          continue;
+        }
+        createTaskAttachmentState.push({
+          file: rawFile,
+          previewUrl: null,
+        });
+      }
+      renderCreateTaskAttachmentPreviews();
+    }
+
+    async function addCreateTaskImages(files) {
+      if (!files || !files.length) return;
+      showCreateTaskAttachmentWarning('');
+      const remaining = Math.max(0, CREATE_TASK_ATTACHMENT_MAX_COUNT - createTaskAttachmentState.length);
+      if (!remaining) {
+        showCreateTaskAttachmentWarning(`Maximum ${CREATE_TASK_ATTACHMENT_MAX_COUNT} attachments.`);
+        return;
+      }
+      const selected = Array.from(files).slice(0, remaining);
+      for (const rawFile of selected) {
+        if (!isAllowedCreateTaskImage(rawFile)) {
+          showCreateTaskAttachmentWarning('Unsupported image type.');
+          continue;
+        }
+        if (rawFile.size > CREATE_TASK_ATTACHMENT_MAX_SIZE) {
+          showCreateTaskAttachmentWarning('Each attachment must be 10 MB or smaller.');
+          continue;
+        }
+        try {
+          const compressed = await compressPastedImage(rawFile);
+          createTaskAttachmentState.push({
+            file: compressed,
+            previewUrl: URL.createObjectURL(compressed),
+          });
+        } catch (err) {
+          showCreateTaskAttachmentWarning(err?.message || 'Failed to process image.');
+        }
+      }
+      renderCreateTaskAttachmentPreviews();
     }
 
     function isProjectLocked() {
@@ -2178,6 +2339,7 @@ $(function() {
       const projectEtd = (root?.dataset.projectEtd || '').trim();
       if (!listInput || !form) return;
       form.reset();
+      resetCreateTaskAttachments();
       const descRoot = form.querySelector('[data-task-rich-editor]');
       const descInput = descRoot?.querySelector('[data-editor-input]');
       const descTextarea = descRoot?.querySelector('[data-editor-textarea]');
@@ -2195,6 +2357,12 @@ $(function() {
       if (endDateInput) {
         endDateInput.required = false;
         endDateInput.removeAttribute('max');
+        endDateInput.classList.remove('is-invalid');
+        const feedback = document.getElementById('list-task-end-date-feedback');
+        if (feedback) {
+          feedback.classList.add('d-none');
+          feedback.textContent = '';
+        }
       }
       if (prioritySelect) prioritySelect.required = false;
       if (workStatusSelect) workStatusSelect.required = false;
@@ -2236,6 +2404,9 @@ $(function() {
       } else {
         if (prioritySelect) prioritySelect.value = 'p2';
         if (workStatusSelect) workStatusSelect.value = '-';
+      }
+      if (typeof validateCreateTaskDueDateRealtime === 'function') {
+        validateCreateTaskDueDateRealtime();
       }
       const modalEl = document.getElementById('listTaskCreateModal');
       if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -2418,6 +2589,34 @@ $(function() {
     const listStartDateInput = document.getElementById('list-task-start-date');
     const listStartDateTbdInput = document.getElementById('list-task-start-date-tbd');
     const listEndDateInput = document.getElementById('list-task-end-date');
+    const listEndDateFeedback = document.getElementById('list-task-end-date-feedback');
+    const listCreateSubmitBtn = document.getElementById('list-task-create-submit');
+    const validateCreateTaskDueDateRealtime = () => {
+      if (!listEndDateInput) return true;
+      const etd = (getBoardRoot()?.dataset.projectEtd || '').trim();
+      const due = (listEndDateInput.value || '').trim();
+      if (!etd || !due || due <= etd) {
+        listEndDateInput.classList.remove('is-invalid');
+        if (listEndDateFeedback) {
+          listEndDateFeedback.classList.add('d-none');
+          listEndDateFeedback.textContent = '';
+        }
+        if (listCreateSubmitBtn && createForm?.dataset.submitting !== '1') listCreateSubmitBtn.disabled = false;
+        return true;
+      }
+      const etdDate = new Date(`${etd}T00:00:00`);
+      const etdText = Number.isNaN(etdDate.getTime())
+        ? etd
+        : etdDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      const msg = `Task End Date must be on or before the Project ETD (${etdText}).`;
+      listEndDateInput.classList.add('is-invalid');
+      if (listEndDateFeedback) {
+        listEndDateFeedback.classList.remove('d-none');
+        listEndDateFeedback.textContent = msg;
+      }
+      if (listCreateSubmitBtn) listCreateSubmitBtn.disabled = true;
+      return false;
+    };
     if (listStartDateInput && listStartDateTbdInput) {
       const syncListStartDateTbd = () => {
         if (listStartDateTbdInput.checked) {
@@ -2432,6 +2631,10 @@ $(function() {
         syncListStartDateTbd();
       });
       syncListStartDateTbd();
+    }
+    if (listEndDateInput) {
+      listEndDateInput.addEventListener('change', validateCreateTaskDueDateRealtime);
+      listEndDateInput.addEventListener('input', validateCreateTaskDueDateRealtime);
     }
     createForm?.addEventListener('submit', function(e) {
       e.preventDefault();
@@ -2462,14 +2665,24 @@ $(function() {
       const startDate = (fd.get('start_date') || '').toString();
       const startDateTbd = !!fd.get('start_date_tbd');
       const endDate = (fd.get('due_date') || '').toString();
+      if (!validateCreateTaskDueDateRealtime()) return;
       if (isStructuredProject) {
         if (!assignees.length) return showError('Assignee is required.');
         if (assignees.length > 1) return showError('Only one assignee is allowed.');
         if (!startDate && !startDateTbd) return showError('Start Date is required or mark it as TBD.');
         if (!endDate) return showError('End Date is required.');
         if (startDate && endDate && endDate < startDate) return showError('End Date cannot be earlier than Start Date.');
-        if (projectEtd && endDate > projectEtd) return showError('End Date must not exceed project ETD.');
+        if (projectEtd && endDate > projectEtd) {
+          const etdDate = new Date(`${projectEtd}T00:00:00`);
+          const etdText = Number.isNaN(etdDate.getTime())
+            ? projectEtd
+            : etdDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+          return showError(`Task End Date must be on or before the Project ETD (${etdText}).`);
+        }
       }
+      createTaskAttachmentState.forEach((item) => {
+        fd.append('attachments', item.file, item.file.name);
+      });
 
       createForm.dataset.submitting = '1';
       const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
@@ -2512,15 +2725,88 @@ $(function() {
         }
         const modalEl = document.getElementById('listTaskCreateModal');
         bootstrap.Modal.getInstance(modalEl)?.hide();
+        resetCreateTaskAttachments();
         showSuccess('Task created successfully.');
       }).catch(() => showError('Failed to create task.'))
       .finally(() => {
         createForm.dataset.submitting = '0';
+        validateCreateTaskDueDateRealtime();
         if (submitBtn) {
-          submitBtn.disabled = false;
           submitBtn.innerHTML = originalBtnHtml || 'Create Task';
+          if ((listEndDateInput?.classList.contains('is-invalid'))) {
+            submitBtn.disabled = true;
+          } else {
+            submitBtn.disabled = false;
+          }
         }
       });
+    });
+
+    document.addEventListener('click', function(e) {
+      const removeBtn = e.target.closest('[data-list-task-attachment-remove]');
+      if (!removeBtn) return;
+      const idx = Number(removeBtn.getAttribute('data-list-task-attachment-remove'));
+      if (!Number.isInteger(idx) || idx < 0 || idx >= createTaskAttachmentState.length) return;
+      const item = createTaskAttachmentState[idx];
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      createTaskAttachmentState.splice(idx, 1);
+      renderCreateTaskAttachmentPreviews();
+    });
+
+    document.addEventListener('click', function(e) {
+      const imageBtn = e.target.closest('#list-task-desc-upload-image-btn');
+      if (imageBtn) {
+        document.getElementById('list-task-desc-image-input')?.click();
+        return;
+      }
+      const attachmentBtn = e.target.closest('#list-task-desc-upload-attachment-btn');
+      if (attachmentBtn) {
+        document.getElementById('list-task-desc-attachment-input')?.click();
+      }
+    });
+
+    document.addEventListener('change', async function(e) {
+      if (e.target && e.target.id === 'list-task-desc-image-input') {
+        await addCreateTaskImages(e.target.files || []);
+        e.target.value = '';
+      }
+      if (e.target && e.target.id === 'list-task-desc-attachment-input') {
+        await addCreateTaskAttachments(e.target.files || []);
+        e.target.value = '';
+      }
+    });
+
+    document.addEventListener('paste', async function(e) {
+      const editor = e.target?.closest?.('#list-view-task-create-form [data-editor-input]');
+      if (!editor) return;
+      const items = Array.from(e.clipboardData?.items || []);
+      const fileItems = items.filter((item) => item.kind === 'file');
+      let files = fileItems.map((item) => item.getAsFile()).filter(Boolean);
+      if (!files.length) files = Array.from(e.clipboardData?.files || []).filter(Boolean);
+      if (!files.length) return;
+      e.preventDefault();
+      const imageFiles = files.filter((file) => (file.type || '').toLowerCase().startsWith('image/'));
+      const otherFiles = files.filter((file) => !((file.type || '').toLowerCase().startsWith('image/')));
+      if (imageFiles.length) await addCreateTaskImages(imageFiles);
+      if (otherFiles.length) await addCreateTaskAttachments(otherFiles);
+    });
+
+    document.addEventListener('dragover', function(e) {
+      const editor = e.target?.closest?.('#list-view-task-create-form [data-editor-input]');
+      if (!editor) return;
+      e.preventDefault();
+    });
+    document.addEventListener('drop', async function(e) {
+      const editor = e.target?.closest?.('#list-view-task-create-form [data-editor-input]');
+      if (!editor) return;
+      const files = e.dataTransfer?.files;
+      if (!files || !files.length) return;
+      e.preventDefault();
+      const arrFiles = Array.from(files);
+      const imageFiles = arrFiles.filter((file) => (file.type || '').toLowerCase().startsWith('image/'));
+      const otherFiles = arrFiles.filter((file) => !((file.type || '').toLowerCase().startsWith('image/')));
+      if (imageFiles.length) await addCreateTaskImages(imageFiles);
+      if (otherFiles.length) await addCreateTaskAttachments(otherFiles);
     });
   }
 
@@ -3897,6 +4183,31 @@ $(function() {
     };
   }
 
+  function validateTaskEditDueDateRealtime() {
+    const $modal = $('#taskEditModal');
+    if (!$modal.length) return true;
+    const etd = ($modal.data('project-etd') || '').toString().trim();
+    const $due = $('#task-edit-due-date');
+    const $feedback = $('#task-edit-due-feedback');
+    const $saveBtn = $('#btn-save-task-edit');
+    const due = ($due.val() || '').toString().trim();
+    if (!etd || !due || due <= etd) {
+      $due.removeClass('is-invalid');
+      $feedback.addClass('d-none').text('');
+      $saveBtn.prop('disabled', false);
+      return true;
+    }
+    const etdDate = new Date(`${etd}T00:00:00`);
+    const etdText = Number.isNaN(etdDate.getTime())
+      ? etd
+      : etdDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    const msg = `Task End Date must be on or before the Project ETD (${etdText}).`;
+    $due.addClass('is-invalid');
+    $feedback.removeClass('d-none').text(msg);
+    $saveBtn.prop('disabled', true);
+    return false;
+  }
+
   function openTaskEditModal() {
     const $modal = $('#taskEditModal');
     if (!$modal.length) return;
@@ -3953,6 +4264,7 @@ $(function() {
     initTaskRichEditors($modal);
 
     $modal.data('snapshot', collectTaskEditSnapshot());
+    validateTaskEditDueDateRealtime();
     $modal.modal('show');
   }
 
@@ -3970,6 +4282,10 @@ $(function() {
     }
   });
 
+  $(document).on('input change', '#task-edit-due-date', function() {
+    validateTaskEditDueDateRealtime();
+  });
+
   $(document).on('click', '#btn-save-task-edit', async function() {
     const $btn = $(this);
     const taskId = getCurrentTaskId();
@@ -3978,6 +4294,7 @@ $(function() {
 
     const before = $modal.data('snapshot') || {};
     const after = collectTaskEditSnapshot();
+    if (!validateTaskEditDueDateRealtime()) return;
     const updates = [];
 
     const maybePush = (field, next, prev) => {

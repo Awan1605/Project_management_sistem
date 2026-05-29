@@ -20,6 +20,7 @@ from django.db.models.functions import Concat, Lower
 from django.contrib.auth import get_user_model
 from django.utils.html import strip_tags
 from django.core.cache import cache
+import os
 
 from ..models import (
     Project, ProjectMember, Task, TaskList, ActivityLog, Label, Comment, Attachment, UserNotification,
@@ -43,10 +44,25 @@ from .helpers import (
 
 User = get_user_model()
 
+ALLOWED_TASK_ATTACHMENT_IMAGE_TYPES = {'image/png', 'image/jpeg', 'image/webp', 'image/gif'}
+ALLOWED_TASK_ATTACHMENT_FILE_TYPES = {
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'application/zip',
+    'application/x-zip-compressed',
+}
+ALLOWED_TASK_ATTACHMENT_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.zip'}
+MAX_TASK_ATTACHMENT_SIZE = 10 * 1024 * 1024
+MAX_TASK_ATTACHMENT_COUNT = 10
+
 
 def _task_comment_attachment_stats(task):
-    """Count image/file attachments stored in main+reply comments for a task."""
-    attachments = Attachment.objects.filter(task=task, comment__isnull=False)
+    """Count image/file attachments stored in task (comment and non-comment)."""
+    attachments = Attachment.objects.filter(task=task)
     image_filter = (
         Q(file__iendswith='.jpg') |
         Q(file__iendswith='.jpeg') |
@@ -62,6 +78,22 @@ def _task_comment_attachment_stats(task):
         'image_count': image_count,
         'file_count': file_count,
     }
+
+
+def _validate_task_create_attachments(files):
+    if len(files) > MAX_TASK_ATTACHMENT_COUNT:
+        return f'Maximum {MAX_TASK_ATTACHMENT_COUNT} attachments per task.'
+    for uploaded in files:
+        filename = (uploaded.name or '').strip()
+        ext = os.path.splitext(filename.lower())[1]
+        content_type = (getattr(uploaded, 'content_type', '') or '').lower()
+        is_allowed_type = content_type in ALLOWED_TASK_ATTACHMENT_IMAGE_TYPES or content_type in ALLOWED_TASK_ATTACHMENT_FILE_TYPES
+        is_allowed_ext = ext in ALLOWED_TASK_ATTACHMENT_EXTENSIONS
+        if not (is_allowed_type or is_allowed_ext):
+            return 'Unsupported file type. Allowed: PNG/JPG/JPEG/GIF/WEBP, PDF, DOC/DOCX, XLS/XLSX, TXT, ZIP.'
+        if uploaded.size > MAX_TASK_ATTACHMENT_SIZE:
+            return 'Each attachment must be 10 MB or smaller.'
+    return None
 
 
 def _notify_new_assignees(task, actor, previous_assignee_ids=None):
@@ -546,6 +578,10 @@ def task_create(request, pk):
             return JsonResponse({'success': False, 'error': 'Invalid list for sub-project.'}, status=400)
 
     data = request.POST.copy()
+    create_attachments = request.FILES.getlist('attachments')
+    attachments_error = _validate_task_create_attachments(create_attachments)
+    if attachments_error:
+        return JsonResponse({'success': False, 'error': attachments_error}, status=400)
     idempotency_key = (request.headers.get('X-Idempotency-Key') or '').strip()
     if idempotency_key:
         cache_key = f'arva:task-create:{request.user.id}:{pk}:{idempotency_key}'
@@ -576,6 +612,8 @@ def task_create(request, pk):
         task.created_by = request.user
         task.save()
         form.save_m2m()
+        for uploaded in create_attachments:
+            Attachment.objects.create(task=task, comment=None, uploaded_by=request.user, file=uploaded)
         _notify_new_assignees(task, request.user, previous_assignee_ids=set())
 
         ActivityLog.objects.create(
@@ -1000,7 +1038,8 @@ def task_inline_update(request, task_id):
         if project.is_project and parsed_due and task.start_date and parsed_due < task.start_date:
             return JsonResponse({'success': False, 'error': 'End Date cannot be earlier than Start Date.'}, status=400)
         if project.is_project and parsed_due and project.etd and parsed_due > project.etd:
-            return JsonResponse({'success': False, 'error': 'End Date must not exceed project ETD.'}, status=400)
+            etd_display = project.etd.strftime('%B %d, %Y')
+            return JsonResponse({'success': False, 'error': f'Task End Date must be on or before the Project ETD ({etd_display}).'}, status=400)
         task.due_date = parsed_due
         changed = True
         desc = "Due date updated"

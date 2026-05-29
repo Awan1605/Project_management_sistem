@@ -450,14 +450,20 @@
     font-weight: 700;
     color: #0f172a;
   }
-  .task-create-section .form-label {
+.task-create-section .form-label {
     margin-bottom: 0.2rem;
     font-size: 0.78rem;
     font-weight: 600;
     color: #64748b;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
+  letter-spacing: 0.05em;
+}
+.task-create-attachment-queue {
+  border: 1px dashed rgba(15, 23, 42, 0.14);
+  border-radius: 10px;
+  padding: 0.45rem;
+  background: rgba(248, 250, 252, 0.8);
+}
   .task-create-section-head {
     display: flex;
     align-items: baseline;

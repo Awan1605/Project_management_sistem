@@ -150,6 +150,26 @@
               <span class="text-muted">No description yet.</span>
             {% endif %}
           </div>
+          {% if task_attachments %}
+          <div class="task-detail-description-attachments mt-2">
+            <div class="small text-muted fw-semibold mb-1">Description Attachments</div>
+            <div class="comment-image-grid">
+              {% for att in task_attachments %}
+                <div class="comment-attachment-item" data-attachment-id="{{ att.id }}">
+                  {% if att.is_image %}
+                    <a href="{{ att.file.url }}" class="comment-image-link js-comment-attachment-preview" data-attachment-url="{{ att.file.url }}" data-attachment-name="{{ att.filename|default:'Attachment' }}">
+                      <img src="{{ att.file.url }}" alt="{{ att.filename }}" class="comment-image-thumb">
+                    </a>
+                  {% else %}
+                    <a href="{{ att.file.url }}" class="comment-file-link js-comment-attachment-preview" data-attachment-url="{{ att.file.url }}" data-attachment-name="{{ att.filename|default:'Attachment' }}">
+                      <i class="bi bi-paperclip me-1"></i>{{ att.filename|truncatechars:22 }}
+                    </a>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
         </div>
         <div class="task-detail-overview-panel">
           <div class="task-detail-meta-label"><i class="bi bi-collection"></i>Quick stats</div>
@@ -181,7 +201,7 @@
 </div>
 
 {% if not view_only and not project_is_closed %}
-<div class="modal fade task-edit-modal task-edit-modal--drawer" id="taskEditModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade task-edit-modal task-edit-modal--drawer" id="taskEditModal" tabindex="-1" aria-hidden="true" data-project-etd="{{ project.etd|date:'Y-m-d'|default:'' }}">
   <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
@@ -224,6 +244,10 @@
             <div class="col-md-6">
               <label class="form-label small text-muted">End Date</label>
               <input type="date" id="task-edit-due-date" class="form-control form-control-sm" value="{{ task.due_date|date:'Y-m-d' }}">
+              {% if project.etd %}
+              <div class="small text-muted mt-1">Project ETD: {{ project.etd|date:"d M Y" }}</div>
+              {% endif %}
+              <div class="invalid-feedback d-block d-none" id="task-edit-due-feedback"></div>
             </div>
           </div>
         </section>

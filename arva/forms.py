@@ -502,7 +502,8 @@ class TaskForm(forms.ModelForm):
         if start_date and end_date and end_date < start_date:
             self.add_error('due_date', 'End Date cannot be earlier than Start Date.')
         if project.etd and end_date and end_date > project.etd:
-            self.add_error('due_date', 'End Date must not exceed project ETD.')
+            etd_display = project.etd.strftime('%B %d, %Y')
+            self.add_error('due_date', f'Task End Date must be on or before the Project ETD ({etd_display}).')
 
         if priority not in {Task.PRIORITY_P0, Task.PRIORITY_P1, Task.PRIORITY_P2, Task.PRIORITY_P3, Task.PRIORITY_P4}:
             self.add_error('priority', 'Priority is required.')

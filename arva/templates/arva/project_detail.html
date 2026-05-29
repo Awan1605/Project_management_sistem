@@ -580,6 +580,10 @@
               <div>
                 <label class="form-label">End Date</label>
                 <input type="date" name="due_date" id="list-task-end-date" class="form-control form-control-sm">
+                {% if project.etd %}
+                <div class="small text-muted mt-1">Project ETD: {{ project.etd|date:"d M Y" }}</div>
+                {% endif %}
+                <div class="invalid-feedback d-block d-none" id="list-task-end-date-feedback"></div>
               </div>
             </div>
           </section>
@@ -594,18 +598,27 @@
                 <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertUnorderedList" title="Bullet list"><i class="bi bi-list-ul"></i></button>
                 <button type="button" class="btn btn-light btn-sm" data-editor-cmd="insertOrderedList" title="Numbered list"><i class="bi bi-list-ol"></i></button>
                 <button type="button" class="btn btn-light btn-sm" data-editor-cmd="createLink" title="Insert link"><i class="bi bi-link-45deg"></i></button>
+                <button type="button" class="btn btn-light btn-sm" id="list-task-desc-upload-image-btn" title="Upload Image"><i class="bi bi-image"></i></button>
+                <button type="button" class="btn btn-light btn-sm" id="list-task-desc-upload-attachment-btn" title="Upload Attachment"><i class="bi bi-paperclip"></i></button>
                 <button type="button" class="btn btn-light btn-sm" data-editor-cmd="undo" title="Undo"><i class="bi bi-arrow-counterclockwise"></i></button>
                 <button type="button" class="btn btn-light btn-sm" data-editor-cmd="redo" title="Redo"><i class="bi bi-arrow-clockwise"></i></button>
               </div>
               <div class="task-rich-editor-input" contenteditable="true" data-editor-input aria-label="Task description editor"></div>
               <textarea id="list-task-desc" name="description" class="task-desc-input task-desc-plain d-none" data-editor-textarea rows="3" data-autoresize="true" placeholder="Add a description..." spellcheck="false"></textarea>
+              <input type="file" id="list-task-desc-image-input" class="d-none" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" multiple>
+              <input type="file" id="list-task-desc-attachment-input" class="d-none" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/zip,application/x-zip-compressed" multiple>
+            </div>
+            <div class="task-create-attachment-queue mt-2">
+              <div class="small fw-semibold text-muted mb-1">Pending Attachments</div>
+              <div id="list-task-attachment-previews" class="task-comment-paste-previews"></div>
+              <div class="small text-danger d-none mt-1" id="list-task-attachment-warning"></div>
             </div>
           </section>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">Create Task</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="list-task-create-submit">Create Task</button>
       </div>
     </form>
   </div>
