@@ -565,6 +565,9 @@ $(function() {
           <option value="title_desc">Title (Z-A)</option>
           <option value="project_asc">Project (A-Z)</option>
         </select>
+        <select class="form-select form-select-sm" data-task-results-project>
+          <option value="">All Projects</option>
+        </select>
         <select class="form-select form-select-sm" data-task-results-per-page>
           <option value="10">10</option>
           <option value="25" selected>25</option>
@@ -616,6 +619,7 @@ $(function() {
       fetchController: null,
       loadedUserKey: '',
       loadedSortMode: '',
+      selectedProjectId: '',
     };
 
     state.userLabel = panel.querySelector('[data-task-user-results-user]');
@@ -628,6 +632,7 @@ $(function() {
     });
     state.filterInput = panel.querySelector('[data-task-results-filter]');
     state.sortSelect = panel.querySelector('[data-task-results-sort]');
+    state.projectSelect = panel.querySelector('[data-task-results-project]');
     state.perPageSelect = panel.querySelector('[data-task-results-per-page]');
     state.summary = panel.querySelector('[data-task-results-summary]');
     state.empty = panel.querySelector('[data-task-results-empty]');
@@ -666,6 +671,7 @@ $(function() {
       state.filtered = [];
       state.loadedUserKey = '';
       state.loadedSortMode = '';
+      state.selectedProjectId = '';
       state.page = 1;
       state.filterInput.value = '';
       state.userLabel.textContent = '';
@@ -673,6 +679,10 @@ $(function() {
       document.querySelectorAll('.task-user-search-input').forEach((el) => {
         el.value = '';
       });
+      if (state.projectSelect) {
+        state.projectSelect.innerHTML = '<option value="">All Projects</option>';
+        state.projectSelect.value = '';
+      }
       state.isSearchActive = false;
       setDefaultTaskContainersVisibility(state, true);
       panel.classList.add('d-none');
@@ -683,6 +693,11 @@ $(function() {
     });
     state.sortSelect?.addEventListener('change', () => {
       localStorage.setItem(TASK_RESULTS_SORT_KEY, state.sortSelect.value || 'default');
+      state.page = 1;
+      fetchTaskSearchResultsForSelectedUser(state, { force: true, scrollIntoView: false });
+    });
+    state.projectSelect?.addEventListener('change', () => {
+      state.selectedProjectId = state.projectSelect.value || '';
       state.page = 1;
       fetchTaskSearchResultsForSelectedUser(state, { force: true, scrollIntoView: false });
     });
@@ -1038,8 +1053,9 @@ $(function() {
     const force = !!options.force;
     const scrollIntoView = options.scrollIntoView !== false;
     const sortMode = (state.sortSelect?.value || 'default').toLowerCase();
+    const selectedProjectId = (state.projectSelect?.value || state.selectedProjectId || '').trim();
     const userKey = String(state.user.id || state.user.username || '').toLowerCase();
-    if (!force && state.loadedUserKey === userKey && state.loadedSortMode === sortMode && Array.isArray(state.tasks) && state.tasks.length) {
+    if (!force && state.loadedUserKey === userKey && state.loadedSortMode === sortMode && state.selectedProjectId === selectedProjectId && Array.isArray(state.tasks) && state.tasks.length) {
       setDefaultTaskContainersVisibility(state, false);
       state.isSearchActive = true;
       state.panel.classList.remove('d-none');
@@ -1055,6 +1071,9 @@ $(function() {
       user_q: state.user.username || state.user.email || '',
       sort: sortMode || 'default',
     });
+    if (selectedProjectId) {
+      params.set('project_id', selectedProjectId);
+    }
 
     fetch(`/tasks/search/?${params.toString()}`, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -1062,8 +1081,30 @@ $(function() {
     }).then((resp) => resp.json()).then((resp) => {
       state.fetchController = null;
       state.tasks = resp.success && Array.isArray(resp.results) ? resp.results : [];
+      const projects = Array.isArray(resp.projects) ? resp.projects : [];
+      if (state.projectSelect) {
+        const currentProjectId = selectedProjectId;
+        state.projectSelect.innerHTML = '';
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = 'All Projects';
+        state.projectSelect.appendChild(allOption);
+        projects.forEach((project) => {
+          if (!project || !project.id) return;
+          const option = document.createElement('option');
+          option.value = String(project.id);
+          option.textContent = project.name || `Project ${project.id}`;
+          state.projectSelect.appendChild(option);
+        });
+        if (currentProjectId && Array.from(state.projectSelect.options).some((opt) => opt.value === currentProjectId)) {
+          state.projectSelect.value = currentProjectId;
+        } else {
+          state.projectSelect.value = '';
+        }
+      }
       state.loadedUserKey = userKey;
       state.loadedSortMode = sortMode;
+      state.selectedProjectId = selectedProjectId;
       setDefaultTaskContainersVisibility(state, false);
       state.isSearchActive = true;
       state.panel.classList.remove('d-none');
@@ -1077,6 +1118,7 @@ $(function() {
       state.tasks = [];
       state.loadedUserKey = userKey;
       state.loadedSortMode = sortMode;
+      state.selectedProjectId = selectedProjectId;
       setDefaultTaskContainersVisibility(state, false);
       state.isSearchActive = true;
       state.panel.classList.remove('d-none');
@@ -1090,6 +1132,10 @@ $(function() {
     state.viewMode = normalizeTaskResultsView(localStorage.getItem(TASK_RESULTS_VIEW_KEY)) || state.viewMode || 'list';
     state.user = user;
     state.page = 1;
+    state.selectedProjectId = '';
+    if (state.projectSelect) {
+      state.projectSelect.value = '';
+    }
     fetchTaskSearchResultsForSelectedUser(state, { force: false, scrollIntoView: true });
   }
 

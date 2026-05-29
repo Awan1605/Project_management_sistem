@@ -373,7 +373,7 @@ def task_search_by_user(request):
     status = request.GET.get('status', '').strip()
     due = request.GET.get('due', '').strip()
     label_id = request.GET.get('label', '').strip()
-    project_id = request.GET.get('project', '').strip()
+    project_id = request.GET.get('project_id', '').strip() or request.GET.get('project', '').strip()
     sort_mode = request.GET.get('sort', 'default').strip().lower()
 
     accessible_projects = get_accessible_projects_queryset(request.user)
@@ -392,8 +392,9 @@ def task_search_by_user(request):
         'labels',
     ).distinct()
 
+    user_scoped_tasks = tasks
     if user_query:
-        tasks = tasks.annotate(
+        user_scoped_tasks = tasks.annotate(
             assignee_full_name=Concat(
                 F('assignees__first_name'),
                 Value(' '),
@@ -407,6 +408,7 @@ def task_search_by_user(request):
             Q(assignees__last_name__icontains=user_query) |
             Q(assignee_full_name__icontains=user_query)
         )
+        tasks = user_scoped_tasks
     if status:
         tasks = tasks.filter(task_list__name__iexact=status)
     if due:
@@ -417,6 +419,11 @@ def task_search_by_user(request):
         tasks = tasks.filter(project_id=project_id)
 
     tasks = _apply_task_search_sort(tasks, sort_mode)[:200]
+    project_options_qs = user_scoped_tasks.values('project_id', 'project__name').distinct().order_by('project__name')
+    project_options = [
+        {'id': row['project_id'], 'name': row['project__name']}
+        for row in project_options_qs
+    ]
     results = []
     for task in tasks:
         assignees = list(task.assignees.all())
@@ -476,7 +483,8 @@ def task_search_by_user(request):
         'success': True,
         'count': len(results),
         'sort': sort_mode or 'default',
-        'results': results
+        'results': results,
+        'projects': project_options,
     })
 
 
