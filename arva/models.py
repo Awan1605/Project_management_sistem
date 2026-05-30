@@ -602,6 +602,28 @@ class UserNotification(models.Model):
         }
         return mapping.get(self.notification_type, 'bi-bell')
 
+
+class WebPushSubscription(models.Model):
+    """Browser push subscription per authenticated user/device."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='webpush_subscriptions', db_constraint=False)
+    endpoint = models.TextField()
+    p256dh = models.TextField()
+    auth = models.TextField()
+    user_agent = models.CharField(max_length=255, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'endpoint'], name='unique_webpush_user_endpoint')
+        ]
+
+    def __str__(self):
+        username = self.user.username if self.user_id else 'unknown'
+        return f'{username} :: {self.endpoint[:48]}'
+
 # ============================================================
 # AI CHAT
 # ============================================================

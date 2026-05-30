@@ -195,6 +195,8 @@
 	                  {% endif %}
 	                </div>
 	                <div class="border-top p-2 text-end">
+	                  <button type="button" class="btn btn-outline-secondary btn-sm mb-1 js-webpush-toggle" data-enabled-label="Disable Notifications" data-disabled-label="Enable Notifications">Enable Notifications</button>
+	                  <div class="small text-muted js-webpush-status mb-1">Checking...</div>
 	                  <a href="{% url 'notification_history' %}" class="small text-decoration-none">All notifications</a>
 	                </div>
 	              </div>

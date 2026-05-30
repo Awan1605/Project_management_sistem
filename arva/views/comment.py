@@ -6,10 +6,13 @@ Menangani operasi terkait komentar, balasan, lampiran, dan checklist pada task.
 
 import os
 import re
+import json
+from pathlib import Path
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import JsonResponse
+from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
@@ -17,6 +20,7 @@ from django.utils.text import get_valid_filename
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.urls import reverse
+from django.conf import settings
 
 from .helpers import (
     get_user_project_or_404,
@@ -25,7 +29,7 @@ from .helpers import (
     closed_project_error,
     permission_denied_response,
 )
-from ..models import Task, Comment, Attachment, ChecklistItem, ActivityLog, UserNotification
+from ..models import Task, Comment, Attachment, ChecklistItem, ActivityLog, UserNotification, WebPushSubscription
 from ..forms import AttachmentForm, ChecklistItemForm
 
 ALLOWED_COMMENT_IMAGE_TYPES = {'image/png', 'image/jpeg', 'image/webp'}
@@ -45,6 +49,7 @@ MAX_COMMENT_ATTACHMENT_SIZE = 10 * 1024 * 1024
 MAX_COMMENT_ATTACHMENT_COUNT = 10
 MENTION_PATTERN = re.compile(r'(^|\s)@([A-Za-z0-9_.+-]{2,150})')
 User = get_user_model()
+
 
 
 def _validate_comment_attachments(files):
@@ -244,6 +249,80 @@ def notification_history(request):
         'page_obj': page_obj,
         'active_filter': active_filter,
     })
+
+
+@login_required
+def webpush_public_key(request):
+    """Return VAPID public key for browser PushManager.subscribe."""
+    return JsonResponse({
+        'success': True,
+        'public_key': settings.WEBPUSH_VAPID_PUBLIC_KEY or '',
+        'configured': bool(settings.WEBPUSH_VAPID_PUBLIC_KEY and settings.WEBPUSH_VAPID_PRIVATE_KEY),
+    })
+
+
+@login_required
+def webpush_status(request):
+    """Current user push subscription status."""
+    enabled = WebPushSubscription.objects.filter(user=request.user, is_active=True).exists()
+    return JsonResponse({'success': True, 'enabled': enabled})
+
+
+@login_required
+@require_POST
+def webpush_subscribe(request):
+    """Store/refresh browser push subscription for authenticated user."""
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    endpoint = (payload.get('endpoint') or '').strip()
+    keys = payload.get('keys') or {}
+    p256dh = (keys.get('p256dh') or '').strip()
+    auth = (keys.get('auth') or '').strip()
+    if not endpoint or not p256dh or not auth:
+        return JsonResponse({'success': False, 'error': 'Invalid subscription payload.'}, status=400)
+
+    user_agent = request.META.get('HTTP_USER_AGENT', '')[:255]
+    sub, _created = WebPushSubscription.objects.update_or_create(
+        user=request.user,
+        endpoint=endpoint,
+        defaults={
+            'p256dh': p256dh,
+            'auth': auth,
+            'user_agent': user_agent,
+            'is_active': True,
+        }
+    )
+    return JsonResponse({'success': True, 'subscription_id': sub.id})
+
+
+@login_required
+@require_POST
+def webpush_unsubscribe(request):
+    """Deactivate browser push subscription for authenticated user."""
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    endpoint = (payload.get('endpoint') or '').strip()
+    qs = WebPushSubscription.objects.filter(user=request.user, is_active=True)
+    if endpoint:
+        qs = qs.filter(endpoint=endpoint)
+    updated = qs.update(is_active=False)
+    return JsonResponse({'success': True, 'updated': updated})
+
+
+def service_worker_js(request):
+    """Service worker endpoint at root scope (/service-worker.js)."""
+    sw_path = Path(settings.BASE_DIR) / 'static' / 'arva' / 'js' / 'service-worker.js'
+    try:
+        content = sw_path.read_text(encoding='utf-8')
+    except Exception:
+        content = ''
+    return HttpResponse(content, content_type='application/javascript')
 
 
 # ============================================================

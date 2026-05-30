@@ -15,12 +15,14 @@ from django.core.mail import send_mail
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_out
 from .models import UserProfile, AIChatMessage, Attachment
+from .models import UserNotification
 from allauth.socialaccount.models import SocialAccount
 from django.core.files.base import ContentFile
 from allauth.account.signals import user_signed_up
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from .utils import EmailThread
+from .push import send_push_for_notification
 
 
 @receiver(user_logged_out)
@@ -229,3 +231,14 @@ def extract_attachment_content(sender, instance, created, **kwargs):
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"[Attachment Signal] Error starting extraction: {e}")
+
+
+@receiver(post_save, sender=UserNotification)
+def send_webpush_on_notification(sender, instance, created, **kwargs):
+    """Dispatch browser push whenever a new notification is created."""
+    if not created:
+        return
+    try:
+        send_push_for_notification(instance)
+    except Exception:
+        pass

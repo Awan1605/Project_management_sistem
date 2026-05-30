@@ -9,7 +9,7 @@ from django.contrib import admin
 from .models import (
     Project, ProjectMember, SubProject, Task, Label, Comment,
     Attachment, ActivityLog, TaskList, ChecklistItem,
-    UserProfile, UserActivity, WebsiteSettings, AIChatMessage, AISettings,
+    UserProfile, UserActivity, WebPushSubscription, WebsiteSettings, AIChatMessage, AISettings,
     AIFeatureRequest, AICodeChange
 )
 
@@ -55,7 +55,7 @@ admin.site.register(ChecklistItem)
 admin.site.register(UserProfile)
 admin.site.register(UserActivity)
 admin.site.register(WebsiteSettings)
-
+admin.site.register(WebPushSubscription)
 
 @admin.register(AISettings)
 class AISettingsAdmin(admin.ModelAdmin):

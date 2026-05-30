@@ -200,9 +200,6 @@
 			                          <span class="notification-mini-icon"><i class="bi {{ n.icon_class }}"></i></span>
 			                          <div class="min-w-0">
 			                            <div class="small fw-semibold text-wrap">{{ n.message }}</div>
-			                            {% if n.task %}
-			                              <div class="small text-muted text-truncate">Task: {{ n.task.title }}</div>
-			                            {% endif %}
                                   <div class="small text-muted">{{ n.created_at|timesince }} ago</div>
 			                          </div>
 			                        </div>
@@ -216,9 +213,11 @@
 		                    <div class="list-group-item border-0 small text-muted js-notification-empty">No new notifications.</div>
 		                  {% endif %}
 		                </div>
-		                <div class="border-top p-2 text-center">
-		                  <a href="{% url 'notification_history' %}" class="small text-decoration-none">All notifications</a>
-		                </div>
+			                <div class="border-top p-2 text-center">
+			                  <button type="button" class="btn btn-outline-secondary btn-sm mb-1 js-webpush-toggle" data-enabled-label="Disable Notifications" data-disabled-label="Enable Notifications">Enable Notifications</button>
+			                  <div class="small text-muted js-webpush-status mb-1">Checking...</div>
+			                  <a href="{% url 'notification_history' %}" class="small text-decoration-none">All notifications</a>
+			                </div>
 		              </div>
             </div>
 

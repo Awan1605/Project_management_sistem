@@ -261,6 +261,148 @@ $(function() {
     badge.textContent = String(next);
   }
 
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  async function initWebPushControls() {
+    const toggles = Array.from(document.querySelectorAll('.js-webpush-toggle'));
+    const statusEls = Array.from(document.querySelectorAll('.js-webpush-status'));
+    if (!toggles.length && !statusEls.length) return;
+
+    const setStatus = (text) => {
+      statusEls.forEach((el) => { el.textContent = text; });
+    };
+    const setButtonState = (enabled, disabled = false) => {
+      toggles.forEach((btn) => {
+        btn.disabled = !!disabled;
+        const enabledLabel = btn.getAttribute('data-enabled-label') || 'Disable Notifications';
+        const disabledLabel = btn.getAttribute('data-disabled-label') || 'Enable Notifications';
+        btn.textContent = enabled ? enabledLabel : disabledLabel;
+      });
+    };
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      setStatus('Notifications not supported');
+      setButtonState(false, true);
+      return;
+    }
+
+    let registration = null;
+    try {
+      registration = await navigator.serviceWorker.register('/service-worker.js');
+    } catch (err) {
+      setStatus('Service worker failed');
+      setButtonState(false, true);
+      return;
+    }
+
+    let keyResp = null;
+    try {
+      const resp = await fetch('/notifications/push/public-key/', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      });
+      keyResp = await resp.json();
+    } catch (_err) {
+      setStatus('Push config unavailable');
+      setButtonState(false, true);
+      return;
+    }
+
+    const publicKey = (keyResp && keyResp.public_key) ? String(keyResp.public_key).trim() : '';
+    if (!publicKey) {
+      setStatus('Push not configured');
+      setButtonState(false, true);
+      return;
+    }
+
+    const refreshState = async () => {
+      const permission = Notification.permission;
+      if (permission === 'denied') {
+        setStatus('Notifications blocked');
+        setButtonState(false, true);
+        return;
+      }
+      let serverEnabled = false;
+      try {
+        const s = await fetch('/notifications/push/status/', {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        }).then((r) => r.json());
+        serverEnabled = !!(s && s.enabled);
+      } catch (_err) {
+        serverEnabled = false;
+      }
+      const sub = await registration.pushManager.getSubscription();
+      const enabled = !!sub && serverEnabled;
+      setButtonState(enabled, false);
+      if (permission === 'granted' && enabled) setStatus('Notifications enabled');
+      else if (permission === 'granted') setStatus('Notifications not enabled');
+      else setStatus('Notifications not enabled');
+    };
+
+    await refreshState();
+
+    toggles.forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          const currentSub = await registration.pushManager.getSubscription();
+          const isEnabledNow = btn.textContent.trim().toLowerCase().includes('disable');
+          if (isEnabledNow && currentSub) {
+            await fetch('/notifications/push/unsubscribe/', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              body: JSON.stringify({ endpoint: currentSub.endpoint }),
+            });
+            await currentSub.unsubscribe();
+            await refreshState();
+            return;
+          }
+
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            setStatus(permission === 'denied' ? 'Notifications blocked' : 'Permission not granted');
+            await refreshState();
+            return;
+          }
+
+          const sub = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+          });
+          await fetch('/notifications/push/subscribe/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrftoken,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(sub.toJSON()),
+          });
+          await refreshState();
+        } catch (_err) {
+          setStatus('Failed to update notifications');
+          await refreshState();
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
   document.addEventListener('click', function (event) {
     const item = event.target.closest('.js-notification-item');
     if (!item) return;
@@ -3186,6 +3328,8 @@ $(function() {
       }
     });
   });
+
+  initWebPushControls();
 
   $(document).on('change', '#subproject-select', function() {
     const projectId = $(this).data('project-id');
