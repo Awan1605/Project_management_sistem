@@ -171,13 +171,21 @@
 	                  <span class="fw-semibold">Notifications</span>
 	                </div>
 	                <div class="list-group list-group-flush js-notification-list">
-	                  {% if top_notifications %}
-	                    {% for n in top_notifications %}
-	                      <a class="list-group-item list-group-item-action border-0 js-notification-item" href="{% url 'notification_open' n.id %}" data-notification-id="{{ n.id }}" data-mark-read-url="{% url 'notification_mark_read' n.id %}">
-	                        <div class="small fw-semibold text-wrap">{{ n.message }}</div>
-	                        <div class="small text-muted">{{ n.created_at|timesince }} ago</div>
-	                      </a>
-	                    {% endfor %}
+		                  {% if top_notifications %}
+		                    {% for n in top_notifications %}
+		                      <a class="list-group-item list-group-item-action border-0 js-notification-item" href="{% url 'notification_open' n.id %}" data-notification-id="{{ n.id }}" data-mark-read-url="{% url 'notification_mark_read' n.id %}">
+		                        <div class="d-flex align-items-start gap-2">
+		                          <span class="notification-mini-icon"><i class="bi {{ n.icon_class }}"></i></span>
+		                          <div class="min-w-0">
+		                            <div class="small fw-semibold text-wrap">{{ n.message }}</div>
+		                            {% if n.task %}
+		                              <div class="small text-muted text-truncate">Task: {{ n.task.title }}</div>
+		                            {% endif %}
+		                          </div>
+		                        </div>
+		                        <div class="small text-muted">{{ n.created_at|timesince }} ago</div>
+		                      </a>
+		                    {% endfor %}
                   {% elif messages %}
                     {% for message in messages %}
                       <div class="list-group-item border-0 small">{{ message }}</div>

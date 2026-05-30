@@ -8,7 +8,7 @@
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
       <h4 class="mb-1">All Notifications</h4>
-      <p class="text-muted mb-0">Mention history (read and unread)</p>
+      <p class="text-muted mb-0">Mentions, assignments, comments, and replies</p>
     </div>
   </div>
 
@@ -16,8 +16,11 @@
     <div class="card-body">
       <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
         <a href="?filter=all" class="btn btn-sm {% if active_filter == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}">All</a>
+        <a href="?filter=mentions" class="btn btn-sm {% if active_filter == 'mentions' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Mentions</a>
+        <a href="?filter=assignments" class="btn btn-sm {% if active_filter == 'assignments' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Assignments</a>
+        <a href="?filter=comments" class="btn btn-sm {% if active_filter == 'comments' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Comments</a>
+        <a href="?filter=replies" class="btn btn-sm {% if active_filter == 'replies' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Replies</a>
         <a href="?filter=unread" class="btn btn-sm {% if active_filter == 'unread' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Unread</a>
-        <a href="?filter=mentions" class="btn btn-sm {% if active_filter == 'mentions' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Mentions only</a>
       </div>
 
       <div class="notification-history-list">
@@ -32,8 +35,9 @@
             </div>
             <div class="notification-history-content">
               <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                <span class="notification-mini-icon"><i class="bi {{ notification.icon_class }}"></i></span>
                 <span class="fw-semibold">{{ notification.actor.username|default:"System" }}</span>
-                <span class="text-muted small">mentioned you</span>
+                <span class="text-muted small">{{ notification.get_notification_type_display }}</span>
                 {% if notification.is_read %}
                   <span class="badge text-bg-light border">Read</span>
                 {% else %}
@@ -44,6 +48,7 @@
                 <span class="text-muted">Task:</span>
                 <span class="fw-medium">{{ notification.task.title|default:"(Task unavailable)" }}</span>
               </div>
+              <div class="small mb-1 text-wrap">{{ notification.message }}</div>
               {% if notification.comment %}
                 <div class="small text-muted notification-history-preview">{{ notification.comment.content|truncatechars:180 }}</div>
               {% endif %}

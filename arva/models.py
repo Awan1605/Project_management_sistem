@@ -564,11 +564,23 @@ class UserActivity(models.Model):
 
 class UserNotification(models.Model):
     """Notifikasi kolaborasi (mis. user di-mention pada komentar/reply)."""
+    TYPE_TASK_ASSIGNED = 'TASK_ASSIGNED'
+    TYPE_USER_MENTION = 'USER_MENTION'
+    TYPE_TASK_COMMENTED = 'TASK_COMMENTED'
+    TYPE_COMMENT_REPLIED = 'COMMENT_REPLIED'
+    NOTIFICATION_TYPE_CHOICES = (
+        (TYPE_TASK_ASSIGNED, 'Task Assigned'),
+        (TYPE_USER_MENTION, 'User Mention'),
+        (TYPE_TASK_COMMENTED, 'Task Commented'),
+        (TYPE_COMMENT_REPLIED, 'Comment Replied'),
+    )
+
     # Keep DB constraints disabled to avoid FK migration failures on existing MySQL schemas.
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, null=True, related_name='arva_notifications', db_constraint=False)
     actor = models.ForeignKey(User, on_delete=models.CASCADE, null=True, related_name='arva_sent_notifications', db_constraint=False)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, null=True, related_name='user_notifications', db_constraint=False)
     comment = models.ForeignKey(Comment, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_notifications', db_constraint=False)
+    notification_type = models.CharField(max_length=32, choices=NOTIFICATION_TYPE_CHOICES, default=TYPE_USER_MENTION, db_index=True)
     message = models.CharField(max_length=255)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -579,6 +591,16 @@ class UserNotification(models.Model):
     def __str__(self):
         recipient_name = self.recipient.username if self.recipient else "Unknown"
         return f"{recipient_name}: {self.message}"
+
+    @property
+    def icon_class(self):
+        mapping = {
+            self.TYPE_TASK_ASSIGNED: 'bi-person-plus',
+            self.TYPE_USER_MENTION: 'bi-at',
+            self.TYPE_TASK_COMMENTED: 'bi-chat-dots',
+            self.TYPE_COMMENT_REPLIED: 'bi-reply',
+        }
+        return mapping.get(self.notification_type, 'bi-bell')
 
 # ============================================================
 # AI CHAT

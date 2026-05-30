@@ -92,7 +92,7 @@ def recent_notifications(user, limit=8):
     """Ambil notifikasi terbaru untuk user di topbar bell."""
     if not getattr(user, 'is_authenticated', False):
         return []
-    return UserNotification.objects.filter(recipient=user, is_read=False).select_related('actor', 'task')[:limit]
+    return UserNotification.objects.filter(recipient=user, is_read=False).select_related('actor', 'task', 'comment')[:limit]
 
 
 @register.simple_tag

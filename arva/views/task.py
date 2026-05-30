@@ -121,7 +121,7 @@ def _notify_new_assignees(task, actor, previous_assignee_ids=None):
             actor=actor,
             task=task,
             comment__isnull=True,
-            message=message,
+            notification_type=UserNotification.TYPE_TASK_ASSIGNED,
             is_read=False,
         ).values_list('recipient_id', flat=True)
     )
@@ -135,6 +135,7 @@ def _notify_new_assignees(task, actor, previous_assignee_ids=None):
             actor=actor,
             task=task,
             comment=None,
+            notification_type=UserNotification.TYPE_TASK_ASSIGNED,
             message=message,
         ))
 

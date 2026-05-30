@@ -2271,6 +2271,18 @@ body {
   white-space: nowrap;
 }
 
+.notification-mini-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.08);
+  color: #334155;
+  flex: 0 0 22px;
+}
+
 @media (max-width: 767.98px) {
   .notification-history-item {
     grid-template-columns: auto 1fr;

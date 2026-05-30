@@ -74,11 +74,23 @@ def _create_mention_notifications(project, task, actor, comment):
     mentioned_users = User.objects.filter(username__in=usernames, is_active=True).distinct()
     seen_recipient_ids = set()
     notifications = []
+    existing_recipient_ids = set(
+        UserNotification.objects.filter(
+            recipient_id__in=mentioned_users.values_list('id', flat=True),
+            actor=actor,
+            task=task,
+            comment=comment,
+            notification_type=UserNotification.TYPE_USER_MENTION,
+            is_read=False,
+        ).values_list('recipient_id', flat=True)
+    )
 
     for mentioned in mentioned_users:
         if mentioned.id == actor.id:
             continue
         if mentioned.id in seen_recipient_ids:
+            continue
+        if mentioned.id in existing_recipient_ids:
             continue
         if not project.can_user_view(mentioned):
             continue
@@ -88,11 +100,86 @@ def _create_mention_notifications(project, task, actor, comment):
             actor=actor,
             task=task,
             comment=comment,
+            notification_type=UserNotification.TYPE_USER_MENTION,
             message=f"{actor.username} mentioned you in a comment on Task: {task.title}",
         ))
 
     if notifications:
         UserNotification.objects.bulk_create(notifications)
+
+
+def _create_task_commented_notifications(project, task, actor, comment):
+    """Notify task creator/reporter and assignees when someone comments."""
+    recipient_ids = set(task.assignees.values_list('id', flat=True))
+    if task.created_by_id:
+        recipient_ids.add(task.created_by_id)
+    recipient_ids.discard(actor.id)
+    if not recipient_ids:
+        return
+
+    recipients = list(User.objects.filter(id__in=recipient_ids, is_active=True))
+    if not recipients:
+        return
+
+    recipient_ids_list = [u.id for u in recipients]
+    existing_recipient_ids = set(
+        UserNotification.objects.filter(
+            recipient_id__in=recipient_ids_list,
+            actor=actor,
+            task=task,
+            comment=comment,
+            notification_type=UserNotification.TYPE_TASK_COMMENTED,
+            is_read=False,
+        ).values_list('recipient_id', flat=True)
+    )
+
+    notifications = []
+    for recipient in recipients:
+        if recipient.id in existing_recipient_ids:
+            continue
+        notifications.append(UserNotification(
+            recipient=recipient,
+            actor=actor,
+            task=task,
+            comment=comment,
+            notification_type=UserNotification.TYPE_TASK_COMMENTED,
+            message=f"{actor.username} added a new comment to task: {task.title}",
+        ))
+    if notifications:
+        UserNotification.objects.bulk_create(notifications)
+
+
+def _create_comment_replied_notifications(project, task, actor, parent_comment, reply_comment):
+    """Notify parent comment owner when their comment gets a reply."""
+    recipient_id = parent_comment.user_id
+    if not recipient_id or recipient_id == actor.id:
+        return
+
+    recipient = User.objects.filter(id=recipient_id, is_active=True).first()
+    if not recipient:
+        return
+    if not project.can_user_view(recipient):
+        return
+
+    duplicate_exists = UserNotification.objects.filter(
+        recipient_id=recipient_id,
+        actor=actor,
+        task=task,
+        comment=reply_comment,
+        notification_type=UserNotification.TYPE_COMMENT_REPLIED,
+        is_read=False,
+    ).exists()
+    if duplicate_exists:
+        return
+
+    UserNotification.objects.create(
+        recipient=recipient,
+        actor=actor,
+        task=task,
+        comment=reply_comment,
+        notification_type=UserNotification.TYPE_COMMENT_REPLIED,
+        message=f"{actor.username} replied to your comment on task: {task.title}",
+    )
 
 
 @login_required
@@ -133,16 +220,22 @@ def notification_open(request, notification_id):
 
 @login_required
 def notification_history(request):
-    """Riwayat notifikasi mention (read + unread) dengan filter dan pagination."""
+    """Riwayat notifikasi dengan filter dan pagination."""
     active_filter = (request.GET.get('filter') or 'all').strip().lower()
-    if active_filter not in {'all', 'unread', 'mentions'}:
+    if active_filter not in {'all', 'unread', 'mentions', 'assignments', 'comments', 'replies'}:
         active_filter = 'all'
 
     notifications = UserNotification.objects.filter(recipient=request.user).select_related('actor', 'task', 'comment')
     if active_filter == 'unread':
         notifications = notifications.filter(is_read=False)
     elif active_filter == 'mentions':
-        notifications = notifications.filter(comment__isnull=False)
+        notifications = notifications.filter(notification_type=UserNotification.TYPE_USER_MENTION)
+    elif active_filter == 'assignments':
+        notifications = notifications.filter(notification_type=UserNotification.TYPE_TASK_ASSIGNED)
+    elif active_filter == 'comments':
+        notifications = notifications.filter(notification_type=UserNotification.TYPE_TASK_COMMENTED)
+    elif active_filter == 'replies':
+        notifications = notifications.filter(notification_type=UserNotification.TYPE_COMMENT_REPLIED)
 
     paginator = Paginator(notifications.order_by('-created_at'), 20)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -190,6 +283,7 @@ def comment_add(request, task_id):
     for uploaded in attachments:
         Attachment.objects.create(task=task, comment=comment, uploaded_by=request.user, file=uploaded)
     _create_mention_notifications(project, task, request.user, comment)
+    _create_task_commented_notifications(project, task, request.user, comment)
 
     ActivityLog.objects.create(
         user=request.user, project=task.project, task=task,
@@ -236,6 +330,7 @@ def comment_reply(request, comment_id):
     for uploaded in attachments:
         Attachment.objects.create(task=task, comment=new_comment, uploaded_by=request.user, file=uploaded)
     _create_mention_notifications(project, task, request.user, new_comment)
+    _create_comment_replied_notifications(project, task, request.user, parent, new_comment)
 
     ActivityLog.objects.create(
         user=request.user, project=task.project, task=task,
