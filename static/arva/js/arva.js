@@ -339,7 +339,14 @@ $(function() {
       } catch (_err) {
         serverEnabled = false;
       }
-      const sub = await registration.pushManager.getSubscription();
+      let sub = null;
+      try {
+        sub = await registration.pushManager.getSubscription();
+      } catch (_err) {
+        setStatus('Notifications unavailable on this browser');
+        setButtonState(false, true);
+        return;
+      }
       const enabled = !!sub && serverEnabled;
       setButtonState(enabled, false);
       if (permission === 'granted' && enabled) setStatus('Notifications enabled');
@@ -347,7 +354,13 @@ $(function() {
       else setStatus('Notifications not enabled');
     };
 
-    await refreshState();
+    try {
+      await refreshState();
+    } catch (_err) {
+      setStatus('Notifications unavailable on this browser');
+      setButtonState(false, true);
+      return;
+    }
 
     toggles.forEach((btn) => {
       btn.addEventListener('click', async () => {
