@@ -213,11 +213,14 @@
 		                    <div class="list-group-item border-0 small text-muted js-notification-empty">No new notifications.</div>
 		                  {% endif %}
 		                </div>
-			                <div class="border-top p-2 text-center">
-			                  <button type="button" class="btn btn-outline-secondary btn-sm mb-1 js-webpush-toggle" data-enabled-label="Disable Notifications" data-disabled-label="Enable Notifications">Enable Notifications</button>
-			                  <div class="small text-muted js-webpush-status mb-1">Checking...</div>
-			                  <a href="{% url 'notification_history' %}" class="small text-decoration-none">All notifications</a>
-			                </div>
+				                <div class="border-top p-2 text-center">
+				                  <div class="form-check form-switch d-inline-flex align-items-center gap-2 mb-1">
+				                    <input class="form-check-input js-webpush-toggle" type="checkbox" role="switch" id="webpushToggleTopbar">
+				                    <label class="form-check-label small mb-0" for="webpushToggleTopbar">Enable Notifications</label>
+				                  </div>
+				                  <div class="small text-muted js-webpush-status mb-1">Checking...</div>
+				                  <a href="{% url 'notification_history' %}" class="small text-decoration-none">All notifications</a>
+				                </div>
 		              </div>
             </div>
 

@@ -252,6 +252,39 @@ def notification_history(request):
 
 
 @login_required
+def notification_poll(request):
+    """Lightweight polling endpoint for floating desktop notifications."""
+    since_id_raw = (request.GET.get('since_id') or '').strip()
+    try:
+        since_id = int(since_id_raw) if since_id_raw else 0
+    except ValueError:
+        since_id = 0
+
+    qs = UserNotification.objects.filter(recipient=request.user).select_related('actor', 'task').order_by('-id')
+    latest = qs.first()
+    if not latest:
+        return JsonResponse({'success': True, 'has_new': False, 'latest_id': 0})
+
+    if latest.id <= since_id:
+        return JsonResponse({'success': True, 'has_new': False, 'latest_id': latest.id})
+
+    return JsonResponse({
+        'success': True,
+        'has_new': True,
+        'latest_id': latest.id,
+        'notification': {
+            'id': latest.id,
+            'message': latest.message,
+            'icon_class': latest.icon_class,
+            'created_at': latest.created_at.strftime('%d %b %Y %H:%M'),
+            'open_url': reverse('notification_open', args=[latest.id]),
+            'actor_name': latest.actor.username if latest.actor_id else 'System',
+            'task_title': latest.task.title if latest.task_id else '',
+        }
+    })
+
+
+@login_required
 def webpush_public_key(request):
     """Return VAPID public key for browser PushManager.subscribe."""
     return JsonResponse({

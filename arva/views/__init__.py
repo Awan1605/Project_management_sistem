@@ -88,6 +88,7 @@ from .comment import (
     notification_mark_read,
     notification_open,
     notification_history,
+    notification_poll,
     webpush_public_key,
     webpush_status,
     webpush_subscribe,

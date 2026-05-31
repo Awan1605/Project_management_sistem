@@ -261,6 +261,69 @@ $(function() {
     badge.textContent = String(next);
   }
 
+  function showFloatingDesktopNotification(notification) {
+    if (!notification) return;
+    if (window.matchMedia && !window.matchMedia('(min-width: 992px)').matches) return;
+
+    let host = document.querySelector('.desktop-floating-notify-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'desktop-floating-notify-host';
+      document.body.appendChild(host);
+    }
+
+    const item = document.createElement('a');
+    item.className = 'desktop-floating-notify-item';
+    item.href = notification.open_url || '#';
+    item.innerHTML = `
+      <span class="desktop-floating-notify-icon"><i class="bi ${notification.icon_class || 'bi-bell'}"></i></span>
+      <span class="desktop-floating-notify-content">
+        <span class="desktop-floating-notify-title">${notification.actor_name || 'System'}</span>
+        <span class="desktop-floating-notify-message">${notification.message || 'New notification'}</span>
+      </span>
+      <span class="desktop-floating-notify-time">${notification.created_at || ''}</span>
+    `;
+    host.appendChild(item);
+    window.setTimeout(() => item.classList.add('show'), 10);
+    window.setTimeout(() => {
+      item.classList.remove('show');
+      window.setTimeout(() => item.remove(), 260);
+    }, 5500);
+  }
+
+  function initDesktopFloatingNotificationPolling() {
+    if (!document.querySelector('.js-notification-dropdown')) return;
+    const key = 'arva_notification_last_seen_id';
+    let lastSeenId = Number.parseInt(localStorage.getItem(key) || '0', 10);
+    if (!Number.isFinite(lastSeenId)) lastSeenId = 0;
+    let firstPoll = true;
+
+    const poll = async () => {
+      try {
+        const resp = await fetch(`/notifications/poll/?since_id=${encodeURIComponent(String(lastSeenId || 0))}`, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        });
+        const data = await resp.json();
+        if (!data || !data.success) return;
+        if (data.latest_id && Number(data.latest_id) > lastSeenId) {
+          if (!firstPoll && data.has_new && data.notification) {
+            showFloatingDesktopNotification(data.notification);
+          }
+          lastSeenId = Number(data.latest_id);
+          localStorage.setItem(key, String(lastSeenId));
+        }
+      } catch (_err) {
+        // Ignore poll errors silently.
+      } finally {
+        firstPoll = false;
+      }
+    };
+
+    poll();
+    window.setInterval(poll, 15000);
+  }
+
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -281,9 +344,19 @@ $(function() {
     const setButtonState = (enabled, disabled = false) => {
       toggles.forEach((btn) => {
         btn.disabled = !!disabled;
-        const enabledLabel = btn.getAttribute('data-enabled-label') || 'Disable Notifications';
-        const disabledLabel = btn.getAttribute('data-disabled-label') || 'Enable Notifications';
-        btn.textContent = enabled ? enabledLabel : disabledLabel;
+        if (btn.type === 'checkbox') {
+          btn.checked = !!enabled;
+          btn.setAttribute('aria-checked', enabled ? 'true' : 'false');
+          const label = btn.parentElement?.querySelector('label');
+          if (label) {
+            label.textContent = enabled ? 'Disable Notifications' : 'Enable Notifications';
+          }
+        } else {
+          const enabledLabel = btn.getAttribute('data-enabled-label') || 'Disable Notifications';
+          const disabledLabel = btn.getAttribute('data-disabled-label') || 'Enable Notifications';
+          btn.textContent = enabled ? enabledLabel : disabledLabel;
+        }
+        btn.dataset.enabled = enabled ? '1' : '0';
       });
     };
 
@@ -367,7 +440,7 @@ $(function() {
         btn.disabled = true;
         try {
           const currentSub = await registration.pushManager.getSubscription();
-          const isEnabledNow = btn.textContent.trim().toLowerCase().includes('disable');
+          const isEnabledNow = (btn.dataset.enabled || '0') === '1';
           if (isEnabledNow && currentSub) {
             await fetch('/notifications/push/unsubscribe/', {
               method: 'POST',
@@ -3343,6 +3416,7 @@ $(function() {
   });
 
   initWebPushControls();
+  initDesktopFloatingNotificationPolling();
 
   $(document).on('change', '#subproject-select', function() {
     const projectId = $(this).data('project-id');

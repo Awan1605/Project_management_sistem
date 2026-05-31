@@ -94,6 +94,7 @@ urlpatterns = [
     path('notifications/<int:notification_id>/read/', views.notification_mark_read, name='notification_mark_read'),
     path('notifications/<int:notification_id>/open/', views.notification_open, name='notification_open'),
     path('notifications/', views.notification_history, name='notification_history'),
+    path('notifications/poll/', views.notification_poll, name='notification_poll'),
     path('notifications/push/public-key/', views.webpush_public_key, name='webpush_public_key'),
     path('notifications/push/status/', views.webpush_status, name='webpush_status'),
     path('notifications/push/subscribe/', views.webpush_subscribe, name='webpush_subscribe'),
