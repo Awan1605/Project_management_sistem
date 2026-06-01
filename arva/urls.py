@@ -31,9 +31,6 @@ urlpatterns = [
     # PROJECT & BOARD
     # ============================================================
     path('', views.project_list, name='project_list'),
-    path('my/cards/', views.my_cards, name='my_cards'),
-    path('tasks/search/', views.task_search_by_user, name='task_search_by_user'),
-    path('tasks/user-suggestions/', views.task_user_suggestions, name='task_user_suggestions'),
     path('project/create/', views.project_create, name='project_create'),
     path('project/<int:pk>/', views.project_detail, name='project_detail'),
     path('project/<int:pk>/update/', views.project_update, name='project_update'),
@@ -57,12 +54,6 @@ urlpatterns = [
     # ============================================================
     # TASK LIST & SUBPROJECT
     # ============================================================
-    path('project/<int:pk>/list/create/', views.tasklist_create, name='tasklist_create'),
-    path('project/<int:pk>/edit/', views.project_edit, name='project_edit'),
-    path('project/<int:pk>/list/reorder/', views.tasklist_reorder, name='tasklist_reorder'),
-    path('list/<int:list_id>/delete/', views.tasklist_delete, name='tasklist_delete'),
-    path('list/<int:list_id>/archive/', views.tasklist_archive, name='tasklist_archive'),
-    path('list/<int:list_id>/unarchive/', views.tasklist_unarchive, name='tasklist_unarchive'),
     path('project/<int:pk>/subproject/create/', views.subproject_create, name='subproject_create'),
     path('subproject/<int:subproject_id>/delete/', views.subproject_delete, name='subproject_delete'),
     path('subproject/<int:subproject_id>/edit/', views.subproject_edit, name='subproject_edit'),
@@ -70,24 +61,10 @@ urlpatterns = [
     path('subproject/<int:subproject_id>/convert-project/', views.subproject_convert_to_project, name='subproject_convert_to_project'),
     path('project/<int:pk>/subprojects/', views.project_subprojects, name='project_subprojects'),
 
-    # ============================================================
-    # TASK
-    # ============================================================
-    path('project/<int:pk>/task/create/', views.task_create, name='task_create'),
-    path('task/<int:task_id>/view/', views.task_view, name='task_view'),
-    path('task/<int:task_id>/', views.task_detail, name='task_detail'),
-    path('task/<int:task_id>/update/', views.task_update, name='task_update'),
-    path('task/<int:task_id>/delete/', views.task_delete, name='task_delete'),
-    path('task/<int:task_id>/move/', views.task_move, name='task_move'),
-    path('task/<int:task_id>/transfer/', views.task_transfer, name='task_transfer'),
-    path('task/<int:task_id>/archive/', views.task_archive, name='task_archive'),
-    path('task/<int:task_id>/unarchive/', views.task_unarchive, name='task_unarchive'),
-    path('task/<int:task_id>/inline-update/', views.task_inline_update, name='task_inline_update'),
 
     # ============================================================
     # KOMENTAR & LAMPIRAN
-    # ============================================================
-    path('task/<int:task_id>/comment/add/', views.comment_add, name='comment_add'),
+    # ===========================================================,
     path('comment/<int:comment_id>/reply/', views.comment_reply, name="comment_reply"),
     path('comment/<int:comment_id>/edit/', views.comment_edit, name="comment_edit"),
     path('comment/<int:comment_id>/delete/', views.comment_delete, name="comment_delete"),
@@ -99,13 +76,11 @@ urlpatterns = [
     path('notifications/push/status/', views.webpush_status, name='webpush_status'),
     path('notifications/push/subscribe/', views.webpush_subscribe, name='webpush_subscribe'),
     path('notifications/push/unsubscribe/', views.webpush_unsubscribe, name='webpush_unsubscribe'),
-    path('task/<int:task_id>/attachment/add/', views.attachment_add, name='attachment_add'),
     path('attachment/<int:attachment_id>/delete/', views.attachment_delete, name='attachment_delete'),
 
     # ============================================================
     # CHECKLIST
     # ============================================================
-    path('task/<int:task_id>/checklist/add/', views.checklist_add, name='checklist_add'),
     path('checklist/<int:item_id>/edit/', views.checklist_edit, name='checklist_edit'),
     path('checklist/<int:item_id>/delete/', views.checklist_delete, name='checklist_delete'),
     path('checklist/<int:item_id>/toggle/', views.checklist_toggle, name='checklist_toggle'),
@@ -142,48 +117,4 @@ urlpatterns = [
     # ============================================================
     path('user/performance/', views.user_performance, name='user_performance'),
 
-    # ============================================================
-    # AI PRIORITY ANALYSIS
-    # ============================================================
-    path('ai/priority-queue/', views.ai_priority_queue, name='ai_priority_queue'),
-    path('ai/priority-refresh/', views.ai_priority_refresh, name='ai_priority_refresh'),
-    path('ai/analyze-task/<int:task_id>/', views.ai_analyze_task, name='ai_analyze_task'),
-    path('ai/analyze-project/<int:pk>/', views.ai_analyze_project, name='ai_analyze_project'),
-    
-    # ============================================================
-    # AI CHAT ASSISTANT
-    # ============================================================
-    path('ai/chat/', views.ai_chat, name='ai_chat'),
-    path('ai/chat/send/', views.ai_chat_send, name='ai_chat_send'),
-    path('ai/chat/clear/', views.ai_chat_clear, name='ai_chat_clear'),
-    path('ai/chat/today-work/', views.ai_chat_today_work, name='ai_chat_today_work'),
-    
-    # ============================================================
-    # AI DEVELOPER V1 (LEGACY)
-    # ============================================================
-    path('ai/developer/', views.ai_developer_dashboard, name='ai_developer_dashboard'),
-    path('ai/developer/create/', views.ai_developer_create_request, name='ai_developer_create'),
-    path('ai/developer/request/<int:request_id>/', views.ai_developer_request_detail, name='ai_developer_request_detail'),
-    path('ai/developer/request/<int:request_id>/start/', views.ai_developer_start_processing, name='ai_developer_start'),
-    path('ai/developer/request/<int:request_id>/apply/', views.ai_developer_apply_changes, name='ai_developer_apply'),
-    path('ai/developer/request/<int:request_id>/reject/', views.ai_developer_reject_changes, name='ai_developer_reject'),
-    path('ai/developer/request/<int:request_id>/cancel/', views.ai_developer_cancel_request, name='ai_developer_cancel'),
-    path('ai/developer/diff/<int:change_id>/', views.ai_developer_view_diff, name='ai_developer_diff'),
-    path('ai/developer/analysis/', views.ai_developer_codebase_analysis, name='ai_developer_analysis'),
-    path('ai/developer/api-status/', views.ai_developer_api_status, name='ai_developer_api_status'),
-    
-    # ============================================================
-    # AI DEVELOPER V2 (PROGRESS TRACKING)
-    # ============================================================
-    path('ai/developer/v2/create/', views.ai_developer_create_v2, name='ai_developer_create_v2'),
-    path('ai/developer/v2/request/<int:request_id>/progress/', views.ai_developer_progress, name='ai_developer_progress'),
-    path('ai/developer/v2/request/<int:request_id>/start/', views.ai_developer_start_v2, name='ai_developer_start_v2'),
-    path('ai/developer/v2/request/<int:request_id>/retry/', views.ai_developer_retry_v2, name='ai_developer_retry'),
-    
-    # ============================================================
-    # API ENDPOINTS V2
-    # ============================================================
-    path('ai-developer/api/progress/<int:request_id>/', views.ai_developer_api_progress, name='ai_developer_api_progress'),
-    path('ai-developer/api/cancel/<int:request_id>/', views.ai_developer_api_cancel, name='ai_developer_api_cancel'),
-    path('service-worker.js', views.service_worker_js, name='service_worker_js'),
 ]

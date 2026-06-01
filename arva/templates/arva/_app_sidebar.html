@@ -17,10 +17,6 @@
     <i class="bi bi-folder2-open"></i>
     <span class="sidebar-label">Projects</span>
   </a>
-  <a href="{% url 'my_cards' %}" title="Tasks" class="sidebar-link {% if current == 'my_cards' or current == 'project_detail' or current == 'project_activity' or current == 'project_archive' or current == 'project_members' or current == 'task_detail' or current == 'task_view' %}active{% endif %}">
-    <i class="bi bi-kanban"></i>
-    <span class="sidebar-label">Tasks</span>
-  </a>
   {% if ai_settings.ai_chat_enabled %}
   <a href="{% url 'ai_chat' %}" title="AI Assistant" class="sidebar-link {% if current == 'ai_chat' %}active{% endif %}">
     <i class="bi bi-robot"></i>

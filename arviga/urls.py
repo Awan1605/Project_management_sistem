@@ -13,10 +13,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('arva.urls')),
+    path('accounts/login/', RedirectView.as_view(pattern_name='login', permanent=False)),
     path('accounts/', include('allauth.urls')),
 ]
 
@@ -24,5 +27,5 @@ handler403 = 'arva.views.helpers.custom_permission_denied_view'
 
 # Layani file media dan statis saat mode DEBUG (pengembangan lokal)
 if settings.DEBUG:
+    urlpatterns += staticfiles_urlpatterns()
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -6,13 +6,14 @@ Semua view dipecah menjadi modul-modul berdasarkan domain:
 - auth: Login, logout, registrasi
 - project: CRUD project, archive, members
 - subproject: CRUD subproject, pindah, konversi
-- task: CRUD task, pindah, transfer, archive
 - comment: Komentar, balasan, lampiran, checklist
 - user: Manajemen user, pengaturan, performa
-- ai: AI Priority, Chat, Developer
 """
 
-# Re-export semua view agar urls.py tidak perlu diubah
+# ============================================================
+# HELPERS
+# ============================================================
+
 from .helpers import (
     STRUCTURED_TASK_PRIORITIES,
     STRUCTURED_TASK_STATUSES,
@@ -28,7 +29,18 @@ from .helpers import (
     _get_priority_level,
 )
 
-from .auth import register, custom_logout
+# ============================================================
+# AUTH
+# ============================================================
+
+from .auth import (
+    register,
+    custom_logout,
+)
+
+# ============================================================
+# PROJECT
+# ============================================================
 
 from .project import (
     project_list,
@@ -47,12 +59,11 @@ from .project import (
     project_member_update,
     project_member_delete,
     project_lists,
-    tasklist_create,
-    tasklist_reorder,
-    tasklist_delete,
-    tasklist_archive,
-    tasklist_unarchive,
 )
+
+# ============================================================
+# SUBPROJECT
+# ============================================================
 
 from .subproject import (
     subproject_list,
@@ -64,21 +75,9 @@ from .subproject import (
     project_subprojects,
 )
 
-from .task import (
-    task_create,
-    task_view,
-    task_detail,
-    task_update,
-    task_delete,
-    task_move,
-    task_transfer,
-    task_archive,
-    task_unarchive,
-    task_inline_update,
-    task_search_by_user,
-    task_user_suggestions,
-    my_cards,
-)
+# ============================================================
+# COMMENT & NOTIFICATION
+# ============================================================
 
 from .comment import (
     comment_add,
@@ -102,6 +101,10 @@ from .comment import (
     checklist_delete,
 )
 
+# ============================================================
+# USER
+# ============================================================
+
 from .user import (
     my_profile,
     my_profile_update,
@@ -122,35 +125,12 @@ from .user import (
     project_member_remove,
 )
 
+# ============================================================
+# APPROVAL
+# ============================================================
+
 from .approval import (
     pending_users,
     approve_user,
     reject_user,
-)
-
-from .ai import (
-    ai_priority_queue,
-    ai_priority_refresh,
-    ai_analyze_task,
-    ai_analyze_project,
-    ai_chat,
-    ai_chat_send,
-    ai_chat_clear,
-    ai_chat_today_work,
-    ai_developer_dashboard,
-    ai_developer_create_request,
-    ai_developer_request_detail,
-    ai_developer_start_processing,
-    ai_developer_apply_changes,
-    ai_developer_reject_changes,
-    ai_developer_cancel_request,
-    ai_developer_view_diff,
-    ai_developer_codebase_analysis,
-    ai_developer_api_status,
-    ai_developer_create_v2,
-    ai_developer_progress,
-    ai_developer_start_v2,
-    ai_developer_retry_v2,
-    ai_developer_api_progress,
-    ai_developer_api_cancel,
 )
